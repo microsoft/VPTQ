@@ -1,14 +1,23 @@
-# Project
+# VPTQ: Extreme Low-bit Vector Post-Training Quantization for Large Language Models
 
-> This repo has been populated by an initial template to help get you started. Please
-> make sure to update the content to build a great experience for community-building.
+> This repo is the official implementation of the paper "VPTQ: Extreme Low-bit Vector Post-Training Quantization for Large Language Models".
 
-As the maintainer of this project, please make a few updates:
+Scaling model size significantly challenges the deployment and inference of Large Language Models (LLMs). Due to the redundancy in LLM weights, recent research has focused on pushing weight-only quantization to extremely low-bit (even down to 2 bits). It reduces memory requirements, optimizes storage costs, and decreases memory bandwidth needs during inference. However, due to numerical representation limitations, traditional scalar-based weight quantization struggles to achieve such extreme low-bit. Recent research on Vector Quantization (VQ) for LLMs has demonstrated the potential for extremely low-bit model quantization by compressing vectors into indices using lookup tables.
 
-- Improving this README.MD file to provide a great experience
-- Updating SUPPORT.MD with content about this project's support experience
-- Understanding the security reporting process in SECURITY.MD
-- Remove this section from the README
+
+## Dependencies
+- python 3.10+
+- latest torch
+- latest transformers
+- latest datasets
+
+## Language Generation
+```
+import vptq
+model = vptq.AutoModelForCausalLM("vptq/llama-2bit")
+model.generate()
+```
+
 
 ## Contributing
 
