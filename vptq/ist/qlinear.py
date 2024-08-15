@@ -460,9 +460,9 @@ class QuantLinear(nn.Module):
             indices = self.indices.view(torch.int16).to(torch.int64)
         elif self.indices.dtype == torch.int:
             unpack_indice = self.unpack_index_tensor(self.indices, self.index_bits*(1+self.enable_residual), self.group_size)
-            indices = (unpack_indice & ((1<<self.vector_len)-1)).to(torch.int64)
+            indices = (unpack_indice & ((1<<self.index_bits)-1)).to(torch.int64)
             if self.enable_residual:
-                res_indices = ((unpack_indice>>self.vector_len) & ((1<<self.vector_len)-1)).to(torch.int64)
+                res_indices = ((unpack_indice>>self.index_bits) & ((1<<self.index_bits)-1)).to(torch.int64)
         else:
             indices = self.indices.to(torch.int64)
             if self.enable_residual:

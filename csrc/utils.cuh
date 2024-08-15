@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 #pragma once
 
 #include <cuda_fp16.h>
@@ -42,8 +45,16 @@ __device__ __forceinline__ float warpReduceSum(float sum) {
 template<int GROUPSIZE>
 __device__ __forceinline__ void ldg_vec_x(uint32_t* __restrict__ dst_u32 , const uint32_t* __restrict__ src_u32){
   int2* dst = (int2*)dst_u32;
-  int2* src = (int2*)src_u32;
-  if constexpr (GROUPSIZE == 4){
+  const int2* src = (const int2*)src_u32;
+  if constexpr (GROUPSIZE == 2){
+   *dst_u32 = __ldg(src_u32);
+    //uint32_t* dec = (uint32_t*)dst;
+    //asm volatile (
+    //      "ld.cg.global.v2.u32 {%0, %1}, [%2];"
+    //      : "=r"(dec[0]), "=r"(dec[1])
+    //      : "l"((const void*)src)
+    //    );
+   } else if constexpr (GROUPSIZE == 4){
     *dst = __ldg(src);
     //uint32_t* dec = (uint32_t*)dst;
     //asm volatile (

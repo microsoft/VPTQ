@@ -6,6 +6,11 @@
 import transformers
 from tqdm import tqdm
 import accelerate
+import huggingface_hub
+import torch
+import glob
+import safetensors
+from pathlib import Path
 
 from .utils import find_layers
 from .qlinear import QuantLinear
@@ -70,7 +75,22 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             make_quant_linear(model, quant_config, target_layer=target_layer)
         no_split_module_classes = [i[1].__class__.__name__ for i in model.named_modules() if i[0].endswith('.0')]
         device_map = accelerate.infer_auto_device_map(model, no_split_module_classes=no_split_module_classes[0], dtype=auto_conf.torch_dtype)
-        model = accelerate.load_checkpoint_and_dispatch(model, checkpoint=pretrained_model_name_or_path, device_map=device_map)
+        if Path(pretrained_model_name_or_path).exists():
+            checkpoint = pretrained_model_name_or_path
+        else: #remote
+            token_arg = {"token": kwargs.get("token", None)}
+            checkpoint = huggingface_hub.snapshot_download(repo_id=pretrained_model_name_or_path, ignore_patterns=["*.bin"], **token_arg)
+            weight_bins = glob.glob(str(Path(checkpoint).absolute() / '*.safetensors'))
+            index_json = glob.glob(str(Path(checkpoint).absolute() / '*.index.json'))
+            pytorch_model_bin = glob.glob(str(Path(checkpoint).absolute() / 'pytorch_model.bin'))
+            if len(index_json) > 0:
+                checkpoint = index_json[0]
+            elif len(pytorch_model_bin) > 0:
+                pass
+            elif len(weight_bins) > 0:
+                torch.save(safetensors.torch.load_file(weight_bins[0]), checkpoint+"/pytorch_model.bin")
+
+        model = accelerate.load_checkpoint_and_dispatch(model, checkpoint=checkpoint, device_map=device_map)
 
         # weight_bins = glob.glob(str(Path(pretrained_model_name_or_path).absolute() / '*.safetensors'))
         # all_missing_keys = []

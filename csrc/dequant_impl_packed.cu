@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 #include <cuda_bf16.h>
 #include <cmath>
 #include <math_constants.h>
@@ -101,9 +104,9 @@ __global__ void WqA16WithOutliers_PackIndice(
         centroids_cb += code_books_id*centroids_stride_0;
         residual_centroids_cb += code_books_id*centroids_stride_0;
       }
-
+      
       uint32_t merged_ind = cuda::iterator_packed_tensor<IDXBITS*(Has_Residual+1)>(q_indice_cb+in_y*index_stride_1, mappped_inx_in_a_codebook);
-      const uint32_t base_ind = merged_ind&((1<<GROUPSIZE)-1);
+      const uint32_t base_ind = merged_ind&((1<<IDXBITS)-1);
 
       const scalar_t* centroids_start = (centroids_cb)+base_ind*GROUPSIZE;
       cuda::ldg_vec_x<GROUPSIZE>(reinterpret_cast<uint32_t*>(base), (const uint32_t*)(centroids_start));
@@ -112,7 +115,7 @@ __global__ void WqA16WithOutliers_PackIndice(
       VecType *hres_ptr = nullptr;
       if constexpr (Has_Residual) {
         scalar_t residual[GROUPSIZE];
-        const uint32_t res_ind = (merged_ind>>GROUPSIZE)&((1<<GROUPSIZE)-1);
+        const uint32_t res_ind = (merged_ind>>IDXBITS)&((1<<IDXBITS)-1);
         const scalar_t* residual_centroids_start = (residual_centroids_cb)+res_ind*GROUPSIZE;
         cuda::ldg_vec_x<GROUPSIZE>(reinterpret_cast<uint32_t*>(residual), (const uint32_t*)(residual_centroids_start));
 
@@ -231,7 +234,7 @@ __global__ void DequantizeWithOutliers_PackIndice(
   q_indice += in_y*index_stride_1;
   uint32_t merged_ind = cuda::iterator_packed_tensor<IDXBITS*(Has_Residual+1)>((const uint32_t*)q_indice, mappped_inx_in_a_codebook);
 
-  const uint16_t base_ind = merged_ind&((1<<GROUPSIZE)-1);
+  const uint16_t base_ind = merged_ind&((1<<IDXBITS)-1);
   __half2 base[GROUPSIZE/2];
   const scalar_t* centroids_start = centroids+base_ind*GROUPSIZE;
   cuda::ldg_vec_x<GROUPSIZE>((uint32_t*)(base), (const uint32_t*)(centroids_start));
@@ -239,7 +242,7 @@ __global__ void DequantizeWithOutliers_PackIndice(
 
   if constexpr (Has_Residual) {
     __half2 residual[GROUPSIZE/2];
-    merged_ind >>= GROUPSIZE;
+    merged_ind >>= IDXBITS;
     const uint16_t res_ind = merged_ind&((1<<GROUPSIZE)-1);
     const scalar_t* residual_centroids_start = residual_centroids+res_ind*GROUPSIZE;
     cuda::ldg_vec_x<GROUPSIZE>((uint32_t*)(residual), (const uint32_t*)(residual_centroids_start));
@@ -326,6 +329,12 @@ torch::Tensor lauch_deqantize_outliers_cuda_packkernel(const int* outf_x_inf, //
       case 12:\
       callDequantWithOutliers(12, GP, OUT_OUF_INF, Has_Residual);\
       break;\
+      case 8:\
+      callDequantWithOutliers(8, GP, OUT_OUF_INF, Has_Residual);\
+      break;\
+      case 4:\
+      callDequantWithOutliers(4, GP, OUT_OUF_INF, Has_Residual);\
+      break;\
     default:\
     TORCH_CHECK(false, "unspportetd index_bits:"+std::to_string(index_bits));\
     }
@@ -350,6 +359,8 @@ torch::Tensor lauch_deqantize_outliers_cuda_packkernel(const int* outf_x_inf, //
     break;
     case 4:
         DispatchDequantWithOutliers(4, out_ouf_inf);
+    case 2:
+        DispatchDequantWithOutliers(2, out_ouf_inf);
     break;
     default:
     TORCH_CHECK(false, "unspportetd groupsize:"+std::to_string(groupsize));
@@ -424,6 +435,12 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(const int out_features,
       case 12:\
       CallWqA16kernel_dtype(out_buf, 12, G, Do_Reduce, Has_Residual);\
       break;\
+      case 8:\
+      CallWqA16kernel_dtype(out_buf, 8, G, Do_Reduce, Has_Residual);\
+      break;\
+      case 4:\
+      CallWqA16kernel_dtype(out_buf, 4, G, Do_Reduce, Has_Residual);\
+      break;\
     default:\
     TORCH_CHECK(false, "unspportetd index_bits:"+std::to_string(index_bits));\
     }
@@ -473,6 +490,8 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(const int out_features,
       break;
       case 4:
           DispatchWqA16Kernel(tmp_output, 4, do_reduce);
+      case 2:
+          DispatchWqA16Kernel(tmp_output, 2, do_reduce);
       break;
       default:
       TORCH_CHECK(false, "unspportetd groupsize:"+std::to_string(groupsize));

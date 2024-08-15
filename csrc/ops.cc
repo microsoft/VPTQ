@@ -63,7 +63,7 @@ torch::Tensor dequant(const torch::Tensor &q_indice,
   CHECK_INPUT(weight_scale);
   CHECK_INPUT(weight_bias);
   TORCH_CHECK(q_indice.dtype() == torch::kInt, "q_indice must be int");
-  TORCH_CHECK(groupsize >= 4, "groupsize must be >= 4");
+  TORCH_CHECK(groupsize >= 2, "groupsize must be >= 4");
   TORCH_CHECK(q_indice.dim() == 3, "must be 3D tensor");
 
   if (q_indice_residual.has_value()) { 
@@ -112,7 +112,7 @@ torch::Tensor wqA16Gemm(const torch::Tensor &input,
     CHECK_INPUT(invperm.value());
     inv_perm_device_index = invperm.value().device().index();
   }
-  TORCH_CHECK(groupsize >= 4, "groupsize must be >= 16");
+  TORCH_CHECK(groupsize >= 2, "groupsize must be >= 2");
   if (q_indice_residual.has_value()) {
     TORCH_CHECK(q_indice_residual.value().device().index() == dev_index &&
               centroids.device().index() == dev_index &&
@@ -124,8 +124,8 @@ torch::Tensor wqA16Gemm(const torch::Tensor &input,
   at::cuda::OptionalCUDAGuard guard(q_indice.device());
   torch::Tensor output;
 
-  output = lauch_gemv_outliers_cuda_packkernel(out_features, input, q_indice, centroids, q_indice_residual, residual_centroids, 
-                                    q_indice_outliers, outliers_centroids, invperm, weight_scale, weight_bias);
+    output = lauch_gemv_outliers_cuda_packkernel(out_features, input, q_indice, centroids, q_indice_residual, residual_centroids, 
+                                      q_indice_outliers, outliers_centroids, invperm, weight_scale, weight_bias);
 
   gpuErrchk( cudaPeekAtLastError() );
 

@@ -7,15 +7,22 @@ Scaling model size significantly challenges the deployment and inference of Larg
 
 ## Dependencies
 - python 3.10+
-- latest torch
-- latest transformers
+- torch >= 2.2.0
+- transformers >= 4.44.0
+- Accelerate >= 0.33.0
 - latest datasets
 
 ## Language Generation
 ```
 import vptq
-model = vptq.AutoModelForCausalLM("vptq/llama-2bit")
-model.generate()
+import transformers
+tokenizer = transformers.AutoTokenizer.from_pretrained("OpenSourceRonin/LLaMa-2-test-2")
+m = vptq.AutoModelForCausalLM.from_pretrained("OpenSourceRonin/LLaMa-2-test-2", device_map='auto')
+
+inputs = tokenizer("Hello, my dog is cute", return_tensors="pt").to("cuda")
+out = m.generate(**inputs, max_new_tokens=100, pad_token_id=2)
+print(tokenizer.decode(out[0], skip_special_tokens=True))
+
 ```
 
 
