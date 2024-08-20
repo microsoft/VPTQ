@@ -1,7 +1,7 @@
 # VPTQ: Extreme Low-bit Vector Post-Training Quantization for Large Language Models
 ## VPTQ results
 The figure below shows a comparison of ultra-low bit (2-bit) quantization using VPTQ and other SOTA algorithms on the LLaMA-2 model.
-![Local Image](./figures/vptq.png)
+![2bit quantization](figures/vptq.png)
 
 VPTQ achieves better accuracy and higher throughput with lower quantization overhead across models of different sizes.
 | Model | bitwidth | W2↓  | C4↓  | AvgQA↑ | tok/s↑ | mem(GB) | cost/h↓ |
