@@ -12,7 +12,17 @@ Scaling model size significantly challenges the deployment and inference of Larg
 - Accelerate >= 0.33.0
 - latest datasets
 
+## Installation
+```
+pip install git+https://github.com/microsoft/VPTQ.git --no-build-isolation
+```
+
 ## Language Generation
+To generate text using the pretrained model, you can use the following code snippet:
+
+`python -m vptq --model=LLaMa-2-7b-1.5bi-vptq --prompt="Hello, my dog is cute"`
+
+Using the python API:
 ```
 import vptq
 import transformers
