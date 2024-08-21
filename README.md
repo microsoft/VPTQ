@@ -16,8 +16,8 @@ Scaling model size significantly challenges the deployment and inference of Larg
 ```
 import vptq
 import transformers
-tokenizer = transformers.AutoTokenizer.from_pretrained("OpenSourceRonin/LLaMa-2-test-2")
-m = vptq.AutoModelForCausalLM.from_pretrained("OpenSourceRonin/LLaMa-2-test-2", device_map='auto')
+tokenizer = transformers.AutoTokenizer.from_pretrained("LLaMa-2-7b-1.5bi-vptq")
+m = vptq.AutoModelForCausalLM.from_pretrained("LLaMa-2-7b-1.5bi-vptq", device_map='auto')
 
 inputs = tokenizer("Hello, my dog is cute", return_tensors="pt").to("cuda")
 out = m.generate(**inputs, max_new_tokens=100, pad_token_id=2)
