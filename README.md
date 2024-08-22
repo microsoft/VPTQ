@@ -22,6 +22,11 @@ To generate text using the pretrained model, you can use the following code snip
 
 `python -m vptq --model=LLaMa-2-7b-1.5bi-vptq --prompt="Hello, my dog is cute"`
 
+Lunching a chatbot:
+note that you must use a chat model for this to work
+``` 
+python -m vptq --model=LLaMa-2-7b-chat-1.5b-vptq --chat
+```
 Using the python API:
 ```
 import vptq
