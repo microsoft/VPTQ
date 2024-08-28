@@ -20,7 +20,9 @@ pip install git+https://github.com/microsoft/VPTQ.git --no-build-isolation
 ## Language Generation
 To generate text using the pretrained model, you can use the following code snippet:
 
-`python -m vptq --model=LLaMa-2-7b-1.5bi-vptq --prompt="Hello, my dog is cute"`
+```
+python -m vptq --model=LLaMa-2-7b-1.5bi-vptq --prompt="Hello, my dog is cute"
+```
 
 Lunching a chatbot:
 note that you must use a chat model for this to work
