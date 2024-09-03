@@ -3,3 +3,4 @@ torch
 transformers
 safetensors
 psutil
+accelerate

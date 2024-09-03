@@ -16,7 +16,7 @@ def get_version():
     return "0.0.1"
 
 def build_cuda_extensions():
-    compute_capabilities = [70,75,80,86]
+    compute_capabilities = [70,75,80,86,90]
     arch_flags = []
     for cap in compute_capabilities:
         arch_flags += ["-gencode", f"arch=compute_{cap},code=sm_{cap}"]
