@@ -10,6 +10,7 @@ from torch.nn.parameter import Parameter
 from typing import Tuple
 import math
 
+
 class QuantLinear(nn.Module):
     def __init__(
         self,
@@ -79,10 +80,10 @@ class QuantLinear(nn.Module):
         # set configuratin
         self.debug = debug
         self.enable_proxy_error = enable_proxy_error
-        
-        # to reduce index size and bypass nccl check 
+
+        # to reduce index size and bypass nccl check
         self.indices_as_fp16 = indices_as_fp16
-        
+
         # # quantization
         # self.vector_lens = vector_lens
         # self.num_centroids = num_centroids
@@ -137,16 +138,16 @@ class QuantLinear(nn.Module):
                 1, self.outlier_num_centroids * self.outlier_vector_len,
                 **factory_kwargs
             )
-            
-            if self.indices_as_fp16: 
+
+            if self.indices_as_fp16:
                 self.outlier_indices = Parameter(torch.empty(
                     (1, self.ouliter_num_indices, self.outlier_size),
                     dtype=torch.float16, device=device), requires_grad=False)
             else:
                 self.outlier_indices = Parameter(torch.empty(
                     (1, self.ouliter_num_indices, self.outlier_size),
-                    dtype=torch.int16, device=device), requires_grad=False)       
-            
+                    dtype=torch.int16, device=device), requires_grad=False)
+
         else:
             self.enable_outlier = False
 
@@ -187,11 +188,12 @@ class QuantLinear(nn.Module):
                     dtype=torch.float16, device=device), requires_grad=False)
             else:
                 self.index_bits = int(math.log2(self.num_centroids))
-                packed_groupsize = math.ceil(self.group_size *(1+(self.num_res_centroids > 0))*self.index_bits/32) if is_indice_packed else self.group_size
-                ind_dtype =  torch.int if is_indice_packed else torch.int16
+                packed_groupsize = math.ceil(self.group_size * (1+(self.num_res_centroids > 0))
+                                             * self.index_bits/32) if is_indice_packed else self.group_size
+                ind_dtype = torch.int if is_indice_packed else torch.int16
                 self.indices = Parameter(torch.empty(
                     (self.num_codebooks, self.num_indices,
-                    packed_groupsize),
+                     packed_groupsize),
                     dtype=ind_dtype, device=device), requires_grad=False)
 
         # set residual
@@ -204,14 +206,14 @@ class QuantLinear(nn.Module):
             if self.indices_as_fp16:
                 self.res_indices = Parameter(torch.empty(
                     (self.num_codebooks, self.num_indices,
-                    self.group_size),
+                     self.group_size),
                     dtype=torch.float16, device=device), requires_grad=False)
             elif is_indice_packed is False:
                 self.res_indices = Parameter(torch.empty(
                     (self.num_codebooks, self.num_indices,
                      self.group_size),
-                    dtype=torch.int16, device=device), requires_grad=False) 
-                
+                    dtype=torch.int16, device=device), requires_grad=False)
+
         else:
             self.enable_residual = False
             self.res_centroids = self.register_parameter('res_centroids', None)
@@ -235,13 +237,13 @@ class QuantLinear(nn.Module):
             #     self.outlier_centroids = self.outlier_centroids.to(dtype)
 
             outlier_indices = indices[0]
-            
+
             if self.indices_as_fp16:
                 outlier_indices = outlier_indices.clone().detach().to(torch.int16).view(
                     torch.float16).to(self.outlier_centroids.weight.device)
             else:
                 outlier_indices = outlier_indices.clone().detach().to(torch.int16).to(
-                    self.outlier_centroids.weight.device) 
+                    self.outlier_centroids.weight.device)
 
             if len(outlier_indices.shape) == 2:
                 outlier_indices = outlier_indices.unsqueeze(0)
@@ -285,7 +287,7 @@ class QuantLinear(nn.Module):
                 self.centroids.weight.device)
         else:
             self.indices.data = _indices.to(torch.int16).to(
-                self.centroids.weight.device) 
+                self.centroids.weight.device)
 
         # step 3: handle residual
         if self.enable_residual:
@@ -319,7 +321,7 @@ class QuantLinear(nn.Module):
             _res_indices = _res_indices.reshape(
                 self.num_codebooks, self.num_indices, self.group_size)
 
-            if self.indices_as_fp16: 
+            if self.indices_as_fp16:
                 self.res_indices.data = _res_indices.to(torch.int16).view(torch.float16).to(
                     self.res_centroids.weight.device)
             else:
@@ -344,19 +346,21 @@ class QuantLinear(nn.Module):
 
     def post_init(self):
         if not hasattr(self, 'indices_as_fp16'):
-            self.indices_as_fp16=False
+            self.indices_as_fp16 = False
         if not hasattr(self, 'invert_perm'):
             self.invert_perm = torch.argsort(self.perm).short()
             if self.indices.dtype != torch.int:
-                self.short_indices = self.indices.view(torch.int16) if self.indices_as_fp16 else self.indices.short()
+                self.short_indices = self.indices.view(
+                    torch.int16) if self.indices_as_fp16 else self.indices.short()
                 self.short_res_indices = None
                 if self.res_indices is not None:
-                    self.short_res_indices = self.res_indices.view(torch.int16)  if self.indices_as_fp16 else self.res_indices.short()
-                self.short_outlier_indices =  None
+                    self.short_res_indices = self.res_indices.view(
+                        torch.int16) if self.indices_as_fp16 else self.res_indices.short()
+                self.short_outlier_indices = None
                 if hasattr(self, "outlier_indices"):
-                    self.short_outlier_indices = self.outlier_indices.view(torch.int16)  if self.indices_as_fp16 else self.outlier_indices.short() 
+                    self.short_outlier_indices = self.outlier_indices.view(
+                        torch.int16) if self.indices_as_fp16 else self.outlier_indices.short()
             self.short_perm = self.perm.short()
-
 
     def pack(self, invperm, q_indice, q_indice_residual, centroids, residual_centroids, outliers, outliers_indice):
         self.q_indice = q_indice.short().contiguous()
@@ -364,15 +368,16 @@ class QuantLinear(nn.Module):
         if residual_centroids is not None:
             self.q_indice_residual = q_indice_residual.short().contiguous()
             self.residual_centroids = residual_centroids.half().contiguous()
-        perm=torch.zeros_like(invperm)
-        perm[invperm]=torch.arange(invperm.shape[0]).cuda()
+        perm = torch.zeros_like(invperm)
+        perm[invperm] = torch.arange(invperm.shape[0]).cuda()
         self.perm = perm.int().contiguous()
         self.invperm = invperm.contiguous()
         if outliers is not None:
             self.outliers = outliers.half().contiguous()
             self.indice_outliers = outliers_indice.short().contiguous()
         if self.orig_fp_weight is not None:
-            assert  torch.allclose(self._dequant(), self.orig_fp_weight.cuda(), rtol=1e-3, atol=1e-03)
+            assert torch.allclose(
+                self._dequant(), self.orig_fp_weight.cuda(), rtol=1e-3, atol=1e-03)
 
     def fast_gemv(self, x):
         try:
@@ -385,26 +390,28 @@ class QuantLinear(nn.Module):
         res_centroids = self.res_centroids.weight.view(
             self.num_codebooks, self.num_res_centroids, self.vector_len) if self.res_centroids is not None else None
         outlier_centroids = self.outlier_centroids.weight.view(
-            1, self.outlier_num_centroids, self.outlier_vector_len)  if hasattr(self, "outlier_centroids") else None
+            1, self.outlier_num_centroids, self.outlier_vector_len) if hasattr(self, "outlier_centroids") else None
         if self.indices.dtype == torch.int:
             indices = self.indices
-            res_indices = self.res_indices if hasattr(self, "res_indices") else None
-            outlier_indices = self.outlier_indices if hasattr(self, "outlier_indices") else None
+            res_indices = self.res_indices if hasattr(
+                self, "res_indices") else None
+            outlier_indices = self.outlier_indices if hasattr(
+                self, "outlier_indices") else None
         else:
             indices = self.short_indices
             res_indices = self.short_res_indices
             outlier_indices = self.short_outlier_indices
         out = ops.gemm(x, indices, centroids, res_indices,
-                       res_centroids, outlier_indices, outlier_centroids, 
-                       self.perm, self.weight_scale, self.weight_bias, 
+                       res_centroids, outlier_indices, outlier_centroids,
+                       self.perm, self.weight_scale, self.weight_bias,
                        self.vector_len, self.in_features, self.out_features)
         return out
-        
-    def unpack_index_tensor(self, pack_tensor:torch.Tensor, bits:int, n_elements:int)->torch.Tensor:
+
+    def unpack_index_tensor(self, pack_tensor: torch.Tensor, bits: int, n_elements: int) -> torch.Tensor:
         wf = torch.arange(0, 32, 1).to(pack_tensor.device).view(1, 1, 1, -1)
         out = torch.bitwise_right_shift(torch.unsqueeze(pack_tensor, -1), wf)
         torch.bitwise_and(out, 1, out=out)
-        pad_size = (pack_tensor.shape[-1]*32)%(bits*n_elements)
+        pad_size = (pack_tensor.shape[-1]*32) % (bits*n_elements)
         out = out.reshape(*pack_tensor.shape[:-1], -1)
         if pad_size > 0:
             out = out[..., :-pad_size]
@@ -426,28 +433,30 @@ class QuantLinear(nn.Module):
             self.num_codebooks, self.num_res_centroids, self.vector_len) if self.res_centroids is not None else None
         outlier_centroids = self.outlier_centroids.weight.view(
             1, self.outlier_num_centroids, self.outlier_vector_len) if hasattr(self, "outlier_centroids") else None
-        #vv=selected_centroids.permute(0,2, 1,3).reshape(self.num_codebooks * self.group_size, -1).T
-        #base = centroids[0,self.indices[0].int().T.reshape(-1)].reshape(self.group_size, -1).T
-        #v1 = res_centroids[0, self.res_indices[0].int(
-        #).T.reshape(-1)].reshape(self.group_size, -1).T
-        #v2 = outlier_centroids[0, self.outlier_indices[0].int(
-        #).T.reshape(-1)].reshape(self.outlier_size, -1).T
+        # vv=selected_centroids.permute(0,2, 1,3).reshape(self.num_codebooks * self.group_size, -1).T
+        # base = centroids[0,self.indices[0].int().T.reshape(-1)].reshape(self.group_size, -1).T
+        # v1 = res_centroids[0, self.res_indices[0].int(
+        # ).T.reshape(-1)].reshape(self.group_size, -1).T
+        # v2 = outlier_centroids[0, self.outlier_indices[0].int(
+        # ).T.reshape(-1)].reshape(self.outlier_size, -1).T
         if self.indices.dtype == torch.int:
             indices = self.indices
-            res_indices = self.res_indices if hasattr(self, "res_indices") else None
-            outlier_indices = self.outlier_indices if hasattr(self, "outlier_indices") else None
+            res_indices = self.res_indices if hasattr(
+                self, "res_indices") else None
+            outlier_indices = self.outlier_indices if hasattr(
+                self, "outlier_indices") else None
         else:
             indices = self.short_indices
             res_indices = self.short_res_indices
             outlier_indices = self.short_outlier_indices
         output = ops.dequant(indices, centroids, res_indices,
-                             res_centroids, outlier_indices, 
-                             outlier_centroids, self.invert_perm, self.weight_scale, 
+                             res_centroids, outlier_indices,
+                             outlier_centroids, self.invert_perm, self.weight_scale,
                              self.weight_bias, self.vector_len, self.in_features, self.out_features)
         return output
 
     def dequant(self):
-        #if (output := self.fast_dequant()) is not None:
+        # if (output := self.fast_dequant()) is not None:
         #    return output
 
         centroids = self.centroids.weight.view(
@@ -455,21 +464,28 @@ class QuantLinear(nn.Module):
 
         # print(f'indices fp16: {self.indices}')
         # print(f'indices uint16: {self.indices.view(torch.int16)}')
-        
+
         if self.indices_as_fp16:
             indices = self.indices.view(torch.int16).to(torch.int64)
         elif self.indices.dtype == torch.int:
-            unpack_indice = self.unpack_index_tensor(self.indices, self.index_bits*(1+self.enable_residual), self.group_size)
-            indices = (unpack_indice & ((1<<self.index_bits)-1)).to(torch.int64)
+            unpack_indice = self.unpack_index_tensor(
+                self.indices,
+                self.index_bits*(1+self.enable_residual),
+                self.group_size)
+
+            indices = (unpack_indice & (
+                (1 << self.index_bits)-1)).to(torch.int64)
+
             if self.enable_residual:
-                res_indices = ((unpack_indice>>self.index_bits) & ((1<<self.index_bits)-1)).to(torch.int64)
+                res_indices = ((unpack_indice >> self.index_bits) & (
+                    (1 << self.index_bits)-1)).to(torch.int64)
         else:
             indices = self.indices.to(torch.int64)
             if self.enable_residual:
                 res_indices = self.res_indices.to(torch.int64)
 
         # print(f'indices int64: {indices}')
-        # exit() 
+        # exit()
         indices = indices.unsqueeze(-1).expand(-1,
                                                -1, -1, self.vector_len)
 
@@ -505,8 +521,8 @@ class QuantLinear(nn.Module):
                 self.num_codebooks, self.num_res_centroids, self.vector_len)
 
             if self.indices_as_fp16:
-                res_indices = self.res_indices.view(torch.int16).to(torch.int64)
-
+                res_indices = self.res_indices.view(
+                    torch.int16).to(torch.int64)
 
             res_indices = res_indices.unsqueeze(-1).expand(
                 -1, -1, -1, self.vector_len)
