@@ -84,10 +84,11 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
         quant_config = auto_conf.quant_config
         with transformers.utils.generic.ContextManagers([accelerate.init_empty_weights()]):
             make_quant_linear(model, quant_config, target_layer=target_layer)
-        no_split_module_classes = [
-            i[1].__class__.__name__ for i in model.named_modules() if i[0].endswith('.0')]
-        device_map = accelerate.infer_auto_device_map(
-            model, no_split_module_classes=no_split_module_classes[0], dtype=auto_conf.torch_dtype)
+        no_split_module_classes = [i[1].__class__.__name__ for i in model.named_modules() if i[0].endswith('.0')]
+        device_map = kwargs.pop("device_map", None)
+        max_memory = kwargs.pop("max_memory", None)
+        # device_map = accelerate.infer_auto_device_map(model, no_split_module_classes=no_split_module_classes[0], 
+        # dtype=auto_conf.torch_dtype)
         if Path(pretrained_model_name_or_path).exists():
             checkpoint = pretrained_model_name_or_path
         else:  # remote
@@ -109,7 +110,13 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
                     weight_bins[0]), checkpoint+"/pytorch_model.bin")
 
         model = accelerate.load_checkpoint_and_dispatch(
-            model, checkpoint=checkpoint, device_map=device_map)
+            model, checkpoint=checkpoint, 
+            device_map=device_map, 
+            max_memory=max_memory,
+            no_split_module_classes=no_split_module_classes[0],
+            dtype=auto_conf.torch_dtype,
+            # preload_module_classes=["QuantLinear"]
+        )
 
         # weight_bins = glob.glob(str(Path(pretrained_model_name_or_path).absolute() / '*.safetensors'))
         # all_missing_keys = []
