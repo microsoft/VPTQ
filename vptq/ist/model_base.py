@@ -37,7 +37,7 @@ def make_quant_linear(module, quant_conf, name='', target_layer=None):
                                         desc="Replacing linear layers..."):
         if module_name in quant_conf:
             layer_conf = quant_conf[module_name]
-            new_module = target_layer(**layer_conf, indices_as_fp16=False,
+            new_module = target_layer(**layer_conf,
                                       enable_proxy_error=False,
                                       dtype=sub_module.weight.dtype)
             # tmp = sub_module
