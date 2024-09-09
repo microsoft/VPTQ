@@ -23,7 +23,7 @@ template <typename scalar_t, int IDXBITS, int GROUPSIZE,  int OL_GroupSize, int 
 __global__ void WqA16WithOutliers_PackIndice(
     scalar_t *out, const scalar_t* input_data, const int32_t *q_indice, const int16_t *q_indice_outliers,
     const scalar_t* __restrict__ centroids, const scalar_t* __restrict__ residual_centroids, const scalar_t* outliers_centroids, 
-    const int16_t *invert_perm,  const scalar_t* weight_scale, const scalar_t* weight_bias,
+    const uint16_t *invert_perm,  const scalar_t* weight_scale, const scalar_t* weight_bias,
     int out_features, int in_features, int outliers_infeatures, const int index_stride_0, const int index_stride_1,
     const int centroids_stride_0, const int group_nums) {
   int bidx = blockIdx.x;// out_features//groupsize
@@ -186,7 +186,7 @@ __global__ void WqA16WithOutliers_PackIndice(
 template <typename scalar_t, int IDXBITS, int GROUPSIZE, bool Return_OUF_x_INF, bool Has_Residual>
 __global__ void DequantizeWithOutliers_PackIndice(
     scalar_t *out, const int32_t *q_indice, const int16_t *q_indice_outliers,
-    const scalar_t* centroids,const scalar_t* residual_centroids, const scalar_t* outliers_centroids, const int16_t *invert_perm,  const scalar_t* weight_scale, const scalar_t* weight_bias,
+    const scalar_t* centroids,const scalar_t* residual_centroids, const scalar_t* outliers_centroids, const uint16_t *invert_perm,  const scalar_t* weight_scale, const scalar_t* weight_bias,
     int out_features, int in_features, int outliers_infeatures, int OL_GroupSize, const int index_stride_0, const int index_stride_1,
     const int centroids_stride_0, const int group_nums) {
   int bid = blockIdx.x;
@@ -305,6 +305,7 @@ torch::Tensor lauch_deqantize_outliers_cuda_packkernel(const int* outf_x_inf, //
   }
   int outliers_indices_size_n1 = outliers_indices.has_value()?outliers_indices.value().size(-1):0;
   int outliers_centroids_size_n1 = outliers_centroids.has_value()?outliers_centroids.value().size(-1):1;
+  const uint16_t* perm_ptr = perm.has_value()?(const uint16_t*)(perm.value().data_ptr<int16_t>()):nullptr;
   auto stream = at::cuda::getCurrentCUDAStream().stream();
   using scalar_t = at::Half;
   #define callDequantWithOutliers(IDXBITS, GP, OUT_OUF_INF, Has_Residual)\
@@ -314,7 +315,7 @@ torch::Tensor lauch_deqantize_outliers_cuda_packkernel(const int* outf_x_inf, //
         centroids.data_ptr<scalar_t>(),\
         residual_centroids.has_value()? residual_centroids.value().data_ptr<scalar_t>():nullptr,\
         outliers_centroids.has_value()? outliers_centroids.value().data_ptr<scalar_t>():nullptr,\
-        perm.has_value()?perm.value().data_ptr<int16_t>():nullptr,\
+        perm_ptr,\
         weight_scale.data_ptr<scalar_t>(),\
         weight_bias.data_ptr<scalar_t>(),\
         out_size[0],out_size[1],\
@@ -404,6 +405,7 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(const int out_features,
   if (outliers_centroids.has_value()){
     TORCH_CHECK(outliers_centroids.value().size(-1)==4, "only support 4 out_vec_len");
   }
+  const uint16_t* perm_ptr = perm.has_value()?(const uint16_t*)(perm.value().data_ptr<int16_t>()):nullptr;
   #define CallWqA16kernel(scalar_t, out_buf, IDXBITS, G, Do_Reduce, Has_Residual)\
         WqA16WithOutliers_PackIndice<scalar_t, IDXBITS, G, 4, Do_Reduce, Has_Residual><<<blocks, threads, shared_memory_size, stream>>>(\
         out_buf.data_ptr<scalar_t>(),\
@@ -413,7 +415,7 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(const int out_features,
         centroids.data_ptr<scalar_t>(),\
         residual_centroids.has_value()? residual_centroids.value().data_ptr<scalar_t>():nullptr,\
         outliers_centroids.has_value()?outliers_centroids.value().data_ptr<scalar_t>():nullptr,\
-        perm.has_value()?perm.value().data_ptr<int16_t>():nullptr,\
+        perm_ptr,\
         weight_scale.data_ptr<scalar_t>(),\
         weight_bias.data_ptr<scalar_t>(),\
         out_features,in_features, outliers_indices_size_n1,\
