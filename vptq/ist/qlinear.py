@@ -645,8 +645,8 @@ class QuantLinear(nn.Module):
             if x.numel()//x.shape[-1] < 3 and (output := self.fast_gemv(x)) is not None:
                 return output
             # debug
-            qweight = None
-            # qweight = self.fast_dequant()
+            # qweight = None
+            qweight = self.fast_dequant()
             if qweight is None:
                 qweight = self.dequant()
             return F.linear(x, qweight, self.bias)
