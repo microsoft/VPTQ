@@ -53,14 +53,14 @@ def main():
     args = get_valid_args(parser)
     print(args)
 
-    model = VQAutoModelQuantization.from_pretrained(args.model)
+    model = VQAutoModelQuantization.from_pretrained(args.model, device_map="auto").half()
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         args.tokenizer or args.model)
 
     if args.chat:
         chat_loop(model, tokenizer)
         return
-    inputs = tokenizer(args.prompt, return_tensors="pt").to("cuda")
+    inputs = tokenizer(args.prompt, return_tensors="pt").to(model.device)
     out = model.generate(**inputs, max_new_tokens=100, pad_token_id=2)
     print(tokenizer.decode(out[0], skip_special_tokens=False))
 

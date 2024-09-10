@@ -352,21 +352,21 @@ class QuantLinear(nn.Module):
 
     # TODO: FIX
     def post_init(self):
-        if not hasattr(self, 'indices_as_fp16'):
-            self.indices_as_fp16 = False
+        if not hasattr(self, 'indices_as_float'):
+            self.indices_as_float = False
         if not hasattr(self, 'invert_perm'):
-            self.invert_perm = torch.argsort(self.perm).short()
+            self.invert_perm = torch.argsort(self.perm.view(torch.uint16).long()).short()
             if self.indices.dtype != torch.int:
                 self.short_indices = self.indices.view(
-                    torch.int16) if self.indices_as_fp16 else self.indices.short()
+                    torch.int16) if self.indices_as_float else self.indices.short()
                 self.short_res_indices = None
                 if self.res_indices is not None:
                     self.short_res_indices = self.res_indices.view(
-                        torch.int16) if self.indices_as_fp16 else self.res_indices.short()
+                        torch.int16) if self.indices_as_float else self.res_indices.short()
                 self.short_outlier_indices = None
                 if hasattr(self, "outlier_indices"):
                     self.short_outlier_indices = self.outlier_indices.view(
-                        torch.int16) if self.indices_as_fp16 else self.outlier_indices.short()
+                        torch.int16) if self.indices_as_float else self.outlier_indices.short()
             self.short_perm = self.perm.short()
 
     # TODO: FIX
