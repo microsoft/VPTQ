@@ -54,7 +54,7 @@ def pack_index(indice: torch.Tensor,
 
     unpack_indices = unpack_index_tensor(out,
                                          index_bits, indice.shape[-1],
-                                         res_bits, res_indice.shape[-1],
+                                         res_bits, res_indice.shape[-1] if res_indice is not None else 0,
                                          index_dtype=index_dtype,
                                          as_dtype=as_dtype)
     assert torch.allclose(indice.view(index_dtype).to(
@@ -63,14 +63,14 @@ def pack_index(indice: torch.Tensor,
     assert torch.allclose(indice.view(index_dtype).to(torch.int64),
                           unpack_index_tensor(out,
                                               index_bits, indice.shape[-1],
-                                              res_bits, res_indice.shape[-1],
+                                              res_bits, res_indice.shape[-1] if res_indice is not None else 0,
                                               index_dtype=index_dtype,
                                               as_dtype=as_dtype)[0],)
     if res_indice is not None:
         assert torch.allclose(res_indice.view(index_dtype).to(torch.int64),
                               unpack_index_tensor(out,
                                                   index_bits, indice.shape[-1],
-                                                  res_bits, res_indice.shape[-1],
+                                                  res_bits, res_indice.shape[-1] if res_indice is not None else 0,
                                                   index_dtype=index_dtype,
                                                   as_dtype=as_dtype)[1],)
     return out
