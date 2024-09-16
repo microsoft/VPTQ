@@ -153,12 +153,18 @@ class QuantLinear(nn.Module):
         else:
             self.enable_outlier = False
 
+        if self.num_res_centroids > 0:
+            self.enable_residual = True
+        else:
+            self.enable_residual = False
+
         # set main centroids
         self.centroids = nn.Embedding(
             self.num_codebooks, self.num_centroids * self.vector_len,
             **factory_kwargs
         )
 
+        # process norm
         self.enable_norm = enable_norm
         if self.enable_norm:
             if self.vector_quant_dim == 'in':
@@ -169,6 +175,7 @@ class QuantLinear(nn.Module):
                 self.weight_bias = Parameter(torch.empty(
                     self.in_features, **factory_kwargs), requires_grad=True)
 
+        # process permutation
         self.enable_perm = enable_perm
         if self.enable_perm:
             if self.vector_quant_dim == 'in':
@@ -184,26 +191,44 @@ class QuantLinear(nn.Module):
         if self.vector_quant_dim == 'in':
             assert True, 'Not implemented'
         else:
-            if self.indices_as_float:
-                self.indices = Parameter(torch.empty(
-                    (self.num_codebooks, self.num_indices,
-                     self.group_size),
-                    dtype=torch.float16, device=device), requires_grad=False)
-            else:
+            # packed indices
+            if self.is_indice_packed is True:
                 self.index_bits = int(math.log2(self.num_centroids))
-                packed_groupsize = math.ceil(self.group_size *
-                                             (1 + (self.num_res_centroids > 0))
-                                             * self.index_bits / 32
-                                             ) if self.is_indice_packed else self.group_size
+                if self.enable_residual:
+                    self.res_index_bits = int(
+                        math.log2(self.num_res_centroids))
+                else:
+                    self.res_index_bits = 0
+                self.total_index_bits = self.index_bits + self.res_index_bits
+
+                # packed_groupsize = math.ceil(self.group_size *
+                #                              (1 + (self.enable_residual is True))
+                #                              * self.index_bits / 32
+                #                              ) if self.is_indice_packed else self.group_size
+                packed_groupsize = math.ceil(
+                    self.group_size * self.total_index_bits / 32)
+
                 index_dtype = torch.int32 if self.is_indice_packed else torch.int16
+
                 self.indices = Parameter(torch.empty(
                     (self.num_codebooks, self.num_indices,
                      packed_groupsize),
                     dtype=index_dtype, device=device), requires_grad=False)
+            else:
+                # unpacked indices
+                if self.indices_as_float:
+                    self.indices = Parameter(torch.empty(
+                        (self.num_codebooks, self.num_indices,
+                         self.group_size),
+                        dtype=torch.float16, device=device), requires_grad=False)
+                else:
+                    self.indices = Parameter(torch.empty(
+                        (self.num_codebooks, self.num_indices,
+                         self.group_size),
+                        dtype=torch.int16, device=device), requires_grad=False)
 
-        # set residual
-        if self.num_res_centroids > 0:
-            self.enable_residual = True
+        # set residual centroids and indices
+        if self.enable_residual:
             self.res_centroids = nn.Embedding(
                 self.num_codebooks, self.num_res_centroids * self.vector_len,
                 **factory_kwargs)
@@ -213,14 +238,13 @@ class QuantLinear(nn.Module):
                     self.res_indices = Parameter(torch.empty(
                         (self.num_codebooks, self.num_indices,
                          self.group_size),
-                        dtype=torch.int16, device=device), requires_grad=False)
+                        dtype=torch.float16, device=device), requires_grad=False)
                 else:
                     self.res_indices = Parameter(torch.empty(
                         (self.num_codebooks, self.num_indices,
                          self.group_size),
                         dtype=torch.int16, device=device), requires_grad=False)
         else:
-            self.enable_residual = False
             self.res_centroids = self.register_parameter('res_centroids', None)
             self.res_indices = self.register_parameter('res_indices', None)
 
@@ -457,7 +481,7 @@ class QuantLinear(nn.Module):
         # ).T.reshape(-1)].reshape(self.group_size, -1).T
         # v2 = outlier_centroids[0, self.outlier_indices[0].int(
         # ).T.reshape(-1)].reshape(self.outlier_size, -1).T
-        if self.indices.dtype == torch.int:
+        if self.indices.dtype == torch.int32:
             indices = self.indices
             res_indices = self.res_indices if hasattr(
                 self, "res_indices") else None
@@ -467,6 +491,7 @@ class QuantLinear(nn.Module):
             indices = self.short_indices
             res_indices = self.short_res_indices
             outlier_indices = self.short_outlier_indices
+        
         output = ops.dequant(indices, centroids,
                              res_indices, res_centroids,
                              outlier_indices, outlier_centroids,
@@ -645,8 +670,8 @@ class QuantLinear(nn.Module):
             if x.numel()//x.shape[-1] < 3 and (output := self.fast_gemv(x)) is not None:
                 return output
             # debug
-            # qweight = None
-            qweight = self.fast_dequant()
+            qweight = None
+            # qweight = self.fast_dequant()
             if qweight is None:
                 qweight = self.dequant()
             return F.linear(x, qweight, self.bias)
