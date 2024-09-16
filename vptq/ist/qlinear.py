@@ -376,22 +376,23 @@ class QuantLinear(nn.Module):
 
     # TODO: FIX
     def post_init(self):
-        if not hasattr(self, 'indices_as_fp16'):
-            self.indices_as_fp16 = False
-        if not hasattr(self, 'invert_perm'):
-            self.invert_perm = torch.argsort(self.perm).short()
-            if self.indices.dtype != torch.int:
-                self.short_indices = self.indices.view(
-                    torch.int16) if self.indices_as_fp16 else self.indices.short()
-                self.short_res_indices = None
-                if self.res_indices is not None:
-                    self.short_res_indices = self.res_indices.view(
-                        torch.int16) if self.indices_as_fp16 else self.res_indices.short()
-                self.short_outlier_indices = None
-                if hasattr(self, "outlier_indices"):
-                    self.short_outlier_indices = self.outlier_indices.view(
-                        torch.int16) if self.indices_as_fp16 else self.outlier_indices.short()
-            self.short_perm = self.perm.short()
+        pass
+        # if not hasattr(self, 'indices_as_fp16'):
+        #     self.indices_as_fp16 = False
+        # if not hasattr(self, 'invert_perm'):
+        #     self.invert_perm = torch.argsort(self.perm).short()
+        #     if self.indices.dtype != torch.int:
+        #         self.short_indices = self.indices.view(
+        #             torch.int16) if self.indices_as_fp16 else self.indices.short()
+        #         self.short_res_indices = None
+        #         if self.res_indices is not None:
+        #             self.short_res_indices = self.res_indices.view(
+        #                 torch.int16) if self.indices_as_fp16 else self.res_indices.short()
+        #         self.short_outlier_indices = None
+        #         if hasattr(self, "outlier_indices"):
+        #             self.short_outlier_indices = self.outlier_indices.view(
+        #                 torch.int16) if self.indices_as_fp16 else self.outlier_indices.short()
+        #     self.short_perm = self.perm.short()
 
     # TODO: FIX
     def fast_gemv(self, x):
@@ -469,19 +470,15 @@ class QuantLinear(nn.Module):
         except ImportError:
             return None
         self.post_init()
+        
         centroids = self.centroids.weight.view(
             self.num_codebooks, self.num_centroids, self.vector_len)
         res_centroids = self.res_centroids.weight.view(
             self.num_codebooks, self.num_res_centroids, self.vector_len) if self.res_centroids is not None else None
         outlier_centroids = self.outlier_centroids.weight.view(
             1, self.outlier_num_centroids, self.outlier_vector_len) if hasattr(self, "outlier_centroids") else None
-        # vv=selected_centroids.permute(0,2, 1,3).reshape(self.num_codebooks * self.group_size, -1).T
-        # base = centroids[0,self.indices[0].int().T.reshape(-1)].reshape(self.group_size, -1).T
-        # v1 = res_centroids[0, self.res_indices[0].int(
-        # ).T.reshape(-1)].reshape(self.group_size, -1).T
-        # v2 = outlier_centroids[0, self.outlier_indices[0].int(
-        # ).T.reshape(-1)].reshape(self.outlier_size, -1).T
-        if self.indices.dtype == torch.int32:
+        
+        if self.is_indice_packed:
             indices = self.indices
             res_indices = self.res_indices if hasattr(
                 self, "res_indices") else None

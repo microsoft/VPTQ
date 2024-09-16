@@ -183,8 +183,7 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
 
             sub_mod.res_indices = None
 
-            # debug
-            print(f'sub_mod.indices: {sub_mod.indices.shape}')
+            # print(f'sub_mod.indices: {sub_mod.indices.shape}')
 
             # assert (sub_mod.fast_dequant() - sub_mod.dequant()).max().item() < 0.001
             sub_mod.cpu()

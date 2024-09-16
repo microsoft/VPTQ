@@ -40,7 +40,7 @@ def make_quant_linear(module, quant_conf, name='', target_layer=None):
             new_module = target_layer(**layer_conf,
                                       enable_proxy_error=False,
                                       dtype=sub_module.weight.dtype)
-            print(f"Replacing {module_name} with {new_module}, {layer_conf}")
+            # print(f"Replacing {module_name} with {new_module}, {layer_conf}")
             set_op_by_name(module, module_name, new_module)
             del sub_module
     return
