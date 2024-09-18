@@ -376,11 +376,8 @@ class QuantLinear(nn.Module):
 
     # TODO: FIX
     def post_init(self):
-        pass
-        # if not hasattr(self, 'indices_as_fp16'):
-        #     self.indices_as_fp16 = False
-        # if not hasattr(self, 'invert_perm'):
-        #     self.invert_perm = torch.argsort(self.perm).short()
+        if not hasattr(self, 'invert_perm'):
+            self.invert_perm = torch.argsort(self.perm.view(torch.uint16).to(torch.int64)).to(torch.uint16).view(torch.int16)
         #     if self.indices.dtype != torch.int:
         #         self.short_indices = self.indices.view(
         #             torch.int16) if self.indices_as_fp16 else self.indices.short()
@@ -667,8 +664,8 @@ class QuantLinear(nn.Module):
             if x.numel()//x.shape[-1] < 3 and (output := self.fast_gemv(x)) is not None:
                 return output
             # debug
-            qweight = None
-            # qweight = self.fast_dequant()
+            # qweight = None
+            qweight = self.fast_dequant()
             if qweight is None:
                 qweight = self.dequant()
             return F.linear(x, qweight, self.bias)
