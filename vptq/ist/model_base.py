@@ -40,29 +40,11 @@ def make_quant_linear(module, quant_conf, name='', target_layer=None):
             new_module = target_layer(**layer_conf,
                                       enable_proxy_error=False,
                                       dtype=sub_module.weight.dtype)
-            # tmp = sub_module
-            # groupsize = layer_conf["group_size"]
-            # outliers_per = layer_conf["outliers"]
-            # has_res = layer_conf["residual"]
-            # new_module = target_layer(tmp.in_features, tmp.out_features, groupsize,4096, 8192, has_res, outliers_per, tmp.bias)
+            # print(f"Replacing {module_name} with {new_module}, {layer_conf}")
             set_op_by_name(module, module_name, new_module)
             del sub_module
     return
 
-
-def pack_model(model, quantizers, args):
-    target_layer = QuantLinear
-    quant_config = {"group_size": args.vector_len,
-                    "outliers": args.npercent, "residual": True}
-    make_quant_linear(model, quantizers, quant_config,
-                      target_layer=target_layer, device="cpu")
-    qlayers = find_layers(model, [target_layer])
-    for name in tqdm(qlayers, desc='Packing weights....'):
-        quantizers[name], invperm, q_indice, q_indice_residual, centroids, residual_centroids, outliers, outliers_indice = quantizers[name]
-        qlayers[name].pack(invperm, q_indice, q_indice_residual,
-                           centroids, residual_centroids, outliers, outliers_indice)
-    model.config.quant_config = quant_config
-    return model
 
 
 class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
@@ -80,14 +62,19 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             model = cls.from_config(auto_conf, *model_args, **cls_kwargs)
 
         target_layer = QuantLinear
-
         quant_config = auto_conf.quant_config
+
+        # replace linear layers with quantized linear layers
         with transformers.utils.generic.ContextManagers([accelerate.init_empty_weights()]):
             make_quant_linear(model, quant_config, target_layer=target_layer)
-        no_split_module_classes = [i[1].__class__.__name__ for i in model.named_modules() if i[0].endswith('.0')]
+
+        no_split_module_classes = [
+            i[1].__class__.__name__ for i in model.named_modules() if i[0].endswith('.0')]
+
         device_map = kwargs.pop("device_map", None)
         max_memory = kwargs.pop("max_memory", None)
-        # device_map = accelerate.infer_auto_device_map(model, no_split_module_classes=no_split_module_classes[0], 
+
+        # device_map = accelerate.infer_auto_device_map(model, no_split_module_classes=no_split_module_classes[0],
         # dtype=auto_conf.torch_dtype)
         if Path(pretrained_model_name_or_path).exists():
             checkpoint = pretrained_model_name_or_path
@@ -110,8 +97,8 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
                     weight_bins[0]), checkpoint+"/pytorch_model.bin")
 
         model = accelerate.load_checkpoint_and_dispatch(
-            model, checkpoint=checkpoint, 
-            device_map=device_map, 
+            model, checkpoint=checkpoint,
+            device_map=device_map,
             max_memory=max_memory,
             no_split_module_classes=no_split_module_classes[0],
             dtype=auto_conf.torch_dtype,

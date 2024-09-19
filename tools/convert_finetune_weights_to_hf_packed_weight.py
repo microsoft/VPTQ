@@ -54,7 +54,7 @@ def pack_index(indice: torch.Tensor,
 
     unpack_indices = unpack_index_tensor(out,
                                          index_bits, indice.shape[-1],
-                                         res_bits, res_indice.shape[-1],
+                                         res_bits, res_indice.shape[-1] if res_indice is not None else 0,
                                          index_dtype=index_dtype,
                                          as_dtype=as_dtype)
     assert torch.allclose(indice.view(index_dtype).to(
@@ -63,14 +63,14 @@ def pack_index(indice: torch.Tensor,
     assert torch.allclose(indice.view(index_dtype).to(torch.int64),
                           unpack_index_tensor(out,
                                               index_bits, indice.shape[-1],
-                                              res_bits, res_indice.shape[-1],
+                                              res_bits, res_indice.shape[-1] if res_indice is not None else 0,
                                               index_dtype=index_dtype,
                                               as_dtype=as_dtype)[0],)
     if res_indice is not None:
         assert torch.allclose(res_indice.view(index_dtype).to(torch.int64),
                               unpack_index_tensor(out,
                                                   index_bits, indice.shape[-1],
-                                                  res_bits, res_indice.shape[-1],
+                                                  res_bits, res_indice.shape[-1] if res_indice is not None else 0,
                                                   index_dtype=index_dtype,
                                                   as_dtype=as_dtype)[1],)
     return out
@@ -178,10 +178,12 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
                 indice=sub_mod.indices,
                 index_bits=int(math.log2(sub_mod.num_centroids)),
                 res_indice=sub_mod.res_indices,
-                res_bits=int(math.log2(sub_mod.num_centroids)),
+                res_bits=int(math.log2(sub_mod.num_res_centroids)),
                 index_dtype=to_dtype).data
 
             sub_mod.res_indices = None
+
+            # print(f'sub_mod.indices: {sub_mod.indices.shape}')
 
             # assert (sub_mod.fast_dequant() - sub_mod.dequant()).max().item() < 0.001
             sub_mod.cpu()
@@ -229,8 +231,6 @@ if __name__ == "__main__":
     parser.add_argument('--load_model', type=str, default=None,
                         help='load model.pt from file')
     parser.add_argument('--load_state', type=str, default=None)
-    parser.add_argument('--load_pt', type=str, default=None)
-    parser.add_argument('--save_hf', type=str, default=None)
     parser.add_argument('--from_type', type=str, default='uint16')
     parser.add_argument('--to_type', type=str, default='uint16')
     parser.add_argument('--as_type', type=str, default='int16')
@@ -317,6 +317,6 @@ if __name__ == "__main__":
     model = vptq.AutoModelForCausalLM.from_pretrained(name, device_map="auto")
     # print(measure_token_latency(args, model.half(), tokenizer, 1))
     # print("done")
-
+    model = model.half()
     print('--- eval saved model ---')
     eval_ppl(model, config)
