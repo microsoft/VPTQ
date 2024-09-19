@@ -19,14 +19,14 @@ struct C10ToNvType<c10::Half> {
    typedef __half type;
 };
 
-template <typename scalar_t, int IDXBITS, int GROUPSIZE,  int OL_GroupSize, int Do_Reduce, int ResidualBits>
+template <typename scalar_t, int IDXBITS, int ResidualBits, int GROUPSIZE,  int OL_GroupSize, int Do_Reduce>
 __global__ void WqA16WithOutliers_PackIndice(
-    scalar_t *out, const scalar_t* input_data, const int32_t *q_indice, const int16_t *q_indice_outliers,
+    scalar_t *out, const scalar_t* input_data, const int32_t *q_indice, const uint16_t *q_indice_outliers,
     const scalar_t* __restrict__ centroids, const scalar_t* __restrict__ residual_centroids, const scalar_t* outliers_centroids, 
     const uint16_t *invert_perm,  const scalar_t* weight_scale, const scalar_t* weight_bias,
     int out_features, int in_features, int outliers_infeatures, const int index_stride_0, const int index_stride_1,
     const int centroids_stride_0, const int group_nums) {
-  int bidx = blockIdx.x;// out_features//groupsize
+  int bidx = blockIdx.x;// out_features//base_groupsize
   int bidy = blockIdx.y;// batch
   int bidz = blockIdx.z;// segment in_features
   int tidx = threadIdx.x;
@@ -183,7 +183,7 @@ __global__ void WqA16WithOutliers_PackIndice(
   }
 }
 
-template <typename scalar_t, int IDXBITS, int GROUPSIZE, bool Return_OUF_x_INF, int ResidualBits>
+template <typename scalar_t, int IDXBITS, int ResidualBits, int GROUPSIZE, bool Return_OUF_x_INF>
 __global__ void DequantizeWithOutliers_PackIndice(
     scalar_t *out, const int32_t *q_indice, const int16_t *q_indice_outliers,
     const scalar_t* centroids,const scalar_t* residual_centroids, const scalar_t* outliers_centroids, const uint16_t *invert_perm,  const scalar_t* weight_scale, const scalar_t* weight_bias,
@@ -291,11 +291,13 @@ torch::Tensor lauch_deqantize_outliers_cuda_packkernel(const int* outf_x_inf, //
                                 const torch::Tensor &weight_scale,
                                 const torch::Tensor &weight_bias
                                 ) {
-  int groupsize = centroids.size(-1);
-  int index_bits = log2(centroids.size(1));
+  int base_groupsize = centroids.size(-1);// how many elements in a vector
+  int res_groupsize = residual_centroids.has_value()?residual_centroids.value().size(-1):0;
+  // TORCH_CHECK((res_groupsize===base_groupsize||res_groupsize==0), "res_groupsize===base_groupsize is false, must be true");
+  int index_bits = log2(centroids.size(1));// how many bits to index quantization vector
   int res_index_bits = residual_centroids.has_value()?log2(residual_centroids.value().size(1)):0;
   auto out_size = outf_x_inf;
-  dim3 blocks(cuda::ceil_div<int>(cuda::ceil_div<int>(out_size[0], groupsize)*out_size[1], cuda::kBlockSize));
+  dim3 blocks(cuda::ceil_div<int>(cuda::ceil_div<int>(out_size[0], base_groupsize)*out_size[1], cuda::kBlockSize));
   dim3 threads(cuda::kBlockSize);
   torch::Tensor output;
   constexpr bool out_ouf_inf = true;//why =flase is 10 times slow?
@@ -306,78 +308,66 @@ torch::Tensor lauch_deqantize_outliers_cuda_packkernel(const int* outf_x_inf, //
   }
   int outliers_indices_size_n1 = outliers_indices.has_value()?outliers_indices.value().size(-1):0;
   int outliers_centroids_size_n1 = outliers_centroids.has_value()?outliers_centroids.value().size(-1):1;
-  const uint16_t* perm_ptr = perm.has_value()?(const uint16_t*)(perm.value().data_ptr<int16_t>()):nullptr;
-  auto stream = at::cuda::getCurrentCUDAStream().stream();
   using scalar_t = at::Half;
-  #define callDequantWithOutliers(IDXBITS, GP, OUT_OUF_INF, ResidualBits)\
-        DequantizeWithOutliers_PackIndice<scalar_t, IDXBITS, GP, OUT_OUF_INF, ResidualBits><<<blocks, threads,0,stream>>>(output.data_ptr<scalar_t>(),\
-        q_indice.data_ptr<int32_t>(),\
-        outliers_indices.has_value()?outliers_indices.value().data_ptr<int16_t>():nullptr,\
-        centroids.data_ptr<scalar_t>(),\
-        residual_centroids.has_value()? residual_centroids.value().data_ptr<scalar_t>():nullptr,\
-        outliers_centroids.has_value()? outliers_centroids.value().data_ptr<scalar_t>():nullptr,\
+
+  const uint16_t* perm_ptr = perm.has_value()?(const uint16_t*)(perm.value().data_ptr<int16_t>()):nullptr;
+  const int16_t* outliers_indices_ptr = outliers_indices.has_value()?outliers_indices.value().data_ptr<int16_t>():nullptr;
+  const scalar_t* residual_centroids_ptr = residual_centroids.has_value()? residual_centroids.value().data_ptr<scalar_t>():nullptr;
+  const scalar_t* outliers_centroids_ptr = outliers_centroids.has_value()? outliers_centroids.value().data_ptr<scalar_t>():nullptr;
+  auto stream = at::cuda::getCurrentCUDAStream().stream();
+  #define callDequantWithOutliers(IDXBITS, BASEGROUP, OUT_OUF_INF, ResidualBits)\
+        DequantizeWithOutliers_PackIndice<scalar_t, IDXBITS, ResidualBits, BASEGROUP, OUT_OUF_INF><<<blocks, threads,0,stream>>>(output.data_ptr<scalar_t>(),\
+        q_indice.data_ptr<int32_t>(),outliers_indices_ptr,\
+        centroids.data_ptr<scalar_t>(),residual_centroids_ptr,outliers_centroids_ptr,\
         perm_ptr,\
-        weight_scale.data_ptr<scalar_t>(),\
-        weight_bias.data_ptr<scalar_t>(),\
+        weight_scale.data_ptr<scalar_t>(),weight_bias.data_ptr<scalar_t>(),\
         out_size[0],out_size[1],\
         outliers_indices_size_n1, outliers_centroids_size_n1,\
         q_indice.stride(0), q_indice.stride(1),\
         centroids.stride(0), q_indice.size(0));
-  #define callDequantWithOutliers_bits(GP, OUT_OUF_INF, ResidualBits)\
+  #define callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, ResidualBits)\
     switch (index_bits) {\
-      case 16:\
-      callDequantWithOutliers(16, GP, OUT_OUF_INF, ResidualBits);\
-      break;\
-      case 12:\
-      callDequantWithOutliers(12, GP, OUT_OUF_INF, ResidualBits);\
-      break;\
-      case 8:\
-      callDequantWithOutliers(8, GP, OUT_OUF_INF, ResidualBits);\
-      break;\
-      case 4:\
-      callDequantWithOutliers(4, GP, OUT_OUF_INF, ResidualBits);\
-      break;\
+      case 16:callDequantWithOutliers(16, BASEGROUP, OUT_OUF_INF, ResidualBits);break;\
+      case 15:callDequantWithOutliers(15, BASEGROUP, OUT_OUF_INF, ResidualBits);break;\
+      case 14:callDequantWithOutliers(14, BASEGROUP, OUT_OUF_INF, ResidualBits);break;\
+      case 13:callDequantWithOutliers(13, BASEGROUP, OUT_OUF_INF, ResidualBits);break;\
+      case 12:callDequantWithOutliers(12, BASEGROUP, OUT_OUF_INF, ResidualBits);break;\
+      case 8: callDequantWithOutliers(8, BASEGROUP, OUT_OUF_INF, ResidualBits);break;\
+      case 4: callDequantWithOutliers(4, BASEGROUP, OUT_OUF_INF, ResidualBits);break;\
     default:\
     TORCH_CHECK(false, "unspportetd index_bits:"+std::to_string(index_bits));\
     }
-  #define DispatchDequantWithOutliers(GP, OUT_OUF_INF)\
+  #define CASE_callDequantWithOutliers_bits(rib)  case rib: {callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, rib);break;}
+  #define DispatchDequantWithOutliers(BASEGROUP, OUT_OUF_INF)\
     switch (res_index_bits) {\
-      case 16:\
-      callDequantWithOutliers_bits(GP, OUT_OUF_INF, 16);\
-      break;\
-      case 12:\
-      callDequantWithOutliers_bits(GP, OUT_OUF_INF, 12);\
-      break;\
-      case 8:\
-      callDequantWithOutliers_bits(GP, OUT_OUF_INF, 8);\
-      break;\
-      case 0:\
-      callDequantWithOutliers_bits(GP, OUT_OUF_INF, 0);\
-      break;\
+      case 16:callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 16);break;\
+      case 12:callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 12);break;\
+      case 11:callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 11);break;\
+      case 10:callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 10);break;\
+      case 9: callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 9);break;\
+      case 8: callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 8);break;\
+      case 7: callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 7);break;\
+      case 6: callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 6);break;\
+      case 5: callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 5);break;\
+      case 4: callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 4);break;\
+      case 3: callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 3);break;\
+      case 2: callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 2);break;\
+      case 0: callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 0);break;\
+      default:\
+    TORCH_CHECK(false, "unspportetd res_index_bits:"+std::to_string(res_index_bits));\
     }
 
-  switch (groupsize){
-    case 16:
-        DispatchDequantWithOutliers(16, out_ouf_inf);
-    break;
-    case 12:
-        DispatchDequantWithOutliers(12, out_ouf_inf);
-    break;
-    case 8:
-        DispatchDequantWithOutliers(8, out_ouf_inf);
-    break;
-    case 6:
-        DispatchDequantWithOutliers(6, out_ouf_inf);
-    break;
-    case 4:
-        DispatchDequantWithOutliers(4, out_ouf_inf);
-    break;
-    case 2:
-        DispatchDequantWithOutliers(2, out_ouf_inf);
-    break;
-    default:
-    TORCH_CHECK(false, "unspportetd groupsize:"+std::to_string(groupsize));
+  #define CASE_DispatchDequantWithOutliers(bgsize) case bgsize:{DispatchDequantWithOutliers(bgsize, out_ouf_inf); break;}
+  switch (base_groupsize){
+    CASE_DispatchDequantWithOutliers(16);
+    CASE_DispatchDequantWithOutliers(12);
+    CASE_DispatchDequantWithOutliers(8);
+    CASE_DispatchDequantWithOutliers(6);
+    CASE_DispatchDequantWithOutliers(4);
+    CASE_DispatchDequantWithOutliers(2);
+    default:TORCH_CHECK(false, "unspportetd base_groupsize:"+std::to_string(base_groupsize));
   }
+  #undef CASE_DispatchDequantWithOutliers
   if (out_ouf_inf){
     return output;
   }else{
@@ -397,7 +387,7 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(const int out_features,
                                 const c10::optional<torch::Tensor>& perm,
                                 const torch::Tensor &weight_scale,
                                 const torch::Tensor &weight_bias) {
-  const int groupsize = centroids.size(-1);
+  const int base_groupsize = centroids.size(-1);
   int index_bits = log2(centroids.size(1));
   int res_index_bits = residual_centroids.has_value()?log2(residual_centroids.value().size(1)):0;
 
@@ -407,7 +397,7 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(const int out_features,
   output_shape[input.dim()-1] = out_features;
   torch::Tensor output;
   //  blocks = (out_features, batch)
-  dim3 blocks(cuda::ceil_div(out_features, groupsize), input.numel()/in_features);
+  dim3 blocks(cuda::ceil_div(out_features, base_groupsize), input.numel()/in_features);
   dim3 threads(cuda::kBlockSize);
   auto stream = at::cuda::getCurrentCUDAStream().stream();
   // using scalar_t = c10::Half;
@@ -418,13 +408,14 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(const int out_features,
   if (outliers_centroids.has_value()){
     TORCH_CHECK(outliers_centroids.value().size(-1)==4, "only support 4 out_vec_len");
   }
+  const uint16_t* outliers_indices_ptr = (const uint16_t*)(outliers_indices.has_value()?outliers_indices.value().data_ptr<int16_t>():nullptr);
   const uint16_t* perm_ptr = perm.has_value()?(const uint16_t*)(perm.value().data_ptr<int16_t>()):nullptr;
-  #define CallWqA16kernel(scalar_t, out_buf, IDXBITS, G, Do_Reduce, ResidualBits)\
-        WqA16WithOutliers_PackIndice<scalar_t, IDXBITS, G, 4, Do_Reduce, ResidualBits><<<blocks, threads, shared_memory_size, stream>>>(\
+  #define CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits)\
+        WqA16WithOutliers_PackIndice<scalar_t, IDXBITS, ResidualBits, BASEGROUP, 4, Do_Reduce><<<blocks, threads, shared_memory_size, stream>>>(\
         out_buf.data_ptr<scalar_t>(),\
         input.data_ptr<scalar_t>(),\
         q_indice.data_ptr<int32_t>(),\
-        outliers_indices.has_value()?outliers_indices.value().data_ptr<int16_t>():nullptr,\
+        outliers_indices_ptr,\
         centroids.data_ptr<scalar_t>(),\
         residual_centroids.has_value()? residual_centroids.value().data_ptr<scalar_t>():nullptr,\
         outliers_centroids.has_value()?outliers_centroids.value().data_ptr<scalar_t>():nullptr,\
@@ -434,51 +425,48 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(const int out_features,
         out_features,in_features, outliers_indices_size_n1,\
         q_indice.stride(0), q_indice.stride(1),\
         centroids.stride(0), q_indice.size(0));
-  #define CallWqA16kernel_dtype(out_buf, IDXBITS, G, Do_Reduce, ResidualBits)\
+  #define CallWqA16kernel_dtype(out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits)\
     if (input.dtype() == at::ScalarType::Half) {\
       using scalar_t = c10::Half;\
-      CallWqA16kernel(scalar_t, out_buf, IDXBITS, G, Do_Reduce, ResidualBits);\
+      CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits);\
     } else {\
       using scalar_t = c10::Half;\
-      CallWqA16kernel(scalar_t, out_buf, IDXBITS, G, Do_Reduce, ResidualBits);\
+      CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits);\
     }
-  #define CallWqA16kernel_bits(out_buf, G, Do_Reduce, ResidualBits)\
+  #define CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, ResidualBits)\
     switch (index_bits) {\
-      case 16:\
-      CallWqA16kernel_dtype(out_buf, 16, G, Do_Reduce, ResidualBits);\
-      break;\
-      case 12:\
-      CallWqA16kernel_dtype(out_buf, 12, G, Do_Reduce, ResidualBits);\
-      break;\
-      case 8:\
-      CallWqA16kernel_dtype(out_buf, 8, G, Do_Reduce, ResidualBits);\
-      break;\
-      case 4:\
-      CallWqA16kernel_dtype(out_buf, 4, G, Do_Reduce, ResidualBits);\
-      break;\
+      case 16:CallWqA16kernel_dtype(out_buf, 16, BASEGROUP, Do_Reduce, ResidualBits);break;\
+      case 15:CallWqA16kernel_dtype(out_buf, 15, BASEGROUP, Do_Reduce, ResidualBits);break;\
+      case 14:CallWqA16kernel_dtype(out_buf, 14, BASEGROUP, Do_Reduce, ResidualBits);break;\
+      case 13:CallWqA16kernel_dtype(out_buf, 13, BASEGROUP, Do_Reduce, ResidualBits);break;\
+      case 12:CallWqA16kernel_dtype(out_buf, 12, BASEGROUP, Do_Reduce, ResidualBits);break;\
+      case 8: CallWqA16kernel_dtype(out_buf, 8, BASEGROUP, Do_Reduce, ResidualBits);break;\
+      case 4: CallWqA16kernel_dtype(out_buf, 4, BASEGROUP, Do_Reduce, ResidualBits);break;\
     default:\
     TORCH_CHECK(false, "unspportetd index_bits:"+std::to_string(index_bits));\
     }
 
-  #define DispatchWqA16Kernel(out_buf, G, Do_Reduce)\
+  #define DispatchWqA16Kernel(out_buf, BASEGROUP, Do_Reduce)\
     switch (res_index_bits){\
-      case 16:\
-      CallWqA16kernel_bits(out_buf, G, Do_Reduce, 16);\
-      break;\
-      case 12:\
-      CallWqA16kernel_bits(out_buf, G, Do_Reduce, 12);\
-      break;\
-      case 8:\
-      CallWqA16kernel_bits(out_buf, G, Do_Reduce, 8);\
-      break;\
-      case 0:\
-      CallWqA16kernel_bits(out_buf, G, Do_Reduce, 0);\
-      break;\
+      case 16:CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 16);break;\
+      case 12:CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 12);break;\
+      case 11:CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 11);break;\
+      case 10:CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 10);break;\
+      case 9: CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 9);break;\
+      case 8: CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 8);break;\
+      case 7: CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 7);break;\
+      case 6: CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 6);break;\
+      case 5: CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 5);break;\
+      case 4: CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 4);break;\
+      case 3: CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 3);break;\
+      case 2: CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 2);break;\
+      case 0: CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 0);break;\
+      default:TORCH_CHECK(false, "unspportetd res_index_bits:"+std::to_string(res_index_bits));\
     }
 
   if (in_features <= cuda::kBlockSize){
     //output = at::empty(output_shape, centroids.options());
-    //switch (groupsize){
+    //switch (base_groupsize){
     //  case 16:
     //      gpuErrchk(cudaFuncSetAttribute(WqA16WithOutliers<scalar_t, 16, 4, false>,
     //                cudaFuncAttributeMaxDynamicSharedMemorySize, shared_memory_size));
@@ -490,7 +478,7 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(const int out_features,
     //      DispatchWqA16Kernel(output, 12, false);
     //  break;
     //  default:
-    //      TORCH_CHECK(false, "unspportetd groupsize:"+std::to_string(groupsize));
+    //      TORCH_CHECK(false, "unspportetd base_groupsize:"+std::to_string(base_groupsize));
     //}
     TORCH_CHECK(false, "unspportetd yet");
   }else{
@@ -500,27 +488,15 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(const int out_features,
     tmp_output_shape.push_back(cuda::ceil_div(in_features, cuda::kBlockSize*do_reduce));
     torch::Tensor tmp_output = at::empty(tmp_output_shape, centroids.options());
     blocks.z = tmp_output_shape.back();
-    switch (groupsize){
-      case 16:
-          DispatchWqA16Kernel(tmp_output, 16, do_reduce);
-      break;
-      case 12:
-          DispatchWqA16Kernel(tmp_output, 12, do_reduce);
-      break;
-      case 8:
-          DispatchWqA16Kernel(tmp_output, 8, do_reduce);
-      break;
-      case 6:
-          DispatchWqA16Kernel(tmp_output, 6, do_reduce);
-      break;
-      case 4:
-          DispatchWqA16Kernel(tmp_output, 4, do_reduce);
-      break;
-      case 2:
-          DispatchWqA16Kernel(tmp_output, 2, do_reduce);
-      break;
+    switch (base_groupsize){
+      case 16:DispatchWqA16Kernel(tmp_output, 16, do_reduce);break;
+      case 12:DispatchWqA16Kernel(tmp_output, 12, do_reduce);break;
+      case 8: DispatchWqA16Kernel(tmp_output, 8, do_reduce);break;
+      case 6: DispatchWqA16Kernel(tmp_output, 6, do_reduce);break;
+      case 4: DispatchWqA16Kernel(tmp_output, 4, do_reduce);break;
+      case 2: DispatchWqA16Kernel(tmp_output, 2, do_reduce);break;
       default:
-      TORCH_CHECK(false, "unspportetd groupsize:"+std::to_string(groupsize));
+      TORCH_CHECK(false, "unspportetd groupsize:"+std::to_string(base_groupsize));
     }
     output = tmp_output.sum(-1);
   }
