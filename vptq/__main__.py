@@ -9,18 +9,19 @@ import transformers
 
 
 def define_basic_args():
-    parser = argparse.ArgumentParser(description="""run a quantized model.
+    parser = argparse.ArgumentParser(
+        description="""run a quantized model.
 A typical usage is:
     python -m vptq --model  Llama-2-7b-1.5bit --prompt "Hello, my dog is cute"
- """, formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('--model', type=str, required=True,
-                        help='float/float16 model to load, such as [mosaicml/mpt-7b]')
-    parser.add_argument('--tokenizer', type=str, default="",
-                        help='default same as [model]')
+ """,
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
     parser.add_argument(
-        '--prompt', type=str, default="once upon a time, there ", help='prompt to start generation')
-    parser.add_argument('--chat', action='store_true',
-                        help='chat with the model')
+        "--model", type=str, required=True, help="float/float16 model to load, such as [mosaicml/mpt-7b]"
+    )
+    parser.add_argument("--tokenizer", type=str, default="", help="default same as [model]")
+    parser.add_argument("--prompt", type=str, default="once upon a time, there ", help="prompt to start generation")
+    parser.add_argument("--chat", action="store_true", help="chat with the model")
     return parser
 
 
@@ -35,10 +36,8 @@ def chat_loop(model, tokenizer):
         messages.append({"role": "user", "content": text})
         encodeds = tokenizer.apply_chat_template(messages, return_tensors="pt")
         model_inputs = encodeds.to("cuda")
-        generated_ids = model.generate(
-            model_inputs, pad_token_id=2, max_new_tokens=500, do_sample=True)
-        decoded = tokenizer.batch_decode(
-            generated_ids[:, model_inputs.shape[-1]:], skip_special_tokens=True)
+        generated_ids = model.generate(model_inputs, pad_token_id=2, max_new_tokens=500, do_sample=True)
+        decoded = tokenizer.batch_decode(generated_ids[:, model_inputs.shape[-1] :], skip_special_tokens=True)
         messages.append({"role": "assistant", "content": decoded[0]})
         print("assistant:", decoded[0])
 
@@ -54,8 +53,7 @@ def main():
     print(args)
 
     model = VQAutoModelQuantization.from_pretrained(args.model, device_map="auto").half()
-    tokenizer = transformers.AutoTokenizer.from_pretrained(
-        args.tokenizer or args.model)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(args.tokenizer or args.model)
 
     if args.chat:
         chat_loop(model, tokenizer)
