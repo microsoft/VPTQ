@@ -39,7 +39,7 @@ def chat_loop(model, tokenizer, args):
     if not args.chat:
         eval_prompt(model, tokenizer, args)
         return
-         
+
     if getattr(tokenizer, "chat_template", None) is None:
         print("warning: this tokenizer didn't provide chat_template.!!!")
         eval_prompt(model, tokenizer, args)
@@ -47,7 +47,7 @@ def chat_loop(model, tokenizer, args):
 
     print("============================chat with the model============================")
     print("Press 'exit' to quit")
-    messages = [{"role": "system", "content": "you are a math teacher."}]    
+    messages = [{"role": "system", "content": "you are a math teacher."}]
 
     while True:
         text = input("You: ")
@@ -57,9 +57,11 @@ def chat_loop(model, tokenizer, args):
         encodeds = tokenizer.apply_chat_template(messages, return_tensors="pt")
         model_inputs = encodeds.to("cuda")
         streamer = transformers.TextStreamer(tokenizer)
-        generated_ids = model.generate(
-            model_inputs, streamer=streamer, pad_token_id=2, max_new_tokens=500, do_sample=True
-        )
+        generated_ids = model.generate(model_inputs,
+                                       streamer=streamer,
+                                       pad_token_id=2,
+                                       max_new_tokens=500,
+                                       do_sample=True)
         decoded = tokenizer.batch_decode(generated_ids[:, model_inputs.shape[-1]:], skip_special_tokens=True)
         messages.append({"role": "assistant", "content": decoded[0]})
         print("assistant:", decoded[0])
