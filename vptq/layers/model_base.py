@@ -13,7 +13,7 @@ import torch
 import transformers
 from tqdm import tqdm
 
-from .qlinear import QuantLinear
+from .vqlinear import VQuantLinear
 
 
 def set_op_by_name(layer, name, new_module):
@@ -57,7 +57,7 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
         with transformers.utils.generic.ContextManagers(init_contexts):
             model = cls.from_config(auto_conf, *model_args, **cls_kwargs)
 
-        target_layer = QuantLinear
+        target_layer = VQuantLinear
         quant_config = auto_conf.quant_config
 
         # replace linear layers with quantized linear layers
@@ -95,7 +95,7 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             max_memory=max_memory,
             no_split_module_classes=no_split_module_classes[0],
             dtype=auto_conf.torch_dtype,
-            # preload_module_classes=["QuantLinear"]
+            # preload_module_classes=["VQuantLinear"]
         )
 
         # weight_bins = glob.glob(str(Path(pretrained_model_name_or_path).absolute() / '*.safetensors'))
