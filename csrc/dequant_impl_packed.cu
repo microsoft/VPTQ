@@ -306,7 +306,7 @@ torch::Tensor lauch_deqantize_outliers_cuda_packkernel(
   dim3 blocks(cuda::ceil_div<int>(cuda::ceil_div<int>(out_size[0], base_groupsize) * out_size[1], cuda::kBlockSize));
   dim3 threads(cuda::kBlockSize);
   torch::Tensor output;
-  constexpr bool out_ouf_inf = true;  // why =flase is 10 times slow?
+  constexpr bool out_ouf_inf = true;  // why =false is 10 times slow?
   if (out_ouf_inf) {                  // out_ouf_inf
     output = at::empty({out_size[0], out_size[1]}, centroids.options());
   } else {

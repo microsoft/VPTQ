@@ -45,8 +45,8 @@ ignore = [
 
 
 [tool.codespell]
-ignore-words-list = "dout, te, indicies, subtile"
-
+ignore-words-list = "ist"
+skip = "./VPTQ_arixv.pdf,./build"
 
 [tool.isort]
 use_parentheses = true

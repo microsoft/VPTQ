@@ -78,7 +78,7 @@ class QuantLinear(nn.Module):
         else:
             self.register_parameter("bias", None)
 
-        # set configuratin
+        # set configuration
         self.debug = debug
         self.enable_proxy_error = enable_proxy_error
 
