@@ -89,7 +89,7 @@ print(tokenizer.decode(out[0], skip_special_tokens=True))
 
 ## Acknowledgement
 
-* We thank for James Hensman for his crucial insights into the error analysis related to Vector Quantization (VQ), and his comments on LLMs evaluation are invaluable to this research.
+* We thank for **James Hensman** for his crucial insights into the error analysis related to Vector Quantization (VQ), and his comments on LLMs evaluation are invaluable to this research.
 * We are deeply grateful for the inspiration provided by the papers QUIP, QUIP#, GPTVQ, AQLM, WoodFisher, GPTQ, and OBC.
 
 ## Limitation of VPTQ
