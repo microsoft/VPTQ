@@ -9,7 +9,7 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 * Lightweight Quantization Algorithm: only cost ~17 hours to quantize 405B Llama-3.1
 * Agile Quantization Inference: low decode overhead, best throughput, and TTFT
 
-## Details and [**Tech Report**](https://github.com/microsoft/VPTQ/blob/main/VPTQ_arxiv.pdf)
+## Details and [**Tech Report**](https://github.com/microsoft/VPTQ/blob/main/VPTQ_tech_report.pdf)
 
 Scaling model size significantly challenges the deployment and inference of Large Language Models (LLMs). Due to the redundancy in LLM weights, recent research has focused on pushing weight-only quantization to extremely low-bit (even down to 2 bits). It reduces memory requirements, optimizes storage costs, and decreases memory bandwidth needs during inference. However, due to numerical representation limitations, traditional scalar-based weight quantization struggles to achieve such extreme low-bit. Recent research on Vector Quantization (VQ) for LLMs has demonstrated the potential for extremely low-bit model quantization by compressing vectors into indices using lookup tables.
 
