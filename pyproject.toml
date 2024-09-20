@@ -43,6 +43,13 @@ ignore = [
     "UP032",
 ]
 
+[tool.yapf]
+# spaces_before_comment = 4
+column_limit = 120
+indent_width = 4
+based_on_style = "google"
+split_before_logical_operator = false
+
 
 [tool.codespell]
 ignore-words-list = "ist"
