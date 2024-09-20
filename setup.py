@@ -3,9 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from setuptools import setup, find_packages
-from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 from pathlib import Path
+
+from setuptools import find_packages, setup
+from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
 cur_path = Path(__file__).parent
 
@@ -39,8 +40,7 @@ def build_cuda_extensions():
             "--expt-extended-lambda",
             "--use_fast_math",
             "-lineinfo",
-        ]
-        + arch_flags,
+        ] + arch_flags,
         "cxx": ["-O3", "-fopenmp", "-lgomp", "-std=c++17", "-DENABLE_BF16"],
     }
     extensions = CUDAExtension(

@@ -3,18 +3,17 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+import glob
 import math
-import torch
-
 import os.path as osp
 import time
-
 from argparse import ArgumentParser
-from LUTobq.ist.llama import llama_eval
+
+import torch
 from LUTobq.ist.data import get_loaders
+from LUTobq.ist.llama import llama_eval
 from LUTobq.utils.config import Config
 from safetensors import safe_open
-import glob
 from transformers import AutoTokenizer
 
 
@@ -32,9 +31,8 @@ def pack_index(
 
     # upcast the indice to uint64 to avoid overflow on signed bit
     if res_indice is not None:
-        merged_indice = (res_indice.view(index_dtype).to(torch.uint64).view(torch.int64) << index_bits) | indice.view(
-            index_dtype
-        ).to(torch.uint64).view(torch.int64)
+        merged_indice = (res_indice.view(index_dtype).to(torch.uint64).view(torch.int64) <<
+                         index_bits) | indice.view(index_dtype).to(torch.uint64).view(torch.int64)
     else:
         merged_indice = indice.view(index_dtype).to(torch.uint64).view(torch.int64)
 
@@ -137,7 +135,8 @@ def dtype_convert(data, from_dtype, to_dtype, as_type):
 
 
 def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
-    print(f"converting model indices from {from_dtype} " f"to {to_dtype} as {as_type}")
+    print(f"converting model indices from {from_dtype} "
+          f"to {to_dtype} as {as_type}")
 
     quant_config = {}
     for mod_name, sub_mod in model.named_modules():
@@ -149,29 +148,25 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
             #     f'dtype: {sub_mod.indices.dtype}')
 
             if sub_mod.indices.dtype == torch.int64:
-                sub_mod.indices.data = dtype_convert(
-                    sub_mod.indices.data, sub_mod.indices.data.dtype, to_dtype, as_type
-                )
+                sub_mod.indices.data = dtype_convert(sub_mod.indices.data, sub_mod.indices.data.dtype, to_dtype,
+                                                     as_type)
             else:
                 sub_mod.indices.data = dtype_convert(sub_mod.indices.data, from_dtype, to_dtype, as_type)
 
             if hasattr(sub_mod, "res_indices") and sub_mod.res_indices is not None:
                 if sub_mod.res_indices.dtype == torch.int64:
-                    sub_mod.res_indices.data = dtype_convert(
-                        sub_mod.res_indices.data, sub_mod.res_indices.data.dtype, to_dtype, as_type
-                    )
+                    sub_mod.res_indices.data = dtype_convert(sub_mod.res_indices.data, sub_mod.res_indices.data.dtype,
+                                                             to_dtype, as_type)
                 else:
                     sub_mod.res_indices.data = dtype_convert(sub_mod.res_indices.data, from_dtype, to_dtype, as_type)
 
             if hasattr(sub_mod, "outlier_indices") and sub_mod.outlier_indices is not None:
                 if sub_mod.outlier_indices.dtype == torch.int64:
-                    sub_mod.outlier_indices.data = dtype_convert(
-                        sub_mod.outlier_indices.data, sub_mod.outlier_indices.data.dtype, to_dtype, as_type
-                    )
+                    sub_mod.outlier_indices.data = dtype_convert(sub_mod.outlier_indices.data,
+                                                                 sub_mod.outlier_indices.data.dtype, to_dtype, as_type)
                 else:
-                    sub_mod.outlier_indices.data = dtype_convert(
-                        sub_mod.outlier_indices.data, from_dtype, to_dtype, as_type
-                    )
+                    sub_mod.outlier_indices.data = dtype_convert(sub_mod.outlier_indices.data, from_dtype, to_dtype,
+                                                                 as_type)
 
             if sub_mod.perm.dtype == torch.int64:
                 sub_mod.perm.data = dtype_convert(sub_mod.perm.data, sub_mod.perm.data.dtype, to_dtype, as_type)
@@ -221,7 +216,8 @@ def eval_ppl(qmodel, config):
             assert True, "opt is not supported"
         print(f"ppl_{dataset}: {ppl}")
 
-    print(f'end time: {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())},' f'duration: {time.time()-tick} seconds')
+    print(f'end time: {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())},'
+          f'duration: {time.time()-tick} seconds')
 
 
 if __name__ == "__main__":
@@ -246,16 +242,16 @@ if __name__ == "__main__":
 
     try:
         from_type = index_type_dict[args.from_type]
-    except KeyError:
-        raise ValueError(f"Unsupported from index type {args.from_type}")
+    except KeyError as err:
+        raise ValueError(f"Unsupported from index type {args.from_type}") from err
     try:
         to_type = index_type_dict[args.to_type]
-    except KeyError:
-        raise ValueError(f"Unsupported to index type {args.to_type}")
+    except KeyError as err:
+        raise ValueError(f"Unsupported to index type {args.to_type}") from err
     try:
         as_type = index_type_dict[args.as_type]
-    except KeyError:
-        raise ValueError(f"Unsupported as index type {args.as_type}")
+    except KeyError as err:
+        raise ValueError(f"Unsupported as index type {args.as_type}") from err
 
     print(f"load model from {args.load_model}, from_type: {from_type}, to_type: {to_type}")
 
@@ -275,7 +271,7 @@ if __name__ == "__main__":
         for shard_path in shard_paths:
             path = osp.join(state_path, shard_path)
             with safe_open(path, framework="pt", device="cpu") as f:
-                for k in f.keys():
+                for k in f:
                     state_dict[k] = f.get_tensor(k)
         return state_dict
 
@@ -287,9 +283,8 @@ if __name__ == "__main__":
 
     print(f"model seqlen {qmodel.seqlen}")
 
-    if qmodel.seqlen != 4096 and (
-        "llama2" in config.model_args.model_name.lower() or "llama-2" in config.model_args.model_name.lower()
-    ):
+    if qmodel.seqlen != 4096 and ("llama2" in config.model_args.model_name.lower() or
+                                  "llama-2" in config.model_args.model_name.lower()):
         print("WARNING! LLama-2 model should set seqlen=4096")
     qmodel.eval()
 

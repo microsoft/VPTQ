@@ -3,14 +3,15 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-import transformers
-from tqdm import tqdm
+import glob
+from pathlib import Path
+
 import accelerate
 import huggingface_hub
-import torch
-import glob
 import safetensors
-from pathlib import Path
+import torch
+import transformers
+from tqdm import tqdm
 
 from .qlinear import QuantLinear
 
@@ -30,9 +31,9 @@ def set_op_by_name(layer, name, new_module):
 
 
 def make_quant_linear(module, quant_conf, name="", target_layer=None):
-    for module_name, sub_module in tqdm(
-        module.named_modules(), total=len(list(module.named_modules())), desc="Replacing linear layers..."
-    ):
+    for module_name, sub_module in tqdm(module.named_modules(),
+                                        total=len(list(module.named_modules())),
+                                        desc="Replacing linear layers..."):
         if module_name in quant_conf:
             layer_conf = quant_conf[module_name]
             new_module = target_layer(**layer_conf, enable_proxy_error=False, dtype=sub_module.weight.dtype)
@@ -43,6 +44,7 @@ def make_quant_linear(module, quant_conf, name="", target_layer=None):
 
 
 class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
+
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
         init_contexts = [
@@ -73,9 +75,9 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             checkpoint = pretrained_model_name_or_path
         else:  # remote
             token_arg = {"token": kwargs.get("token", None)}
-            checkpoint = huggingface_hub.snapshot_download(
-                repo_id=pretrained_model_name_or_path, ignore_patterns=["*.bin"], **token_arg
-            )
+            checkpoint = huggingface_hub.snapshot_download(repo_id=pretrained_model_name_or_path,
+                                                           ignore_patterns=["*.bin"],
+                                                           **token_arg)
             weight_bins = glob.glob(str(Path(checkpoint).absolute() / "*.safetensors"))
             index_json = glob.glob(str(Path(checkpoint).absolute() / "*.index.json"))
             pytorch_model_bin = glob.glob(str(Path(checkpoint).absolute() / "pytorch_model.bin"))

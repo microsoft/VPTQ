@@ -4,8 +4,10 @@
 # --------------------------------------------------------------------------
 
 import argparse
-from .ist.model_base import AutoModelForCausalLM as VQAutoModelQuantization
+
 import transformers
+
+from .ist.model_base import AutoModelForCausalLM as VQAutoModelQuantization
 
 
 def define_basic_args():
@@ -16,9 +18,10 @@ A typical usage is:
  """,
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    parser.add_argument(
-        "--model", type=str, required=True, help="float/float16 model to load, such as [mosaicml/mpt-7b]"
-    )
+    parser.add_argument("--model",
+                        type=str,
+                        required=True,
+                        help="float/float16 model to load, such as [mosaicml/mpt-7b]")
     parser.add_argument("--tokenizer", type=str, default="", help="default same as [model]")
     parser.add_argument("--prompt", type=str, default="once upon a time, there ", help="prompt to start generation")
     parser.add_argument("--chat", action="store_true", help="chat with the model")
@@ -37,7 +40,7 @@ def chat_loop(model, tokenizer):
         encodeds = tokenizer.apply_chat_template(messages, return_tensors="pt")
         model_inputs = encodeds.to("cuda")
         generated_ids = model.generate(model_inputs, pad_token_id=2, max_new_tokens=500, do_sample=True)
-        decoded = tokenizer.batch_decode(generated_ids[:, model_inputs.shape[-1] :], skip_special_tokens=True)
+        decoded = tokenizer.batch_decode(generated_ids[:, model_inputs.shape[-1]:], skip_special_tokens=True)
         messages.append({"role": "assistant", "content": decoded[0]})
         print("assistant:", decoded[0])
 

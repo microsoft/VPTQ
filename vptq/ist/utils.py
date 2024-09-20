@@ -6,7 +6,9 @@
 import torch.nn as nn
 
 
-def find_layers(module, layers=[nn.Linear], name=""):
+def find_layers(module, layers=None, name=""):
+    if layers is None:
+        layers = [nn.Linear]
     if type(module) in layers:
         return {name: module}
     res = {}

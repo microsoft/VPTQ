@@ -4,4 +4,4 @@
 # --------------------------------------------------------------------------
 
 __version__ = "0.0.1"
-from .ist.model_base import AutoModelForCausalLM
+from .ist.model_base import AutoModelForCausalLM as AutoModelForCausalLM

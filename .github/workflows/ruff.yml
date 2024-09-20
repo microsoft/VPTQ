@@ -30,9 +30,12 @@ jobs:
     - name: Analysing the code with ruff
       run: |
         ruff check .
-    #- name: Spelling check with codespell
-    #  run: |
-    #    codespell --toml pyproject.toml
+    - name: Spelling check with codespell
+      run: |
+       codespell --toml pyproject.toml
     - name: Run isort
       run: |
         isort . --check-only
+    - name: Running yapf
+      run: |
+        yapf --diff --recursive .
