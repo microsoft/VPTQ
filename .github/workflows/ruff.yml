@@ -38,5 +38,5 @@ jobs:
         isort . --check-only
     - name: Running yapf
       run: |
-        echo "`please yapf  --recursive .` if errors"
+        echo "please run \" yapf  --recursive .\" if errors"
         yapf --diff --recursive .
