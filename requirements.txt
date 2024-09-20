@@ -1,0 +1,6 @@
+datasets
+torch
+transformers
+safetensors
+psutil
+accelerate
