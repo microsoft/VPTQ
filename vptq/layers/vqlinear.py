@@ -12,7 +12,7 @@ from torch.nn import functional as F
 from torch.nn.parameter import Parameter
 
 
-class QuantLinear(nn.Module):
+class VQuantLinear(nn.Module):
 
     def __init__(
         self,
