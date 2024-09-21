@@ -1,5 +1,5 @@
 [build-system]
-# Should be mirrored in requirements-build.txt
+# Should be mirrored in requirements.txt
 requires = [
     "packaging",
     "setuptools >= 49.4.0",
