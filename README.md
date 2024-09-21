@@ -75,6 +75,13 @@ out = m.generate(**inputs, max_new_tokens=100, pad_token_id=2)
 print(tokenizer.decode(out[0], skip_special_tokens=True))
 ```
 
+### Gradio app example
+A environment variable is avaible to control share link or not. 
+`export SHARE_LINK=1`
+```
+python -m vptq.app
+```
+
 ## Road Map
 - [ ] Merge the quantization algorithm into the public repository.
 - [ ] Submit the VPTQ method to various inference frameworks (e.g., vLLM, llama.cpp).
