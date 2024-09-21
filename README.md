@@ -93,11 +93,28 @@ python -m vptq.app
 * Jicheng Wen (@wejoncy)
 * Yang Wang (@YangWang92)
 
-
 ## Acknowledgement
 
 * We thank for **James Hensman** for his crucial insights into the error analysis related to Vector Quantization (VQ), and his comments on LLMs evaluation are invaluable to this research.
 * We are deeply grateful for the inspiration provided by the papers QUIP, QUIP#, GPTVQ, AQLM, WoodFisher, GPTQ, and OBC.
+
+## Publication
+EMNLP 2024 Main
+```bibtex
+@inproceedings{
+  vptq,
+  title={VPTQ: Extreme Low-bit Vector Post-Training Quantization for Large Language Models},
+  author={Yifei Liu and
+          Jicheng Wen and
+          Yang Wang and
+          Shengyu Ye and
+          Li Lyna Zhang and
+          Ting Cao, Cheng Li and
+          Mao Yang},
+  booktitle={The 2024 Conference on Empirical Methods in Natural Language Processing},
+  year={2024},
+}
+```
 
 ## Limitation of VPTQ
 * ⚠️ VPTQ should only be used for research and experimental purposes. Further testing and validation are needed before you use it.
