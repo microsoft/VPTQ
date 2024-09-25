@@ -298,6 +298,7 @@ torch::Tensor lauch_deqantize_outliers_cuda_packkernel(
     const c10::optional<torch::Tensor>& outliers_indices,    //[num_cen, c_size, ol_in_f]
     const c10::optional<torch::Tensor>& outliers_centroids,  //[num_c, c_size, out_vec_len]
     const c10::optional<torch::Tensor>& perm, const torch::Tensor& weight_scale, const torch::Tensor& weight_bias) {
+  OptionalCUDAGuard cudaguard(q_indice.device().index());
   int base_groupsize = centroids.size(-1);  // how many elements in a vector
   int res_groupsize = residual_centroids.has_value() ? residual_centroids.value().size(-1) : 0;
   // TORCH_CHECK((res_groupsize===base_groupsize||res_groupsize==0), "res_groupsize===base_groupsize is false, must be
@@ -443,6 +444,7 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(
     const c10::optional<torch::Tensor>& outliers_centroids,  //[num_c, c_size, out_vec_len]
     const c10::optional<torch::Tensor>& perm, const torch::Tensor& weight_scale, const torch::Tensor& weight_bias,
     const c10::optional<torch::Tensor>& bias) {
+  OptionalCUDAGuard cudaguard(input.device().index());
   const int base_groupsize = centroids.size(-1);
   int index_bits = log2(centroids.size(1));
   int res_index_bits = residual_centroids.has_value() ? log2(residual_centroids.value().size(1)) : 0;

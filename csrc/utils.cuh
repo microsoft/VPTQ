@@ -122,11 +122,12 @@ __device__ __forceinline__ uint32_t iterator_packed_tensor(const uint32_t* ptr, 
     int second = end_bits / 32;
     start_bits = start_bits % 32;
     end_bits = end_bits % 32;
-    uint32_t sec_v = ptr[second];
     uint32_t v = (ptr[first] >> (start_bits)) & ((1 << WBITS) - 1);
-    if (first == second) {
+    if (first == second || end_bits == 0) {
       return v;
     } else {
+      // second position might be out of bound
+      uint32_t sec_v = ptr[second];
       v |= ((sec_v) & ((1 << (end_bits)) - 1)) << (32 - start_bits);
       return v;
     }
