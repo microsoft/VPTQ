@@ -200,6 +200,7 @@ __global__ void DequantizeWithOutliers_PackIndice(scalar_t* out, const int32_t* 
   int tid = (bid * cuda::kBlockSize + threadIdx.x);
   int in_x = tid % in_features;
   int in_y = tid / in_features;
+  using VecType = typename cuda::TypeVec2<scalar_t>::type;
 
   uint16_t mapped_index_x = invert_perm ? invert_perm[in_x] : in_x;
   const scalar_t scale = weight_scale[in_x];
@@ -243,25 +244,25 @@ __global__ void DequantizeWithOutliers_PackIndice(scalar_t* out, const int32_t* 
       cuda::iterator_packed_tensor<IDXBITS + ResidualBits>((const uint32_t*)q_indice, mappped_inx_in_a_codebook);
 
   const uint16_t base_ind = merged_ind & ((1 << IDXBITS) - 1);
-  __half2 base[GROUPSIZE / 2];
+  VecType base[GROUPSIZE / 2];
   const scalar_t* centroids_start = centroids + base_ind * GROUPSIZE;
   cuda::ldg_vec_x<GROUPSIZE>((uint32_t*)(base), (const uint32_t*)(centroids_start));
 
   if constexpr (ResidualBits > 0) {
-    __half2 residual[GROUPSIZE / 2];
+    VecType residual[GROUPSIZE / 2];
     merged_ind >>= IDXBITS;
     const uint16_t res_ind = merged_ind & ((1 << ResidualBits) - 1);
     const scalar_t* residual_centroids_start = residual_centroids + res_ind * GROUPSIZE;
     cuda::ldg_vec_x<GROUPSIZE>((uint32_t*)(residual), (const uint32_t*)(residual_centroids_start));
 #pragma unroll
     for (int i = 0; i < GROUPSIZE / 2; i++) {
-      base[i] = __hadd2(*(((__half2*)base) + i), *(((__half2*)residual) + i));
+      base[i] = __hadd2(*(((VecType*)base) + i), *(((VecType*)residual) + i));
     }
   }
 
-  __half2 hres[GROUPSIZE / 2];
-  __half2 scale2 = __half2(scale, scale);
-  __half2 bias2 = __half2(bias, bias);
+  VecType hres[GROUPSIZE / 2];
+  VecType scale2 = VecType(scale, scale);
+  VecType bias2 = VecType(bias, bias);
 #pragma unroll
   for (int i = 0; i < GROUPSIZE / 2; i++) {
     hres[i] = __hfma2(base[i], scale2, bias2);
@@ -313,46 +314,61 @@ torch::Tensor lauch_deqantize_outliers_cuda_packkernel(
   }
   int outliers_indices_size_n1 = outliers_indices.has_value() ? outliers_indices.value().size(-1) : 0;
   int outliers_centroids_size_n1 = outliers_centroids.has_value() ? outliers_centroids.value().size(-1) : 1;
-  using scalar_t = at::Half;
 
   const uint16_t* perm_ptr = perm.has_value() ? (const uint16_t*)(perm.value().data_ptr<int16_t>()) : nullptr;
   const int16_t* outliers_indices_ptr =
       outliers_indices.has_value() ? outliers_indices.value().data_ptr<int16_t>() : nullptr;
-  const scalar_t* residual_centroids_ptr =
-      residual_centroids.has_value() ? residual_centroids.value().data_ptr<scalar_t>() : nullptr;
-  const scalar_t* outliers_centroids_ptr =
-      outliers_centroids.has_value() ? outliers_centroids.value().data_ptr<scalar_t>() : nullptr;
   auto stream = at::cuda::getCurrentCUDAStream().stream();
-#define callDequantWithOutliers(IDXBITS, BASEGROUP, OUT_OUF_INF, ResidualBits)                                       \
-  DequantizeWithOutliers_PackIndice<scalar_t, IDXBITS, ResidualBits, BASEGROUP, OUT_OUF_INF>                         \
-      <<<blocks, threads, 0, stream>>>(output.data_ptr<scalar_t>(), q_indice.data_ptr<int32_t>(),                    \
-                                       outliers_indices_ptr, centroids.data_ptr<scalar_t>(), residual_centroids_ptr, \
-                                       outliers_centroids_ptr, perm_ptr, weight_scale.data_ptr<scalar_t>(),          \
-                                       weight_bias.data_ptr<scalar_t>(), out_size[0], out_size[1],                   \
-                                       outliers_indices_size_n1, outliers_centroids_size_n1, q_indice.stride(0),     \
-                                       q_indice.stride(1), centroids.stride(0), q_indice.size(0));
+#define callDequantWithOutliers(scalar_t, IDXBITS, BASEGROUP, OUT_OUF_INF, ResidualBits)                  \
+  {                                                                                                       \
+    using nv_type = typename C10ToNvType<scalar_t>::type;                                                 \
+    DequantizeWithOutliers_PackIndice<nv_type, IDXBITS, ResidualBits, BASEGROUP, OUT_OUF_INF>             \
+        <<<blocks, threads, 0, stream>>>(                                                                 \
+            reinterpret_cast<nv_type*>(output.data_ptr<scalar_t>()), q_indice.data_ptr<int32_t>(),        \
+            outliers_indices_ptr, reinterpret_cast<const nv_type*>(centroids.data_ptr<scalar_t>()),       \
+            residual_centroids.has_value()                                                                \
+                ? reinterpret_cast<const nv_type*>(residual_centroids.value().data_ptr<scalar_t>())       \
+                : nullptr,                                                                                \
+            outliers_centroids.has_value()                                                                \
+                ? reinterpret_cast<const nv_type*>(outliers_centroids.value().data_ptr<scalar_t>())       \
+                : nullptr,                                                                                \
+            perm_ptr, reinterpret_cast<const nv_type*>(weight_scale.data_ptr<scalar_t>()),                \
+            reinterpret_cast<const nv_type*>(weight_bias.data_ptr<scalar_t>()), out_size[0], out_size[1], \
+            outliers_indices_size_n1, outliers_centroids_size_n1, q_indice.stride(0), q_indice.stride(1), \
+            centroids.stride(0), q_indice.size(0));                                                       \
+  }
+
+#define callDequantWithOutliers_dtype(IDXBITS, BASEGROUP, OUT_OUF_INF, ResidualBits)  \
+  if (centroids.dtype() == at::ScalarType::Half) {                                    \
+    using scalar_t = c10::Half;                                                       \
+    callDequantWithOutliers(scalar_t, IDXBITS, BASEGROUP, OUT_OUF_INF, ResidualBits); \
+  } else {                                                                            \
+    using scalar_t = c10::BFloat16;                                                   \
+    callDequantWithOutliers(scalar_t, IDXBITS, BASEGROUP, OUT_OUF_INF, ResidualBits); \
+  }
+
 #define callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, ResidualBits)        \
   switch (index_bits) {                                                           \
     case 16:                                                                      \
-      callDequantWithOutliers(16, BASEGROUP, OUT_OUF_INF, ResidualBits);          \
+      callDequantWithOutliers_dtype(16, BASEGROUP, OUT_OUF_INF, ResidualBits);    \
       break;                                                                      \
     case 15:                                                                      \
-      callDequantWithOutliers(15, BASEGROUP, OUT_OUF_INF, ResidualBits);          \
+      callDequantWithOutliers_dtype(15, BASEGROUP, OUT_OUF_INF, ResidualBits);    \
       break;                                                                      \
     case 14:                                                                      \
-      callDequantWithOutliers(14, BASEGROUP, OUT_OUF_INF, ResidualBits);          \
+      callDequantWithOutliers_dtype(14, BASEGROUP, OUT_OUF_INF, ResidualBits);    \
       break;                                                                      \
     case 13:                                                                      \
-      callDequantWithOutliers(13, BASEGROUP, OUT_OUF_INF, ResidualBits);          \
+      callDequantWithOutliers_dtype(13, BASEGROUP, OUT_OUF_INF, ResidualBits);    \
       break;                                                                      \
     case 12:                                                                      \
-      callDequantWithOutliers(12, BASEGROUP, OUT_OUF_INF, ResidualBits);          \
+      callDequantWithOutliers_dtype(12, BASEGROUP, OUT_OUF_INF, ResidualBits);    \
       break;                                                                      \
     case 8:                                                                       \
-      callDequantWithOutliers(8, BASEGROUP, OUT_OUF_INF, ResidualBits);           \
+      callDequantWithOutliers_dtype(8, BASEGROUP, OUT_OUF_INF, ResidualBits);     \
       break;                                                                      \
     case 4:                                                                       \
-      callDequantWithOutliers(4, BASEGROUP, OUT_OUF_INF, ResidualBits);           \
+      callDequantWithOutliers_dtype(4, BASEGROUP, OUT_OUF_INF, ResidualBits);     \
       break;                                                                      \
     default:                                                                      \
       TORCH_CHECK(false, "unspportetd index_bits:" + std::to_string(index_bits)); \
