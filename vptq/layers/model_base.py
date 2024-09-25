@@ -88,6 +88,14 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             elif len(weight_bins) > 0:
                 torch.save(safetensors.torch.load_file(weight_bins[0]), checkpoint + "/pytorch_model.bin")
 
+        # force to use one GPU as most as possible
+        model_buffer_size = accelerate.utils.modeling.compute_module_sizes(model, dtype=auto_conf.torch_dtype)[""]
+        local_max_memory = accelerate.utils.modeling.get_max_memory()
+        if 0 in local_max_memory and local_max_memory[0]*0.85 > model_buffer_size:
+            local_max_memory = {0 : local_max_memory[0]}
+        if max_memory is None:
+            max_memory = local_max_memory
+
         model = accelerate.load_checkpoint_and_dispatch(
             model,
             checkpoint=checkpoint,
