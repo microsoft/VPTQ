@@ -28,6 +28,14 @@ T __device__ __forceinline__ ConvertFromFloat(float v) {
   return __float2half(v);
 }
 
+template <typename T>
+T __device__ __forceinline__ ConvertToFloat(float v) {
+  if constexpr (std::is_same_v<T, __nv_bfloat16>) {
+    return __bfloat162float(v);
+  }
+  return __half2float(v);
+}
+
 template <unsigned int WarpSize>
 __device__ __forceinline__ float warpReduceSum(float sum) {
   if constexpr (WarpSize >= 32) sum += __shfl_down_sync(0xffffffff, sum, 16);  // 0-16, 1-17, 2-18, etc.
