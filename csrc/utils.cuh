@@ -21,19 +21,23 @@ struct TypeVec2<__nv_bfloat16> {
 };
 
 template <typename T>
-T __device__ __forceinline__ ConvertFromFloat(float v) {
-  if constexpr (std::is_same_v<T, __nv_bfloat16>) {
-    return __float2bfloat16(v);
+T __device__ __forceinline__ ConvertFromFloat(float v, T vv) {
+  if constexpr (std::is_same<T, __nv_bfloat16>::value) {
+    return vv = __float2bfloat16(v);
+  } else {
+    static_assert(std::is_same<T, __half>::value);
+    return vv = __float2half(v);
   }
-  return __float2half(v);
 }
 
 template <typename T>
-T __device__ __forceinline__ ConvertToFloat(float v) {
-  if constexpr (std::is_same_v<T, __nv_bfloat16>) {
+float __device__ __forceinline__ ConvertToFloat(T v) {
+  if constexpr (std::is_same<T, __nv_bfloat16>::value) {
     return __bfloat162float(v);
+  } else {
+    static_assert(std::is_same<T, __half>::value);
+    return __half2float(v);
   }
-  return __half2float(v);
 }
 
 template <unsigned int WarpSize>

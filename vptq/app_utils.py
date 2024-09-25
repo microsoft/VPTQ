@@ -7,6 +7,7 @@ import argparse
 import os
 from threading import Thread
 
+import torch
 import transformers
 
 from .layers.model_base import AutoModelForCausalLM as VQAutoModelQuantization
@@ -122,12 +123,12 @@ def main():
     args = get_valid_args(parser)
     print(args)
 
-    hf_args = {}
+    hf_args = {"dtype": torch.float16}
     token = os.getenv("HF_TOKEN", None)
     if token is not None:
         hf_args["token"] = token
 
-    model = VQAutoModelQuantization.from_pretrained(args.model, device_map="auto", **hf_args).half()
+    model = VQAutoModelQuantization.from_pretrained(args.model, device_map="auto", **hf_args)
     tokenizer = transformers.AutoTokenizer.from_pretrained(args.tokenizer or args.model, **hf_args)
 
     chat_loop(model, tokenizer, args)

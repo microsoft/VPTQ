@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include <cuda_bf16.h>
 #include <cmath>
 #include <math_constants.h>
 #include <ATen/cuda/CUDAContext.h>
@@ -40,10 +39,10 @@ __global__ void WqA16WithOutliers_PackIndice(
   // scalar_t* shared_w_scales = shared_memory+in_features;// in_features, dynamic
   scalar_t* shared_w_bias = shared_memory + in_features;  // in_features, dynamic
   __shared__ float shared_output[GROUPSIZE][cuda::kBlockSize / 32 + 1];
-  scalar_t tmp_output[GROUPSIZE] = {0};
+  scalar_t tmp_output[GROUPSIZE];
 #pragma unroll
   for (int i = 0; i < GROUPSIZE; i++) {
-    tmp_output[i] = scalar_t(0);
+    tmp_output[i] = scalar_t(0.0f);
   }
   input_data = input_data + in_features * bidy;
   out = out + out_features * bidy * gridDim.z;
@@ -154,11 +153,7 @@ __global__ void WqA16WithOutliers_PackIndice(
 #pragma unroll
   for (int gi = 0; gi < GROUPSIZE; gi++) {
     float reduce_out = 0.f;
-    if constexpr (!std::is_same_v<scalar_t, c10::BFloat16>) {
-      reduce_out = __half2float(tmp_output[gi]);
-    } else {
-      reduce_out = __bfloat162float(tmp_output[gi]);
-    }
+    reduce_out = cuda::ConvertToFloat(tmp_output[gi]);
     reduce_out = cuda::warpReduceSum<32>(reduce_out);
     if (landid == 0) {
       shared_output[gi][warpid] = reduce_out;
@@ -181,10 +176,11 @@ __global__ void WqA16WithOutliers_PackIndice(
       reduce_out = cuda::warpReduceSum<cuda::kBlockSize / 32>(reduce_out);
       if (landid == 0 && (in_y * GROUPSIZE + wid) < out_features) {
         if constexpr (Do_Reduce) {
-          out[(wid)*gridDim.z] =
-              cuda::ConvertFromFloat<scalar_t>(reduce_out) + ((bidz == 0 && bias != 0) ? bias[wid] : scalar_t(0));
+          out[(wid)*gridDim.z] = cuda::ConvertFromFloat<scalar_t>(reduce_out, scalar_t(0.0f)) +
+                                 ((bidz == 0 && bias != 0) ? bias[wid] : scalar_t(0.0f));
         } else {
-          out[wid] = cuda::ConvertFromFloat<scalar_t>(reduce_out) + ((bias != 0) ? bias[wid] : scalar_t(0));
+          out[wid] =
+              cuda::ConvertFromFloat<scalar_t>(reduce_out, scalar_t(0.0f)) + ((bias != 0) ? bias[wid] : scalar_t(0.0f));
         }
       }
     }
@@ -469,22 +465,32 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(
   const uint16_t* outliers_indices_ptr =
       (const uint16_t*)(outliers_indices.has_value() ? outliers_indices.value().data_ptr<int16_t>() : nullptr);
   const uint16_t* perm_ptr = perm.has_value() ? (const uint16_t*)(perm.value().data_ptr<int16_t>()) : nullptr;
-  const c10::Half* bias_ptr = bias.has_value() ? (bias.value().data_ptr<c10::Half>()) : nullptr;
-#define CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits)                             \
-  WqA16WithOutliers_PackIndice<scalar_t, IDXBITS, ResidualBits, BASEGROUP, 4, Do_Reduce>                            \
-      <<<blocks, threads, shared_memory_size, stream>>>(                                                            \
-          out_buf.data_ptr<scalar_t>(), input.data_ptr<scalar_t>(), q_indice.data_ptr<int32_t>(),                   \
-          outliers_indices_ptr, centroids.data_ptr<scalar_t>(),                                                     \
-          residual_centroids.has_value() ? residual_centroids.value().data_ptr<scalar_t>() : nullptr,               \
-          outliers_centroids.has_value() ? outliers_centroids.value().data_ptr<scalar_t>() : nullptr, perm_ptr,     \
-          weight_scale.data_ptr<scalar_t>(), weight_bias.data_ptr<scalar_t>(), bias_ptr, out_features, in_features, \
-          outliers_indices_size_n1, q_indice.stride(0), q_indice.stride(1), centroids.stride(0), q_indice.size(0));
+#define CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits)                       \
+  {                                                                                                           \
+    using nv_type = typename C10ToNvType<scalar_t>::type;                                                     \
+    WqA16WithOutliers_PackIndice<nv_type, IDXBITS, ResidualBits, BASEGROUP, 4, Do_Reduce>                     \
+        <<<blocks, threads, shared_memory_size, stream>>>(                                                    \
+            reinterpret_cast<nv_type*>(out_buf.data_ptr<scalar_t>()),                                         \
+            reinterpret_cast<const nv_type*>(input.data_ptr<scalar_t>()), q_indice.data_ptr<int32_t>(),       \
+            outliers_indices_ptr, reinterpret_cast<const nv_type*>(centroids.data_ptr<scalar_t>()),           \
+            residual_centroids.has_value()                                                                    \
+                ? reinterpret_cast<const nv_type*>(residual_centroids.value().data_ptr<scalar_t>())           \
+                : nullptr,                                                                                    \
+            outliers_centroids.has_value()                                                                    \
+                ? reinterpret_cast<const nv_type*>(outliers_centroids.value().data_ptr<scalar_t>())           \
+                : nullptr,                                                                                    \
+            perm_ptr, reinterpret_cast<const nv_type*>(weight_scale.data_ptr<scalar_t>()),                    \
+            reinterpret_cast<const nv_type*>(weight_bias.data_ptr<scalar_t>()),                               \
+            bias.has_value() ? reinterpret_cast<const nv_type*>(bias.value().data_ptr<scalar_t>()) : nullptr, \
+            out_features, in_features, outliers_indices_size_n1, q_indice.stride(0), q_indice.stride(1),      \
+            centroids.stride(0), q_indice.size(0));                                                           \
+  }
 #define CallWqA16kernel_dtype(out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits)  \
   if (input.dtype() == at::ScalarType::Half) {                                       \
     using scalar_t = c10::Half;                                                      \
     CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits); \
   } else {                                                                           \
-    using scalar_t = c10::Half;                                                      \
+    using scalar_t = c10::BFloat16;                                                  \
     CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits); \
   }
 #define CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, ResidualBits)         \
