@@ -417,6 +417,7 @@ class VQuantLinear(nn.Module):
             self.perm,
             self.weight_scale,
             self.weight_bias,
+            self.bias,
             self.vector_len,
             self.in_features,
             self.out_features,
