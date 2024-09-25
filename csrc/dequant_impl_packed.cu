@@ -20,14 +20,12 @@ struct C10ToNvType<c10::Half> {
 };
 
 template <typename scalar_t, int IDXBITS, int ResidualBits, int GROUPSIZE, int OL_GroupSize, int Do_Reduce>
-__global__ void WqA16WithOutliers_PackIndice(scalar_t* out, const scalar_t* input_data, const int32_t* q_indice,
-                                             const uint16_t* q_indice_outliers, const scalar_t* __restrict__ centroids,
-                                             const scalar_t* __restrict__ residual_centroids,
-                                             const scalar_t* outliers_centroids, const uint16_t* invert_perm,
-                                             const scalar_t* weight_scale, const scalar_t* weight_bias,
-                                             int out_features, int in_features, int outliers_infeatures,
-                                             const int index_stride_0, const int index_stride_1,
-                                             const int centroids_stride_0, const int group_nums) {
+__global__ void WqA16WithOutliers_PackIndice(
+    scalar_t* out, const scalar_t* input_data, const int32_t* q_indice, const uint16_t* q_indice_outliers,
+    const scalar_t* __restrict__ centroids, const scalar_t* __restrict__ residual_centroids,
+    const scalar_t* outliers_centroids, const uint16_t* invert_perm, const scalar_t* weight_scale,
+    const scalar_t* weight_bias, const scalar_t* bias, int out_features, int in_features, int outliers_infeatures,
+    const int index_stride_0, const int index_stride_1, const int centroids_stride_0, const int group_nums) {
   int bidx = blockIdx.x;  // out_features//base_groupsize
   int bidy = blockIdx.y;  // batch
   int bidz = blockIdx.z;  // segment in_features
@@ -169,9 +167,12 @@ __global__ void WqA16WithOutliers_PackIndice(scalar_t* out, const scalar_t* inpu
 
   if constexpr (Do_Reduce > 0) {
     out += (in_y * GROUPSIZE) * gridDim.z + bidz;
+    bias += (bias == nullptr ? 0 : (in_y * GROUPSIZE) + bidz);
   } else {
     out += in_y * GROUPSIZE;
+    bias += (bias == nullptr ? 0 : GROUPSIZE);
   }
+
   __syncthreads();
   if (landid < cuda::kBlockSize / 32) {
 #pragma unroll
@@ -180,9 +181,10 @@ __global__ void WqA16WithOutliers_PackIndice(scalar_t* out, const scalar_t* inpu
       reduce_out = cuda::warpReduceSum<cuda::kBlockSize / 32>(reduce_out);
       if (landid == 0 && (in_y * GROUPSIZE + wid) < out_features) {
         if constexpr (Do_Reduce) {
-          out[(wid)*gridDim.z] = cuda::ConvertFromFloat<scalar_t>(reduce_out);
+          out[(wid)*gridDim.z] =
+              cuda::ConvertFromFloat<scalar_t>(reduce_out) + ((bidz == 0 && bias != 0) ? bias[wid] : scalar_t(0));
         } else {
-          out[wid] = cuda::ConvertFromFloat<scalar_t>(reduce_out);
+          out[wid] = cuda::ConvertFromFloat<scalar_t>(reduce_out) + ((bias != 0) ? bias[wid] : scalar_t(0));
         }
       }
     }
@@ -439,7 +441,8 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(
     const c10::optional<torch::Tensor>& residual_centroids,  //[num_c, c_size, vec_len]
     const c10::optional<torch::Tensor>& outliers_indices,    //[num_cen, c_size, ol_in_f]
     const c10::optional<torch::Tensor>& outliers_centroids,  //[num_c, c_size, out_vec_len]
-    const c10::optional<torch::Tensor>& perm, const torch::Tensor& weight_scale, const torch::Tensor& weight_bias) {
+    const c10::optional<torch::Tensor>& perm, const torch::Tensor& weight_scale, const torch::Tensor& weight_bias,
+    const c10::optional<torch::Tensor>& bias) {
   const int base_groupsize = centroids.size(-1);
   int index_bits = log2(centroids.size(1));
   int res_index_bits = residual_centroids.has_value() ? log2(residual_centroids.value().size(1)) : 0;
@@ -464,14 +467,15 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(
   const uint16_t* outliers_indices_ptr =
       (const uint16_t*)(outliers_indices.has_value() ? outliers_indices.value().data_ptr<int16_t>() : nullptr);
   const uint16_t* perm_ptr = perm.has_value() ? (const uint16_t*)(perm.value().data_ptr<int16_t>()) : nullptr;
-#define CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits)                         \
-  WqA16WithOutliers_PackIndice<scalar_t, IDXBITS, ResidualBits, BASEGROUP, 4, Do_Reduce>                        \
-      <<<blocks, threads, shared_memory_size, stream>>>(                                                        \
-          out_buf.data_ptr<scalar_t>(), input.data_ptr<scalar_t>(), q_indice.data_ptr<int32_t>(),               \
-          outliers_indices_ptr, centroids.data_ptr<scalar_t>(),                                                 \
-          residual_centroids.has_value() ? residual_centroids.value().data_ptr<scalar_t>() : nullptr,           \
-          outliers_centroids.has_value() ? outliers_centroids.value().data_ptr<scalar_t>() : nullptr, perm_ptr, \
-          weight_scale.data_ptr<scalar_t>(), weight_bias.data_ptr<scalar_t>(), out_features, in_features,       \
+  const c10::Half* bias_ptr = bias.has_value() ? (bias.value().data_ptr<c10::Half>()) : nullptr;
+#define CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits)                             \
+  WqA16WithOutliers_PackIndice<scalar_t, IDXBITS, ResidualBits, BASEGROUP, 4, Do_Reduce>                            \
+      <<<blocks, threads, shared_memory_size, stream>>>(                                                            \
+          out_buf.data_ptr<scalar_t>(), input.data_ptr<scalar_t>(), q_indice.data_ptr<int32_t>(),                   \
+          outliers_indices_ptr, centroids.data_ptr<scalar_t>(),                                                     \
+          residual_centroids.has_value() ? residual_centroids.value().data_ptr<scalar_t>() : nullptr,               \
+          outliers_centroids.has_value() ? outliers_centroids.value().data_ptr<scalar_t>() : nullptr, perm_ptr,     \
+          weight_scale.data_ptr<scalar_t>(), weight_bias.data_ptr<scalar_t>(), bias_ptr, out_features, in_features, \
           outliers_indices_size_n1, q_indice.stride(0), q_indice.stride(1), centroids.stride(0), q_indice.size(0));
 #define CallWqA16kernel_dtype(out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits)  \
   if (input.dtype() == at::ScalarType::Half) {                                       \

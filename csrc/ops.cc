@@ -30,7 +30,8 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(
     const c10::optional<torch::Tensor>& residual_centroids,  //[num_c, c_size, vec_len]
     const c10::optional<torch::Tensor>& outliers_indices,    //[num_cen, c_size, ol_in_f]
     const c10::optional<torch::Tensor>& outliers_centroids,  //[num_c, c_size, out_vec_len]
-    const c10::optional<torch::Tensor>& perm, const torch::Tensor& weight_scale, const torch::Tensor& weight_bias);
+    const c10::optional<torch::Tensor>& perm, const torch::Tensor& weight_scale, const torch::Tensor& weight_bias,
+    const c10::optional<torch::Tensor>& bias);
 
 torch::Tensor dequant(const torch::Tensor& q_indice, const torch::Tensor& centroids,
                       const c10::optional<torch::Tensor>& q_indice_residual,
@@ -85,7 +86,8 @@ torch::Tensor wqA16Gemm(const torch::Tensor& input, const torch::Tensor& q_indic
                         const c10::optional<torch::Tensor>& q_indice_outliers,
                         const c10::optional<torch::Tensor>& outliers_centroids,
                         const c10::optional<torch::Tensor>& invperm, const torch::Tensor& weight_scale,
-                        const torch::Tensor& weight_bias, int groupsize, int in_features, int out_features) {
+                        const torch::Tensor& weight_bias, const c10::optional<torch::Tensor>& bias, int groupsize,
+                        int in_features, int out_features) {
   CHECK_INPUT(q_indice);
   CHECK_INPUT(input);
   if (q_indice_residual.has_value()) {
@@ -113,7 +115,7 @@ torch::Tensor wqA16Gemm(const torch::Tensor& input, const torch::Tensor& q_indic
 
   output = lauch_gemv_outliers_cuda_packkernel(out_features, input, q_indice, centroids, q_indice_residual,
                                                residual_centroids, q_indice_outliers, outliers_centroids, invperm,
-                                               weight_scale, weight_bias);
+                                               weight_scale, weight_bias, bias);
 
   gpuErrchk(cudaPeekAtLastError());
 
