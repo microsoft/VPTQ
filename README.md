@@ -13,7 +13,7 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 
 Scaling model size significantly challenges the deployment and inference of Large Language Models (LLMs). Due to the redundancy in LLM weights, recent research has focused on pushing weight-only quantization to extremely low-bit (even down to 2 bits). It reduces memory requirements, optimizes storage costs, and decreases memory bandwidth needs during inference. However, due to numerical representation limitations, traditional scalar-based weight quantization struggles to achieve such extreme low-bit. Recent research on Vector Quantization (VQ) for LLMs has demonstrated the potential for extremely low-bit model quantization by compressing vectors into indices using lookup tables.
 
-Read tech report at [**Tech Report**](https://github.com/microsoft/VPTQ/blob/main/VPTQ_tech_report.pdf)
+Read tech report at [**Tech Report**](https://github.com/microsoft/VPTQ/blob/main/VPTQ_tech_report.pdf) and [**arXiv Paper**](https://arxiv.org/pdf/2409.17066)
 
 ### Early Results from Tech Report
 VPTQ achieves better accuracy and higher throughput with lower quantization overhead across models of different sizes. The following experimental results are for reference only; VPTQ can achieve better outcomes under reasonable parameters, especially in terms of model accuracy and inference speed.
@@ -134,7 +134,8 @@ EMNLP 2024 Main
           Yang Wang and
           Shengyu Ye and
           Li Lyna Zhang and
-          Ting Cao, Cheng Li and
+          Ting Cao and
+          Cheng Li and
           Mao Yang},
   booktitle={The 2024 Conference on Empirical Methods in Natural Language Processing},
   year={2024},
