@@ -7,7 +7,6 @@ import argparse
 import os
 from threading import Thread
 
-import torch
 import transformers
 
 from .layers.model_base import AutoModelForCausalLM as VQAutoModelQuantization
