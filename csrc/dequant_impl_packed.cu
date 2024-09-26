@@ -34,7 +34,7 @@ __global__ void WqA16WithOutliers_PackIndice(
     tidx += bidz * cuda::kBlockSize * Do_Reduce;
   }
   int in_y = bidx;
-  extern __shared__ scalar_t shared_memory[];  // 3xin_features, dynamic
+  __shared__ scalar_t shared_memory[1];  // 3xin_features, dynamic
   scalar_t* shared_input = shared_memory;      // in_features, dynamic
   // scalar_t* shared_w_scales = shared_memory+in_features;// in_features, dynamic
   scalar_t* shared_w_bias = shared_memory + in_features;  // in_features, dynamic
@@ -196,7 +196,7 @@ __global__ void DequantizeWithOutliers_PackIndice(scalar_t* out, const int32_t* 
                                                   int out_features, int in_features, int outliers_infeatures,
                                                   int OL_GroupSize, const int index_stride_0, const int index_stride_1,
                                                   const int centroids_stride_0, const int group_nums) {
-  int bid = blockIdx.x;
+    int bid = blockIdx.x;
   int tid = (bid * cuda::kBlockSize + threadIdx.x);
   int in_x = tid % in_features;
   int in_y = tid / in_features;

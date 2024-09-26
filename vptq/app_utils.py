@@ -123,7 +123,8 @@ def main():
     args = get_valid_args(parser)
     print(args)
 
-    hf_args = {"dtype": torch.float16}
+    #hf_args = {"dtype": torch.bfloat16}
+    hf_args = {}
     token = os.getenv("HF_TOKEN", None)
     if token is not None:
         hf_args["token"] = token
