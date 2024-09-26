@@ -53,7 +53,8 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
         ]
         auto_conf = transformers.AutoConfig.from_pretrained(pretrained_model_name_or_path, **kwargs)
         cls_kwargs = {}
-        cls_kwargs["torch_dtype"] = auto_conf.torch_dtype
+        torch_dtype = kwargs.get("dtype", auto_conf.torch_dtype)
+        cls_kwargs["torch_dtype"] = torch_dtype
         with transformers.utils.generic.ContextManagers(init_contexts):
             model = cls.from_config(auto_conf, *model_args, **cls_kwargs)
 
@@ -70,7 +71,7 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
         max_memory = kwargs.pop("max_memory", None)
 
         # device_map = accelerate.infer_auto_device_map(model, no_split_module_classes=no_split_module_classes[0],
-        # dtype=auto_conf.torch_dtype)
+        # dtype=torch_dtype)
         if Path(pretrained_model_name_or_path).exists():
             checkpoint = pretrained_model_name_or_path
         else:  # remote
@@ -88,13 +89,21 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             elif len(weight_bins) > 0:
                 torch.save(safetensors.torch.load_file(weight_bins[0]), checkpoint + "/pytorch_model.bin")
 
+        # force to use one GPU as most as possible
+        model_buffer_size = accelerate.utils.modeling.compute_module_sizes(model, dtype=torch_dtype)[""]
+        local_max_memory = accelerate.utils.modeling.get_max_memory()
+        if 0 in local_max_memory and local_max_memory[0] * 0.85 > model_buffer_size:
+            local_max_memory = {0: local_max_memory[0]}
+        if max_memory is None:
+            max_memory = local_max_memory
+
         model = accelerate.load_checkpoint_and_dispatch(
             model,
             checkpoint=checkpoint,
             device_map=device_map,
             max_memory=max_memory,
             no_split_module_classes=no_split_module_classes[0],
-            dtype=auto_conf.torch_dtype,
+            dtype=torch_dtype,
             # preload_module_classes=["VQuantLinear"]
         )
 
@@ -115,4 +124,5 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
         # logger.warning(f"Missing keys: {all_missing_keys[:5]}..., Unexpected keys: {all_unexpected_keys[:5]}...")
         model.eval()
 
+        torch.cuda.empty_cache()
         return model
