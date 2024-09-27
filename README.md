@@ -46,7 +46,9 @@ VPTQ achieves better accuracy and higher throughput with lower quantization over
 export PATH=/usr/local/cuda-12/bin/:$PATH  # set dependent on your environment
 ```
 
-*Will Take several minutes to compile CUDA kernels*
+*Will Take several minutes to compile CUDA kernels*, please be patient. Current compilation builds on SM 8.0, 8,6, 9.0 to reduce the compilation time. You can modify the `setup.py` to build on your specific architecture.
+
+```bash
 ```python
 pip install git+https://github.com/microsoft/VPTQ.git --no-build-isolation
 ```

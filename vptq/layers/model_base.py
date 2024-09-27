@@ -106,6 +106,13 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             dtype=torch_dtype,
             # preload_module_classes=["VQuantLinear"]
         )
+        
+        # check cuda kernel exist
+        try:
+            from vptq import ops
+        except ImportError:
+            print(f'!!! Warning !!!: CUDA kernel not found, please check CUDA and VPTQ installation.')
+            print(f'!!! Warning !!!: Running on Torch Implementation, which is extremely slow.')
 
         # weight_bins = glob.glob(str(Path(pretrained_model_name_or_path).absolute() / '*.safetensors'))
         # all_missing_keys = []
