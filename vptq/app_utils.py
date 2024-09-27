@@ -16,7 +16,8 @@ def define_basic_args():
     parser = argparse.ArgumentParser(
         description="""run a quantized model.
 A typical usage is:
-    python -m vptq --model [model name] --prompt "Explain: Do Not Go Gentle into That Good Night" [--chat-system-prompt "you are a math teacher."]
+    python -m vptq --model [model name] --prompt "Explain: Do Not Go Gentle into That Good Night" \
+        [--chat-system-prompt "you are a math teacher."]
  """,
         formatter_class=argparse.RawTextHelpFormatter,
     )
