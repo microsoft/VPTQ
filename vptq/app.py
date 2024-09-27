@@ -9,7 +9,7 @@ import gradio as gr
 
 from vptq.app_utils import get_chat_loop_generator
 
-chat_completion = get_chat_loop_generator("VPTQ-community/Meta-Llama-3.1-8B-Instruct-v8k65536-4096")
+chat_completion = get_chat_loop_generator("VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k32768-0-woft")
 
 
 def respond(
