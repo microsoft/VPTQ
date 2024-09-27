@@ -12,7 +12,7 @@ import safetensors
 import torch
 import transformers
 from tqdm import tqdm
-
+import importlib.util
 from .vqlinear import VQuantLinear
 
 
@@ -108,9 +108,9 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
         )
         
         # check cuda kernel exist
-        try:
-            from vptq import ops
-        except ImportError:
+        if importlib.util.find_spec("vptq.ops") is not None:
+            pass
+        else:
             print('!!! Warning !!!: CUDA kernel not found, please check CUDA and VPTQ installation.')
             print('!!! Warning !!!: Running on Torch Implementation, which is extremely slow.')
 
