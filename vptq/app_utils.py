@@ -26,9 +26,11 @@ A typical usage is:
                         required=True,
                         help="float/float16 model to load, such as [mosaicml/mpt-7b]")
     parser.add_argument("--tokenizer", type=str, default="", help="default same as [model]")
-    parser.add_argument("--prompt", type=str, default="once upon a time, there ", help="prompt to start generation")
+    parser.add_argument("--prompt", type=str, default="once upon a time, there ", 
+                        help="prompt to start generation")
     parser.add_argument("--chat", action="store_true", help="chat with the model")
-    parser.add_argument("--chat-system-prompt", type=str, default="you are a math teacher.", help="system prompt for chat")
+    parser.add_argument("--chat-system-prompt", type=str, \
+                        default="you are a math teacher.", help="system prompt for chat")
     return parser
 
 
