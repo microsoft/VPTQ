@@ -111,8 +111,8 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
         try:
             from vptq import ops
         except ImportError:
-            print(f'!!! Warning !!!: CUDA kernel not found, please check CUDA and VPTQ installation.')
-            print(f'!!! Warning !!!: Running on Torch Implementation, which is extremely slow.')
+            print('!!! Warning !!!: CUDA kernel not found, please check CUDA and VPTQ installation.')
+            print('!!! Warning !!!: Running on Torch Implementation, which is extremely slow.')
 
         # weight_bins = glob.glob(str(Path(pretrained_model_name_or_path).absolute() / '*.safetensors'))
         # all_missing_keys = []
