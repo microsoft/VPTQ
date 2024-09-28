@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 
 import glob
+import importlib.util
 from pathlib import Path
 
 import accelerate
@@ -12,7 +13,7 @@ import safetensors
 import torch
 import transformers
 from tqdm import tqdm
-import importlib.util
+
 from .vqlinear import VQuantLinear
 
 
@@ -106,7 +107,7 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             dtype=torch_dtype,
             # preload_module_classes=["VQuantLinear"]
         )
-        
+
         # check cuda kernel exist
         if importlib.util.find_spec("vptq.ops") is not None:
             pass
