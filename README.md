@@ -9,6 +9,10 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 * Lightweight Quantization Algorithm: only cost ~17 hours to quantize 405B Llama-3.1
 * Agile Quantization Inference: low decode overhead, best throughput, and TTFT
 
+**Example: Run Llama 3.1 70b on RTX4090 (24G @ ~2bits) in real time**
+![Llama3 1-70b-prompt](https://github.com/user-attachments/assets/d8729aca-4e1d-4fe1-ac71-c14da4bdd97f)
+
+
 ## [**Tech Report**](https://github.com/microsoft/VPTQ/blob/main/VPTQ_tech_report.pdf)
 
 Scaling model size significantly challenges the deployment and inference of Large Language Models (LLMs). Due to the redundancy in LLM weights, recent research has focused on pushing weight-only quantization to extremely low-bit (even down to 2 bits). It reduces memory requirements, optimizes storage costs, and decreases memory bandwidth needs during inference. However, due to numerical representation limitations, traditional scalar-based weight quantization struggles to achieve such extreme low-bit. Recent research on Vector Quantization (VQ) for LLMs has demonstrated the potential for extremely low-bit model quantization by compressing vectors into indices using lookup tables.
@@ -70,19 +74,23 @@ pip install git+https://github.com/microsoft/VPTQ.git --no-build-isolation
 ### Language Generation Example
 To generate text using the pre-trained model, you can use the following code snippet:
 
-The model [*VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k32768-0-woft*](https://huggingface.co/VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k32768-0-woft) (~1.875 bit) is provided by open source community. The repository cannot guarantee the performance of those models.
+The model [*VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-0-woft*](https://huggingface.co/VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-0-woft) (~2 bit) is provided by open source community. The repository cannot guarantee the performance of those models.
 
 ```python
-python -m vptq --model=VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k32768-0-woft --prompt="Explain: Do Not Go Gentle into That Good Night"
+python -m vptq --model=VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-0-woft --prompt="Explain: Do Not Go Gentle into That Good Night"
 ```
+![Llama3 1-70b-prompt](https://github.com/user-attachments/assets/d8729aca-4e1d-4fe1-ac71-c14da4bdd97f)
+
 
 ### Terminal Chatbot Example 
 Launching a chatbot:
 Note that you must use a chat model for this to work
 
 ```python
-python -m vptq --model=VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k32768-0-woft --chat
+python -m vptq --model=VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-0-woft --chat
 ```
+![Llama3 1-70b-chat](https://github.com/user-attachments/assets/af051234-d1df-4e25-95e7-17a5ce98f3ea)
+
 
 ### Python API Example
 Using the Python API:
@@ -90,8 +98,8 @@ Using the Python API:
 ```python
 import vptq
 import transformers
-tokenizer = transformers.AutoTokenizer.from_pretrained("VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k32768-0-woft")
-m = vptq.AutoModelForCausalLM.from_pretrained("VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k32768-0-woft", device_map='auto')
+tokenizer = transformers.AutoTokenizer.from_pretrained("VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-0-woft")
+m = vptq.AutoModelForCausalLM.from_pretrained("VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-0-woft", device_map='auto')
 
 inputs = tokenizer("Explain: Do Not Go Gentle into That Good Night", return_tensors="pt").to("cuda")
 out = m.generate(**inputs, max_new_tokens=100, pad_token_id=2)
