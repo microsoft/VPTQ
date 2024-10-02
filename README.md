@@ -5,12 +5,17 @@
 **Vector Post-Training Quantization (VPTQ)** is a novel Post-Training Quantization method that leverages **Vector Quantization** to high accuracy on LLMs at an extremely low bit-width (<2-bit). 
 VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and maintain high accuracy.
 
-* Better Accuracy on 1-2 bits
+* Better Accuracy on 1-2 bits, (405B @ <2bit, 70B @ 2bit)
 * Lightweight Quantization Algorithm: only cost ~17 hours to quantize 405B Llama-3.1
 * Agile Quantization Inference: low decode overhead, best throughput, and TTFT
 
 **Example: Run Llama 3.1 70b on RTX4090 (24G @ ~2bits) in real time**
 ![Llama3 1-70b-prompt](https://github.com/user-attachments/assets/d8729aca-4e1d-4fe1-ac71-c14da4bdd97f)
+
+
+## News
+- [2024-9-20] Inference code is now open-sourced on GitHub—join us and contribute!
+- [2024-9-20] VPTQ paper has been accepted for a main track presentation at EMNLP 2024.
 
 
 ## [**Tech Report**](https://github.com/microsoft/VPTQ/blob/main/VPTQ_tech_report.pdf)
