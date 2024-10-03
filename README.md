@@ -183,6 +183,9 @@ EMNLP 2024 Main
 }
 ```
 
+## Star History
+[![Star History Chart](https://api.star-history.com/svg?repos=microsoft/VPTQ&type=Date)](https://star-history.com/#microsoft/VPTQ&Date)
+
 ---
 
 ## Limitation of VPTQ
