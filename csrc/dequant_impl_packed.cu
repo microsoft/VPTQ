@@ -383,6 +383,9 @@ torch::Tensor lauch_deqantize_outliers_cuda_packkernel(
     case 16:                                                                              \
       callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 16);                           \
       break;                                                                              \
+    case 15:                                                                              \
+      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 15);                           \
+      break;                                                                              \
     case 12:                                                                              \
       callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 12);                           \
       break;                                                                              \
@@ -540,6 +543,9 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(
   switch (res_index_bits) {                                                               \
     case 16:                                                                              \
       CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 16);                            \
+      break;                                                                              \
+    case 15:                                                                              \
+      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 15);                            \
       break;                                                                              \
     case 12:                                                                              \
       CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 12);                            \
