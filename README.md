@@ -12,6 +12,11 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 **Example: Run Llama 3.1 70b on RTX4090 (24G @ ~2bits) in real time**
 ![Llama3 1-70b-prompt](https://github.com/user-attachments/assets/d8729aca-4e1d-4fe1-ac71-c14da4bdd97f)
 
+---
+
+### VPTQ is an ongoing project. If the open-source community is interested in optimizing and expanding VPTQ, please feel free to submit an issue or DM me.
+
+---
 
 ## News
 - [2024-9-20] Inference code is now open-sourced on GitHub—join us and contribute!
