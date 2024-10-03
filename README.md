@@ -15,7 +15,7 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 
 ## News
 - [2024-9-20] Inference code is now open-sourced on GitHub—join us and contribute!
-- [2024-9-20] VPTQ paper has been accepted for a main track presentation at EMNLP 2024.
+- [2024-9-20] VPTQ paper has been accepted for a main track at EMNLP 2024.
 
 
 ## [**Tech Report**](https://github.com/microsoft/VPTQ/blob/main/VPTQ_tech_report.pdf)
