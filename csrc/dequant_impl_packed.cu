@@ -343,7 +343,7 @@ torch::Tensor lauch_deqantize_outliers_cuda_packkernel(
       using scalar_t = c10::Half;                                                       \
       callDequantWithOutliers(scalar_t, IDXBITS, BASEGROUP, OUT_OUF_INF, ResidualBits); \
     } else {                                                                            \
-      TORCH_CHECK(false, "unspport bf16:");                                             \
+      TORCH_CHECK(false, "un-supported dtype: bfloat16");                               \
     }
 
 #else
@@ -358,83 +358,83 @@ torch::Tensor lauch_deqantize_outliers_cuda_packkernel(
 
 #endif
 
-#define callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, ResidualBits)        \
-  switch (index_bits) {                                                           \
-    case 16:                                                                      \
-      callDequantWithOutliers_dtype(16, BASEGROUP, OUT_OUF_INF, ResidualBits);    \
-      break;                                                                      \
-    case 15:                                                                      \
-      callDequantWithOutliers_dtype(15, BASEGROUP, OUT_OUF_INF, ResidualBits);    \
-      break;                                                                      \
-    case 14:                                                                      \
-      callDequantWithOutliers_dtype(14, BASEGROUP, OUT_OUF_INF, ResidualBits);    \
-      break;                                                                      \
-    case 13:                                                                      \
-      callDequantWithOutliers_dtype(13, BASEGROUP, OUT_OUF_INF, ResidualBits);    \
-      break;                                                                      \
-    case 12:                                                                      \
-      callDequantWithOutliers_dtype(12, BASEGROUP, OUT_OUF_INF, ResidualBits);    \
-      break;                                                                      \
-    case 8:                                                                       \
-      callDequantWithOutliers_dtype(8, BASEGROUP, OUT_OUF_INF, ResidualBits);     \
-      break;                                                                      \
-    case 4:                                                                       \
-      callDequantWithOutliers_dtype(4, BASEGROUP, OUT_OUF_INF, ResidualBits);     \
-      break;                                                                      \
-    default:                                                                      \
-      TORCH_CHECK(false, "unspportetd index_bits:" + std::to_string(index_bits)); \
+#define callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, ResidualBits)         \
+  switch (index_bits) {                                                            \
+    case 16:                                                                       \
+      callDequantWithOutliers_dtype(16, BASEGROUP, OUT_OUF_INF, ResidualBits);     \
+      break;                                                                       \
+    case 15:                                                                       \
+      callDequantWithOutliers_dtype(15, BASEGROUP, OUT_OUF_INF, ResidualBits);     \
+      break;                                                                       \
+    case 14:                                                                       \
+      callDequantWithOutliers_dtype(14, BASEGROUP, OUT_OUF_INF, ResidualBits);     \
+      break;                                                                       \
+    case 13:                                                                       \
+      callDequantWithOutliers_dtype(13, BASEGROUP, OUT_OUF_INF, ResidualBits);     \
+      break;                                                                       \
+    case 12:                                                                       \
+      callDequantWithOutliers_dtype(12, BASEGROUP, OUT_OUF_INF, ResidualBits);     \
+      break;                                                                       \
+    case 8:                                                                        \
+      callDequantWithOutliers_dtype(8, BASEGROUP, OUT_OUF_INF, ResidualBits);      \
+      break;                                                                       \
+    case 4:                                                                        \
+      callDequantWithOutliers_dtype(4, BASEGROUP, OUT_OUF_INF, ResidualBits);      \
+      break;                                                                       \
+    default:                                                                       \
+      TORCH_CHECK(false, "un-supported index_bits:" + std::to_string(index_bits)); \
   }
 #define CASE_callDequantWithOutliers_bits(rib)                 \
   case rib: {                                                  \
     callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, rib); \
     break;                                                     \
   }
-#define DispatchDequantWithOutliers(BASEGROUP, OUT_OUF_INF)                               \
-  switch (res_index_bits) {                                                               \
-    case 16:                                                                              \
-      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 16);                           \
-      break;                                                                              \
-    case 15:                                                                              \
-      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 15);                           \
-      break;                                                                              \
-    case 12:                                                                              \
-      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 12);                           \
-      break;                                                                              \
-    case 11:                                                                              \
-      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 11);                           \
-      break;                                                                              \
-    case 10:                                                                              \
-      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 10);                           \
-      break;                                                                              \
-    case 9:                                                                               \
-      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 9);                            \
-      break;                                                                              \
-    case 8:                                                                               \
-      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 8);                            \
-      break;                                                                              \
-    case 7:                                                                               \
-      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 7);                            \
-      break;                                                                              \
-    case 6:                                                                               \
-      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 6);                            \
-      break;                                                                              \
-    case 5:                                                                               \
-      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 5);                            \
-      break;                                                                              \
-    case 4:                                                                               \
-      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 4);                            \
-      break;                                                                              \
-    case 3:                                                                               \
-      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 3);                            \
-      break;                                                                              \
-    case 2:                                                                               \
-      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 2);                            \
-      break;                                                                              \
-    case 0:                                                                               \
-      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 0);                            \
-      break;                                                                              \
-    default:                                                                              \
-      TORCH_CHECK(false, "unspportetd res_index_bits:" + std::to_string(res_index_bits)); \
+#define DispatchDequantWithOutliers(BASEGROUP, OUT_OUF_INF)                                \
+  switch (res_index_bits) {                                                                \
+    case 16:                                                                               \
+      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 16);                            \
+      break;                                                                               \
+    case 15:                                                                               \
+      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 15);                            \
+      break;                                                                               \
+    case 12:                                                                               \
+      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 12);                            \
+      break;                                                                               \
+    case 11:                                                                               \
+      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 11);                            \
+      break;                                                                               \
+    case 10:                                                                               \
+      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 10);                            \
+      break;                                                                               \
+    case 9:                                                                                \
+      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 9);                             \
+      break;                                                                               \
+    case 8:                                                                                \
+      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 8);                             \
+      break;                                                                               \
+    case 7:                                                                                \
+      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 7);                             \
+      break;                                                                               \
+    case 6:                                                                                \
+      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 6);                             \
+      break;                                                                               \
+    case 5:                                                                                \
+      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 5);                             \
+      break;                                                                               \
+    case 4:                                                                                \
+      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 4);                             \
+      break;                                                                               \
+    case 3:                                                                                \
+      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 3);                             \
+      break;                                                                               \
+    case 2:                                                                                \
+      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 2);                             \
+      break;                                                                               \
+    case 0:                                                                                \
+      callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, 0);                             \
+      break;                                                                               \
+    default:                                                                               \
+      TORCH_CHECK(false, "un-supported res_index_bits:" + std::to_string(res_index_bits)); \
   }
 
 #define CASE_DispatchDequantWithOutliers(bgsize)      \
@@ -450,7 +450,7 @@ torch::Tensor lauch_deqantize_outliers_cuda_packkernel(
     CASE_DispatchDequantWithOutliers(4);
     CASE_DispatchDequantWithOutliers(2);
     default:
-      TORCH_CHECK(false, "unspportetd base_groupsize:" + std::to_string(base_groupsize));
+      TORCH_CHECK(false, "un-supported base_groupsize:" + std::to_string(base_groupsize));
   }
 #undef CASE_DispatchDequantWithOutliers
   if (out_ouf_inf) {
@@ -522,7 +522,7 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(
       using scalar_t = c10::Half;                                                      \
       CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits); \
     } else {                                                                           \
-      TORCH_CHECK(false, "unspport bf16:");                                            \
+      TORCH_CHECK(false, "un-supported dtype: bfloat16");                              \
     }
 #else
   #define CallWqA16kernel_dtype(out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits)  \
@@ -535,79 +535,79 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(
     }
 #endif
 
-#define CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, ResidualBits)         \
-  switch (index_bits) {                                                           \
-    case 16:                                                                      \
-      CallWqA16kernel_dtype(out_buf, 16, BASEGROUP, Do_Reduce, ResidualBits);     \
-      break;                                                                      \
-    case 15:                                                                      \
-      CallWqA16kernel_dtype(out_buf, 15, BASEGROUP, Do_Reduce, ResidualBits);     \
-      break;                                                                      \
-    case 14:                                                                      \
-      CallWqA16kernel_dtype(out_buf, 14, BASEGROUP, Do_Reduce, ResidualBits);     \
-      break;                                                                      \
-    case 13:                                                                      \
-      CallWqA16kernel_dtype(out_buf, 13, BASEGROUP, Do_Reduce, ResidualBits);     \
-      break;                                                                      \
-    case 12:                                                                      \
-      CallWqA16kernel_dtype(out_buf, 12, BASEGROUP, Do_Reduce, ResidualBits);     \
-      break;                                                                      \
-    case 8:                                                                       \
-      CallWqA16kernel_dtype(out_buf, 8, BASEGROUP, Do_Reduce, ResidualBits);      \
-      break;                                                                      \
-    case 4:                                                                       \
-      CallWqA16kernel_dtype(out_buf, 4, BASEGROUP, Do_Reduce, ResidualBits);      \
-      break;                                                                      \
-    default:                                                                      \
-      TORCH_CHECK(false, "unspportetd index_bits:" + std::to_string(index_bits)); \
+#define CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, ResidualBits)          \
+  switch (index_bits) {                                                            \
+    case 16:                                                                       \
+      CallWqA16kernel_dtype(out_buf, 16, BASEGROUP, Do_Reduce, ResidualBits);      \
+      break;                                                                       \
+    case 15:                                                                       \
+      CallWqA16kernel_dtype(out_buf, 15, BASEGROUP, Do_Reduce, ResidualBits);      \
+      break;                                                                       \
+    case 14:                                                                       \
+      CallWqA16kernel_dtype(out_buf, 14, BASEGROUP, Do_Reduce, ResidualBits);      \
+      break;                                                                       \
+    case 13:                                                                       \
+      CallWqA16kernel_dtype(out_buf, 13, BASEGROUP, Do_Reduce, ResidualBits);      \
+      break;                                                                       \
+    case 12:                                                                       \
+      CallWqA16kernel_dtype(out_buf, 12, BASEGROUP, Do_Reduce, ResidualBits);      \
+      break;                                                                       \
+    case 8:                                                                        \
+      CallWqA16kernel_dtype(out_buf, 8, BASEGROUP, Do_Reduce, ResidualBits);       \
+      break;                                                                       \
+    case 4:                                                                        \
+      CallWqA16kernel_dtype(out_buf, 4, BASEGROUP, Do_Reduce, ResidualBits);       \
+      break;                                                                       \
+    default:                                                                       \
+      TORCH_CHECK(false, "un-supported index_bits:" + std::to_string(index_bits)); \
   }
 
-#define DispatchWqA16Kernel(out_buf, BASEGROUP, Do_Reduce)                                \
-  switch (res_index_bits) {                                                               \
-    case 16:                                                                              \
-      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 16);                            \
-      break;                                                                              \
-    case 15:                                                                              \
-      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 15);                            \
-      break;                                                                              \
-    case 12:                                                                              \
-      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 12);                            \
-      break;                                                                              \
-    case 11:                                                                              \
-      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 11);                            \
-      break;                                                                              \
-    case 10:                                                                              \
-      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 10);                            \
-      break;                                                                              \
-    case 9:                                                                               \
-      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 9);                             \
-      break;                                                                              \
-    case 8:                                                                               \
-      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 8);                             \
-      break;                                                                              \
-    case 7:                                                                               \
-      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 7);                             \
-      break;                                                                              \
-    case 6:                                                                               \
-      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 6);                             \
-      break;                                                                              \
-    case 5:                                                                               \
-      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 5);                             \
-      break;                                                                              \
-    case 4:                                                                               \
-      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 4);                             \
-      break;                                                                              \
-    case 3:                                                                               \
-      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 3);                             \
-      break;                                                                              \
-    case 2:                                                                               \
-      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 2);                             \
-      break;                                                                              \
-    case 0:                                                                               \
-      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 0);                             \
-      break;                                                                              \
-    default:                                                                              \
-      TORCH_CHECK(false, "unspportetd res_index_bits:" + std::to_string(res_index_bits)); \
+#define DispatchWqA16Kernel(out_buf, BASEGROUP, Do_Reduce)                                 \
+  switch (res_index_bits) {                                                                \
+    case 16:                                                                               \
+      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 16);                             \
+      break;                                                                               \
+    case 15:                                                                               \
+      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 15);                             \
+      break;                                                                               \
+    case 12:                                                                               \
+      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 12);                             \
+      break;                                                                               \
+    case 11:                                                                               \
+      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 11);                             \
+      break;                                                                               \
+    case 10:                                                                               \
+      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 10);                             \
+      break;                                                                               \
+    case 9:                                                                                \
+      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 9);                              \
+      break;                                                                               \
+    case 8:                                                                                \
+      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 8);                              \
+      break;                                                                               \
+    case 7:                                                                                \
+      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 7);                              \
+      break;                                                                               \
+    case 6:                                                                                \
+      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 6);                              \
+      break;                                                                               \
+    case 5:                                                                                \
+      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 5);                              \
+      break;                                                                               \
+    case 4:                                                                                \
+      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 4);                              \
+      break;                                                                               \
+    case 3:                                                                                \
+      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 3);                              \
+      break;                                                                               \
+    case 2:                                                                                \
+      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 2);                              \
+      break;                                                                               \
+    case 0:                                                                                \
+      CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, 0);                              \
+      break;                                                                               \
+    default:                                                                               \
+      TORCH_CHECK(false, "un-supported res_index_bits:" + std::to_string(res_index_bits)); \
   }
 
   if (in_features <= cuda::kBlockSize) {
@@ -624,9 +624,9 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(
     //       DispatchWqA16Kernel(output, 12, false);
     //   break;
     //   default:
-    //       TORCH_CHECK(false, "unspportetd base_groupsize:"+std::to_string(base_groupsize));
+    //       TORCH_CHECK(false, "un-supported base_groupsize:"+std::to_string(base_groupsize));
     // }
-    TORCH_CHECK(false, "unspportetd yet");
+    TORCH_CHECK(false, "un-supported yet");
   } else {
     constexpr int do_reduce = 4;
     shared_memory_size = 0;
@@ -654,7 +654,7 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(
         DispatchWqA16Kernel(tmp_output, 2, do_reduce);
         break;
       default:
-        TORCH_CHECK(false, "unspportetd groupsize:" + std::to_string(base_groupsize));
+        TORCH_CHECK(false, "un-supported groupsize:" + std::to_string(base_groupsize));
     }
     output = tmp_output.sum(-1);
   }
