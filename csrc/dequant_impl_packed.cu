@@ -337,15 +337,26 @@ torch::Tensor lauch_deqantize_outliers_cuda_packkernel(
             outliers_indices_size_n1, outliers_centroids_size_n1, q_indice.stride(0), q_indice.stride(1), \
             centroids.stride(0), q_indice.size(0));                                                       \
   }
+#if __CUDA_ARCH__ < 800
+  #define callDequantWithOutliers_dtype(IDXBITS, BASEGROUP, OUT_OUF_INF, ResidualBits)  \
+    if (centroids.dtype() == at::ScalarType::Half) {                                    \
+      using scalar_t = c10::Half;                                                       \
+      callDequantWithOutliers(scalar_t, IDXBITS, BASEGROUP, OUT_OUF_INF, ResidualBits); \
+    } else {                                                                            \
+      TORCH_CHECK(false, "unspport bf16:");                                             \
+    }
 
-#define callDequantWithOutliers_dtype(IDXBITS, BASEGROUP, OUT_OUF_INF, ResidualBits)  \
-  if (centroids.dtype() == at::ScalarType::Half) {                                    \
-    using scalar_t = c10::Half;                                                       \
-    callDequantWithOutliers(scalar_t, IDXBITS, BASEGROUP, OUT_OUF_INF, ResidualBits); \
-  } else {                                                                            \
-    using scalar_t = c10::BFloat16;                                                   \
-    callDequantWithOutliers(scalar_t, IDXBITS, BASEGROUP, OUT_OUF_INF, ResidualBits); \
-  }
+#else
+  #define callDequantWithOutliers_dtype(IDXBITS, BASEGROUP, OUT_OUF_INF, ResidualBits)  \
+    if (centroids.dtype() == at::ScalarType::Half) {                                    \
+      using scalar_t = c10::Half;                                                       \
+      callDequantWithOutliers(scalar_t, IDXBITS, BASEGROUP, OUT_OUF_INF, ResidualBits); \
+    } else {                                                                            \
+      using scalar_t = c10::BFloat16;                                                   \
+      callDequantWithOutliers(scalar_t, IDXBITS, BASEGROUP, OUT_OUF_INF, ResidualBits); \
+    }
+
+#endif
 
 #define callDequantWithOutliers_bits(BASEGROUP, OUT_OUF_INF, ResidualBits)        \
   switch (index_bits) {                                                           \
@@ -504,14 +515,27 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(
             out_features, in_features, outliers_indices_size_n1, q_indice.stride(0), q_indice.stride(1),      \
             centroids.stride(0), q_indice.size(0));                                                           \
   }
-#define CallWqA16kernel_dtype(out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits)  \
-  if (input.dtype() == at::ScalarType::Half) {                                       \
-    using scalar_t = c10::Half;                                                      \
-    CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits); \
-  } else {                                                                           \
-    using scalar_t = c10::BFloat16;                                                  \
-    CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits); \
-  }
+
+#if __CUDA_ARCH__ < 800
+  #define CallWqA16kernel_dtype(out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits)  \
+    if (input.dtype() == at::ScalarType::Half) {                                       \
+      using scalar_t = c10::Half;                                                      \
+      CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits); \
+    } else {                                                                           \
+      TORCH_CHECK(false, "unspport bf16:");                                            \
+    }
+#else
+  #define CallWqA16kernel_dtype(out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits)  \
+    if (input.dtype() == at::ScalarType::Half) {                                       \
+      using scalar_t = c10::Half;                                                      \
+      CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits); \
+    } else {                                                                           \
+      static_assert(disable_bf16_build, "DISABLE_BF16_COMPUTATION is defined");        \
+      using scalar_t = c10::BFloat16;                                                  \
+      CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits); \
+    }
+#endif
+
 #define CallWqA16kernel_bits(out_buf, BASEGROUP, Do_Reduce, ResidualBits)         \
   switch (index_bits) {                                                           \
     case 16:                                                                      \
