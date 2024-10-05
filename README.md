@@ -71,6 +71,11 @@ pip install git+https://github.com/microsoft/VPTQ.git --no-build-isolation
 
 ## Evaluation
 
+### Colab Demo
+Have a fun on Colab.
+
+<a target="_blank" href="https://colab.research.google.com/github/microsoft/VPTQ/blob/main/notebooks/vptq_example.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="VPTQ In Colab"/></a>  
+
 ### Models from Open Source Community
 
 ⚠️ The repository only provides a method of model quantization algorithm. 
