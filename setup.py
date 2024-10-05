@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+import os
 from pathlib import Path
 
 from setuptools import find_packages, setup
@@ -20,8 +21,15 @@ def get_version():
 
 
 def build_cuda_extensions():
-    compute_capabilities = [80, 86, 90]
+    compute_capabilities = [70, 75, 80, 86, 90]
     arch_flags = []
+    TORCH_CUDA_ARCH_LIST = os.getenv("TORCH_CUDA_ARCH_LIST", None)
+    if TORCH_CUDA_ARCH_LIST is None:
+        print("TORCH_CUDA_ARCH_LIST is not set, compiling for all arch")
+    else:
+        delimiter = ' ' if ';' not in TORCH_CUDA_ARCH_LIST else ' '
+        TORCH_CUDA_ARCH_LIST = TORCH_CUDA_ARCH_LIST.split(delimiter)
+        compute_capabilities = [int(10 * float(arch)) for arch in TORCH_CUDA_ARCH_LIST if '+' not in arch]
     for cap in compute_capabilities:
         arch_flags += ["-gencode", f"arch=compute_{cap},code=sm_{cap}"]
     extra_compile_args = {
@@ -43,6 +51,7 @@ def build_cuda_extensions():
         ] + arch_flags,
         "cxx": ["-O3", "-fopenmp", "-lgomp", "-std=c++17", "-DENABLE_BF16"],
     }
+
     extensions = CUDAExtension(
         "vptq.ops",
         [
