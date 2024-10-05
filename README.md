@@ -9,19 +9,23 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 * Lightweight Quantization Algorithm: only cost ~17 hours to quantize 405B Llama-3.1
 * Agile Quantization Inference: low decode overhead, best throughput, and TTFT
 
+
+**🚀Free Huggingface Demo🚀** [Huggingface Demo](https://huggingface.co/spaces/VPTQ-community/VPTQ-Demo) – Try it now and witness the power of extreme low-bit quantization!
+
 **Example: Run Llama 3.1 70b on RTX4090 (24G @ ~2bits) in real time**
 ![Llama3 1-70b-prompt](https://github.com/user-attachments/assets/d8729aca-4e1d-4fe1-ac71-c14da4bdd97f)
 
 ---
 
-### VPTQ is an ongoing project. If the open-source community is interested in optimizing and expanding VPTQ, please feel free to submit an issue or DM.
+**VPTQ is an ongoing project. If the open-source community is interested in optimizing and expanding VPTQ, please feel free to submit an issue or DM.**
 
 ---
 
 ## News
-- [2024-10-4] Updated the VPTQ tech report and fixed typos.
-- [2024-9-20] Inference code is now open-sourced on GitHub—join us and contribute!
-- [2024-9-20] VPTQ paper has been accepted for a main track at EMNLP 2024.
+- [2024-10-5] 🚀 **Add free Huggingface Demo**: [Huggingface Demo](https://huggingface.co/spaces/VPTQ-community/VPTQ-Demo)
+- [2024-10-4] ✏️ Updated the VPTQ tech report and fixed typos.
+- [2024-9-20] 🌐 Inference code is now open-sourced on GitHub—join us and contribute!
+- [2024-9-20] 🎉 VPTQ paper has been accepted for the main track at EMNLP 2024.
 
 
 ## [**Tech Report**](https://github.com/microsoft/VPTQ/blob/main/VPTQ_tech_report.pdf)
