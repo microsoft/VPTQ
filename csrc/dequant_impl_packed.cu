@@ -530,7 +530,6 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(
       using scalar_t = c10::Half;                                                      \
       CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits); \
     } else {                                                                           \
-      static_assert(disable_bf16_build, "DISABLE_BF16_COMPUTATION is defined");        \
       using scalar_t = c10::BFloat16;                                                  \
       CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits); \
     }
