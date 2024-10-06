@@ -148,7 +148,7 @@ print(tokenizer.decode(out[0], skip_special_tokens=True))
 ```
 
 ### Gradio Web App Example
-A environment variable is available to control share link or not. 
+An environment variable is available to control share link or not. 
 `export SHARE_LINK=1`
 ```
 python -m vptq.app
