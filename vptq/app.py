@@ -8,8 +8,8 @@ import os
 import gradio as gr
 
 from vptq.app_utils import get_chat_loop_generator
-
-chat_completion = get_chat_loop_generator("VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k32768-0-woft")
+from app_gpu import update_charts as _update_charts
+chat_completion = get_chat_loop_generator("/data/repository/VPTQ/models/Qwen2.5-7B-Instruct-v8-k65536-65536-woft")
 
 
 def respond(
@@ -48,21 +48,29 @@ def respond(
 """
 For information on how to customize the ChatInterface, peruse the gradio docs: https://www.gradio.app/docs/chatinterface
 """
-demo = gr.ChatInterface(
-    respond,
-    additional_inputs=[
-        gr.Textbox(value="You are a friendly Chatbot.", label="System message"),
-        gr.Slider(minimum=1, maximum=2048, value=512, step=1, label="Max new tokens"),
-        gr.Slider(minimum=0.1, maximum=4.0, value=0.7, step=0.1, label="Temperature"),
-        gr.Slider(
-            minimum=0.1,
-            maximum=1.0,
-            value=0.95,
-            step=0.05,
-            label="Top-p (nucleus sampling)",
-        ),
-    ],
-)
+with gr.Blocks(fill_height=True) as demo:
+    with gr.Row():
+        def update_chart():
+            return _update_charts(chart_height=200)
+        gpu_chart = gr.Plot(update_chart, every=0.01)  # 设置图表更新间隔
+
+    with gr.Column():
+        chat_interface = gr.ChatInterface(
+            respond,
+            additional_inputs=[
+                gr.Textbox(value="You are a friendly Chatbot.", label="System message"),
+                gr.Slider(minimum=1, maximum=2048, value=512, step=1, label="Max new tokens"),
+                gr.Slider(minimum=0.1, maximum=4.0, value=0.7, step=0.1, label="Temperature"),
+                gr.Slider(
+                    minimum=0.1,
+                    maximum=1.0,
+                    value=0.95,
+                    step=0.05,
+                    label="Top-p (nucleus sampling)",
+                ),
+            ],
+        )
+
 
 if __name__ == "__main__":
     share = os.getenv("SHARE_LINK", None) in ["1", "true", "True"]
