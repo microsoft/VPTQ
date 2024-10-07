@@ -9,7 +9,7 @@ import gradio as gr
 
 from vptq.app_utils import get_chat_loop_generator
 from app_gpu import update_charts as _update_charts
-chat_completion = get_chat_loop_generator("/data/repository/VPTQ/models/Qwen2.5-7B-Instruct-v8-k65536-65536-woft")
+chat_completion = get_chat_loop_generator("VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k32768-0-woft")
 
 
 def respond(
