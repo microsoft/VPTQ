@@ -1,4 +1,26 @@
+
 # VPTQ: Extreme Low-bit Vector Post-Training Quantization for Large Language Models
+- [TL;DR](#tl-dr)
+- [News](#news)
+- [Installation](#installation)
+  * [Dependencies](#dependencies)
+  * [Install VPTQ on your machine](#install-vptq-on-your-machine)
+- [Evaluation](#evaluation)
+  * [Models from Open Source Community](#models-from-open-source-community)
+  * [Language Generation Example](#language-generation-example)
+  * [Terminal Chatbot Example](#terminal-chatbot-example)
+  * [Python API Example](#python-api-example)
+  * [Gradio Web App Example](#gradio-web-app-example)
+- [Tech Report](#tech-report)
+  * [Early Results from Tech Report](#early-results-from-tech-report)
+- [Road Map](#road-map)
+- [Project main members:](#project-main-members-)
+- [Acknowledgement](#acknowledgement)
+- [Publication](#publication)
+- [Star History](#star-history)
+- [Limitation of VPTQ](#limitation-of-vptq)
+- [Contributing](#contributing)
+- [Trademarks](#trademarks)
 
 ## TL;DR
 
@@ -10,45 +32,14 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 * Agile Quantization Inference: low decode overhead, best throughput, and TTFT
 
 
-**🚀Free Huggingface Demo🚀** [Huggingface Demo](https://huggingface.co/spaces/VPTQ-community/VPTQ-Demo) – Try it now and witness the power of extreme low-bit quantization!
-
-**Example: Run Llama 3.1 70b on RTX4090 (24G @ ~2bits) in real time**
-![Llama3 1-70b-prompt](https://github.com/user-attachments/assets/d8729aca-4e1d-4fe1-ac71-c14da4bdd97f)
-
----
-
-**VPTQ is an ongoing project. If the open-source community is interested in optimizing and expanding VPTQ, please feel free to submit an issue or DM.**
-
----
-
 ## News
+- [2024-10-6] 🚀 **Try it on Google Colab** <a target="_blank" href="https://colab.research.google.com/github/microsoft/VPTQ/blob/main/notebooks/vptq_example.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="VPTQ In Colab"/></a>  
 - [2024-10-5] 🚀 **Add free Huggingface Demo**: [Huggingface Demo](https://huggingface.co/spaces/VPTQ-community/VPTQ-Demo)
 - [2024-10-4] ✏️ Updated the VPTQ tech report and fixed typos.
 - [2024-9-20] 🌐 Inference code is now open-sourced on GitHub—join us and contribute!
 - [2024-9-20] 🎉 VPTQ paper has been accepted for the main track at EMNLP 2024.
 
 
-## [**Tech Report**](https://github.com/microsoft/VPTQ/blob/main/VPTQ_tech_report.pdf)
-
-Scaling model size significantly challenges the deployment and inference of Large Language Models (LLMs). Due to the redundancy in LLM weights, recent research has focused on pushing weight-only quantization to extremely low-bit (even down to 2 bits). It reduces memory requirements, optimizes storage costs, and decreases memory bandwidth needs during inference. However, due to numerical representation limitations, traditional scalar-based weight quantization struggles to achieve such extreme low-bit. Recent research on Vector Quantization (VQ) for LLMs has demonstrated the potential for extremely low-bit model quantization by compressing vectors into indices using lookup tables.
-
-Read tech report at [**Tech Report**](https://github.com/microsoft/VPTQ/blob/main/VPTQ_tech_report.pdf) and [**arXiv Paper**](https://arxiv.org/pdf/2409.17066)
-
-### Early Results from Tech Report
-VPTQ achieves better accuracy and higher throughput with lower quantization overhead across models of different sizes. The following experimental results are for reference only; VPTQ can achieve better outcomes under reasonable parameters, especially in terms of model accuracy and inference speed.
-
-<img src="assets/vptq.png" width="500">
-
-| Model       | bitwidth | W2↓  | C4↓  | AvgQA↑ | tok/s↑ | mem(GB) | cost/h↓ |
-| ----------- | -------- | ---- | ---- | ------ | ------ | ------- | ------- |
-| LLaMA-2 7B  | 2.02     | 6.13 | 8.07 | 58.2   | 39.9   | 2.28    | 2       |
-|             | 2.26     | 5.95 | 7.87 | 59.4   | 35.7   | 2.48    | 3.1     |
-| LLaMA-2 13B | 2.02     | 5.32 | 7.15 | 62.4   | 26.9   | 4.03    | 3.2     |
-|             | 2.18     | 5.28 | 7.04 | 63.1   | 18.5   | 4.31    | 3.6     |
-| LLaMA-2 70B | 2.07     | 3.93 | 5.72 | 68.6   | 9.7    | 19.54   | 19      |
-|             | 2.11     | 3.92 | 5.71 | 68.7   | 9.7    | 20.01   | 19      |
-
----
 
 ## Installation
 
@@ -60,7 +51,7 @@ VPTQ achieves better accuracy and higher throughput with lower quantization over
 - Accelerate >= 0.33.0
 - latest datasets
 
-### Installation
+### Install VPTQ on your machine
 
 > Preparation steps that might be needed: Set up CUDA PATH.
 ```bash
@@ -73,12 +64,17 @@ export PATH=/usr/local/cuda-12/bin/:$PATH  # set dependent on your environment
 pip install git+https://github.com/microsoft/VPTQ.git --no-build-isolation
 ```
 
+
+**Example: Run Llama 3.1 70b on RTX4090 (24G @ ~2bits) in real time**
+![Llama3 1-70b-prompt](https://github.com/user-attachments/assets/d8729aca-4e1d-4fe1-ac71-c14da4bdd97f)
+
+---
+
+**VPTQ is an ongoing project. If the open-source community is interested in optimizing and expanding VPTQ, please feel free to submit an issue or DM.**
+
+---
+
 ## Evaluation
-
-### Colab Demo
-Have a fun on Colab.
-
-<a target="_blank" href="https://colab.research.google.com/github/microsoft/VPTQ/blob/main/notebooks/vptq_example.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="VPTQ In Colab"/></a>  
 
 ### Models from Open Source Community
 
@@ -158,6 +154,29 @@ An environment variable is available to control share link or not.
 ```
 python -m vptq.app
 ```
+
+---
+
+## Tech Report
+[VPTQ_tech_report](https://github.com/microsoft/VPTQ/blob/main/VPTQ_tech_report.pdf)
+
+Scaling model size significantly challenges the deployment and inference of Large Language Models (LLMs). Due to the redundancy in LLM weights, recent research has focused on pushing weight-only quantization to extremely low-bit (even down to 2 bits). It reduces memory requirements, optimizes storage costs, and decreases memory bandwidth needs during inference. However, due to numerical representation limitations, traditional scalar-based weight quantization struggles to achieve such extreme low-bit. Recent research on Vector Quantization (VQ) for LLMs has demonstrated the potential for extremely low-bit model quantization by compressing vectors into indices using lookup tables.
+
+Read tech report at [**Tech Report**](https://github.com/microsoft/VPTQ/blob/main/VPTQ_tech_report.pdf) and [**arXiv Paper**](https://arxiv.org/pdf/2409.17066)
+
+### Early Results from Tech Report
+VPTQ achieves better accuracy and higher throughput with lower quantization overhead across models of different sizes. The following experimental results are for reference only; VPTQ can achieve better outcomes under reasonable parameters, especially in terms of model accuracy and inference speed.
+
+<img src="assets/vptq.png" width="500">
+
+| Model       | bitwidth | W2↓  | C4↓  | AvgQA↑ | tok/s↑ | mem(GB) | cost/h↓ |
+| ----------- | -------- | ---- | ---- | ------ | ------ | ------- | ------- |
+| LLaMA-2 7B  | 2.02     | 6.13 | 8.07 | 58.2   | 39.9   | 2.28    | 2       |
+|             | 2.26     | 5.95 | 7.87 | 59.4   | 35.7   | 2.48    | 3.1     |
+| LLaMA-2 13B | 2.02     | 5.32 | 7.15 | 62.4   | 26.9   | 4.03    | 3.2     |
+|             | 2.18     | 5.28 | 7.04 | 63.1   | 18.5   | 4.31    | 3.6     |
+| LLaMA-2 70B | 2.07     | 3.93 | 5.72 | 68.6   | 9.7    | 19.54   | 19      |
+|             | 2.11     | 3.92 | 5.71 | 68.7   | 9.7    | 20.01   | 19      |
 
 ---
 
