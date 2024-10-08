@@ -4,3 +4,5 @@ transformers>=4.45
 safetensors
 psutil
 accelerate
+gradio
+plotly==5.9.0
