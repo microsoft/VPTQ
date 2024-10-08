@@ -1,8 +1,9 @@
-import subprocess
 import re
+import subprocess
+from collections import deque
+
 import gradio as gr
 import plotly.graph_objs as go
-from collections import deque
 
 # Queues for storing historical data (saving the last 20 GPU utilization and memory usage values)
 gpu_util_history = deque(maxlen=20)

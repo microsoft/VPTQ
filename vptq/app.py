@@ -6,9 +6,10 @@
 import os
 
 import gradio as gr
+from app_gpu import update_charts as _update_charts
 
 from vptq.app_utils import get_chat_loop_generator
-from vptq.app_gpu import update_charts as _update_charts
+
 chat_completion = get_chat_loop_generator("VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k32768-0-woft")
 
 
