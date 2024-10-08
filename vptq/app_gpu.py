@@ -62,31 +62,23 @@ def update_charts(chart_height: int = 200) -> go.Figure:
     mem_usage_history.append(mem_percent)
 
     # create GPU utilization line chart
-    gpu_trace = go.Scatter(
-        y=list(gpu_util_history),
-        mode='lines+markers+text',
-        name='GPU Utilization (%)',
-        text=list(gpu_util_history),
-        textposition='top center'
-    )
+    gpu_trace = go.Scatter(y=list(gpu_util_history),
+                           mode='lines+markers+text',
+                           name='GPU Utilization (%)',
+                           text=list(gpu_util_history),
+                           textposition='top center')
 
     # create memory usage line chart
-    mem_trace = go.Scatter(
-        y=list(mem_usage_history),
-        mode='lines+markers+text',
-        name='Memory Usage (%)',
-        text=list(mem_usage_history),
-        textposition='top center'
-    )
+    mem_trace = go.Scatter(y=list(mem_usage_history),
+                           mode='lines+markers+text',
+                           name='Memory Usage (%)',
+                           text=list(mem_usage_history),
+                           textposition='top center')
 
     # set the layout of the chart
     layout = go.Layout(
         # title="Real-time GPU Stats",
-        xaxis=dict(
-            title=None,
-            showticklabels=False,
-            ticks=''
-        ),
+        xaxis=dict(title=None, showticklabels=False, ticks=''),
         yaxis=dict(
             title='Percentage (%)',
             range=[-5, 110]  # adjust the range of the y-axis
@@ -137,17 +129,15 @@ def refresh_gpu_data():
     mem_used = gpu_info.get('mem_used', 0) / 1024  # MiB to GiB
     mem_total = gpu_info.get('mem_total', 0) / 1024  # MiB to GiB
 
-    gpu_info_display = (
-        f"<div style='font-family: monospace;'>"
-        f"<b style='color: yellow;'>Device 0</b> "
-        f"[<span style='color: cyan;'>NVIDIA A100 80GB PCIe</span>] "
-        f"PCIe GEN 4@16x RX: <b>0.000 KiB/s</b> TX: <b>0.000 KiB/s</b><br>"
-        f"GPU <b>{gpu_clock}MHz</b> MEM <b>{mem_clock}MHz</b> "
-        f"TEMP <b style='color: orange;'>{temp}°C</b> FAN <b>N/A%</b> "
-        f"POW <b style='color: red;'>{power_used} / {power_max} W</b><br>"
-        f"GPU[<b>{gpu_util}%</b>] {mem_bar(mem_used, mem_total)}"
-        f"</div>"
-    )
+    gpu_info_display = (f"<div style='font-family: monospace;'>"
+                        f"<b style='color: yellow;'>Device 0</b> "
+                        f"[<span style='color: cyan;'>NVIDIA A100 80GB PCIe</span>] "
+                        f"PCIe GEN 4@16x RX: <b>0.000 KiB/s</b> TX: <b>0.000 KiB/s</b><br>"
+                        f"GPU <b>{gpu_clock}MHz</b> MEM <b>{mem_clock}MHz</b> "
+                        f"TEMP <b style='color: orange;'>{temp}°C</b> FAN <b>N/A%</b> "
+                        f"POW <b style='color: red;'>{power_used} / {power_max} W</b><br>"
+                        f"GPU[<b>{gpu_util}%</b>] {mem_bar(mem_used, mem_total)}"
+                        f"</div>")
 
     return gpu_info_display
 
