@@ -51,8 +51,10 @@ For information on how to customize the ChatInterface, peruse the gradio docs: h
 """
 with gr.Blocks(fill_height=True) as demo:
     with gr.Row():
+
         def update_chart():
             return _update_charts(chart_height=200)
+
         gpu_chart = gr.Plot(update_chart, every=0.01)  # update every 0.01 seconds
 
     with gr.Column():
@@ -71,7 +73,6 @@ with gr.Blocks(fill_height=True) as demo:
                 ),
             ],
         )
-
 
 if __name__ == "__main__":
     share = os.getenv("SHARE_LINK", None) in ["1", "true", "True"]
