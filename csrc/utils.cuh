@@ -64,7 +64,7 @@ template <int GROUPSIZE, typename T>
 __device__ __forceinline__ void ldg_vec_x(T* __restrict__ dst_t32, const uint32_t* __restrict__ src_u32) {
   uint32_t* dst_u32 = (uint32_t*)dst_t32;
   if constexpr (std::is_same<T, float>::value || std::is_same<T, float2>::value) {
-    return ldg_vec_x<GROUPSIZE / 2>(dst_u32, src_u32);
+    return ldg_vec_x<GROUPSIZE * 2>(dst_u32, src_u32);
   }
   int2* dst = (int2*)dst_u32;
   const int2* src = (const int2*)src_u32;
@@ -102,9 +102,9 @@ __device__ __forceinline__ void ldg_vec_x(T* __restrict__ dst_t32, const uint32_
   } else if constexpr (GROUPSIZE == 12) {
     if (uint64_t(src) % 16) {
       dst[0] = __ldg(src);
-      int4 b = __ldg((int4*)(src + 1));
-      dst[1] = *((int2*)&b);
-      dst[2] = *((int2*)&b + 1);
+      int4 b = __ldg((const int4*)(src + 1));
+      dst[1] = *((const int2*)&b);
+      dst[2] = *((const int2*)&b + 1);
     } else {
       *(int4*)dst = __ldg((int4*)(src));
       dst[2] = __ldg((src + 2));
@@ -124,6 +124,25 @@ __device__ __forceinline__ void ldg_vec_x(T* __restrict__ dst_t32, const uint32_
     //       : "=r"(dec[4]), "=r"(dec[5])
     //       : "l"((const void*)src)
     //     );
+  } else if constexpr (GROUPSIZE == 24) {
+    *((int4*)(dst)) = __ldg((const int4*)(src));
+    *(((int4*)(dst)) + 1) = __ldg(((const int4*)(src)) + 1);
+    *(((int4*)(dst)) + 2) = __ldg(((const int4*)(src)) + 2);
+  } else if constexpr (GROUPSIZE == 32) {
+    asm volatile("ld.cg.global.v4.u32 {%0, %1, %2, %3}, [%4];"
+                 : "=r"(dst_u32[0]), "=r"(dst_u32[1]), "=r"(dst_u32[2]), "=r"(dst_u32[3])
+                 : "l"((const void*)src_u32));
+    asm volatile("ld.cg.global.v4.u32 {%0, %1, %2, %3}, [%4];"
+                 : "=r"(dst_u32[4]), "=r"(dst_u32[5]), "=r"(dst_u32[6]), "=r"(dst_u32[7])
+                 : "l"((const void*)(src_u32 + 4)));
+    asm volatile("ld.cg.global.v4.u32 {%0, %1, %2, %3}, [%4];"
+                 : "=r"(dst_u32[8]), "=r"(dst_u32[9]), "=r"(dst_u32[10]), "=r"(dst_u32[11])
+                 : "l"((const void*)(src_u32 + 8)));
+    asm volatile("ld.cg.global.v4.u32 {%0, %1, %2, %3}, [%4];"
+                 : "=r"(dst_u32[12]), "=r"(dst_u32[13]), "=r"(dst_u32[14]), "=r"(dst_u32[15])
+                 : "l"((const void*)(src_u32 + 12)));
+  } else {
+    assert(false);
   }
 }
 
