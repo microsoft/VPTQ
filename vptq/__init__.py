@@ -3,5 +3,5 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-__version__ = "0.0.2"
+__version__ = "0.0.2.post1"
 from .layers import AutoModelForCausalLM as AutoModelForCausalLM

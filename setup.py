@@ -30,6 +30,8 @@ def build_cuda_extensions():
         delimiter = ' ' if ';' not in TORCH_CUDA_ARCH_LIST else ' '
         TORCH_CUDA_ARCH_LIST = TORCH_CUDA_ARCH_LIST.split(delimiter)
         compute_capabilities = [int(10 * float(arch)) for arch in TORCH_CUDA_ARCH_LIST if '+' not in arch]
+
+    print(" build for compute capabilities: ==============", compute_capabilities)
     for cap in compute_capabilities:
         arch_flags += ["-gencode", f"arch=compute_{cap},code=sm_{cap}"]
     extra_compile_args = {
