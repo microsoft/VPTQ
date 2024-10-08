@@ -136,11 +136,17 @@ def refresh_gpu_data():
     mem_used = gpu_info.get('mem_used', 0) / 1024  # MiB to GiB
     mem_total = gpu_info.get('mem_total', 0) / 1024  # MiB to GiB
 
-    gpu_info_display = (f"<div style='font-family: monospace;'>"
-                        f"<b style='color: yellow;'>Device 0</b> [<span style='color: cyan;'>NVIDIA A100 80GB PCIe</span>] PCIe GEN 4@16x RX: <b>0.000 KiB/s</b> TX: <b>0.000 KiB/s</b><br>"
-                        f"GPU <b>{gpu_clock}MHz</b> MEM <b>{mem_clock}MHz</b> TEMP <b style='color: orange;'>{temp}°C</b> FAN <b>N/A%</b> POW <b style='color: red;'>{power_used} / {power_max} W</b><br>"
-                        f"GPU[<b>{gpu_util}%</b>] {mem_bar(mem_used, mem_total)}"
-                        f"</div>")
+    gpu_info_display = (
+        f"<div style='font-family: monospace;'>"
+        f"<b style='color: yellow;'>Device 0</b> "
+        f"[<span style='color: cyan;'>NVIDIA A100 80GB PCIe</span>] "
+        f"PCIe GEN 4@16x RX: <b>0.000 KiB/s</b> TX: <b>0.000 KiB/s</b><br>"
+        f"GPU <b>{gpu_clock}MHz</b> MEM <b>{mem_clock}MHz</b> "
+        f"TEMP <b style='color: orange;'>{temp}°C</b> FAN <b>N/A%</b> "
+        f"POW <b style='color: red;'>{power_used} / {power_max} W</b><br>"
+        f"GPU[<b>{gpu_util}%</b>] {mem_bar(mem_used, mem_total)}"
+        f"</div>"
+    )
 
     return gpu_info_display
 
@@ -161,10 +167,15 @@ if __name__ == "__main__":
     time_interval = 0.01
     # create the GPU information display and chart
     with gr.Blocks() as demo:
-        with gr.Column():
-            # Flickering issue exists, temporarily commented out
-            # gpu_info_display = gr.HTML(refresh_gpu_data, every=time_interval, elem_id="gpu_info")
-            initialize_history()
-            gpu_chart = gr.Plot(update_charts, every=time_interval)
-
+        # Flickering issue exists, temporarily commented out
+        gpu_info_display = gr.HTML(refresh_gpu_data, every=time_interval, elem_id="gpu_info")
+        initialize_history()
+        gpu_chart = gr.Plot(update_charts, every=time_interval)
+    # avoid the up and down movement of the GPU information
+    demo.css = """
+        #gpu_info {
+            height: 100px;
+            overflow: hidden;
+        }
+    """
     demo.launch()
