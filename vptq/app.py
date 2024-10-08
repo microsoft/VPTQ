@@ -52,7 +52,7 @@ with gr.Blocks(fill_height=True) as demo:
     with gr.Row():
         def update_chart():
             return _update_charts(chart_height=200)
-        gpu_chart = gr.Plot(update_chart, every=0.01)  # 设置图表更新间隔
+        gpu_chart = gr.Plot(update_chart, every=0.01)  # update every 0.01 seconds
 
     with gr.Column():
         chat_interface = gr.ChatInterface(

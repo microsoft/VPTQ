@@ -4,7 +4,7 @@ import gradio as gr
 import plotly.graph_objs as go
 from collections import deque
 
-# 用于存储历史数据的队列（保存最近20次的 GPU 利用率和显存使用率）
+# Queues for storing historical data (saving the last 20 GPU utilization and memory usage values)
 gpu_util_history = deque(maxlen=20)
 mem_usage_history = deque(maxlen=20)
 
@@ -40,18 +40,27 @@ def parse_nvidia_smi_output(output):
     return gpu_info
 
 
-def update_charts(chart_height=400):  # 添加默认高度参数
-    # 获取并解析 nvidia-smi 数据
+def update_charts(chart_height: int = 200) -> go.Figure:
+    """
+    Update the GPU utilization and memory usage charts.
+
+    Args:
+        chart_height (int, optional): used to set the height of the chart. Defaults to 200.
+
+    Returns:
+        plotly.graph_objs.Figure: The updated figure containing the GPU and memory usage charts.
+    """
+    # obtain GPU information
     output = get_nvidia_smi_info()
     gpu_info = parse_nvidia_smi_output(output)
 
-    # 更新历史数据
+    # records the latest GPU utilization and memory usage values
     gpu_util = round(gpu_info.get('gpu_util', 0), 1)
     mem_percent = round(gpu_info.get('mem_percent', 0), 1)
     gpu_util_history.append(gpu_util)
     mem_usage_history.append(mem_percent)
 
-    # 创建 GPU 使用率折线图
+    # create GPU utilization line chart
     gpu_trace = go.Scatter(
         y=list(gpu_util_history),
         mode='lines+markers+text',
@@ -60,7 +69,7 @@ def update_charts(chart_height=400):  # 添加默认高度参数
         textposition='top center'
     )
 
-    # 创建显存使用率折线图
+    # create memory usage line chart
     mem_trace = go.Scatter(
         y=list(mem_usage_history),
         mode='lines+markers+text',
@@ -69,7 +78,7 @@ def update_charts(chart_height=400):  # 添加默认高度参数
         textposition='top center'
     )
 
-    # 布局设置，包括标题和注释
+    # set the layout of the chart
     layout = go.Layout(
         # title="Real-time GPU Stats",
         xaxis=dict(
@@ -79,18 +88,26 @@ def update_charts(chart_height=400):  # 添加默认高度参数
         ),
         yaxis=dict(
             title='Percentage (%)',
-            range=[-5, 110]  # 调整 y 轴范围
+            range=[-5, 110]  # adjust the range of the y-axis
         ),
-        height=chart_height,  # 使用传入的高度参数
-        margin=dict(l=10, r=10, t=0, b=0)  # 减小上下左右的边距
+        height=chart_height,  # set the height of the chart
+        margin=dict(l=10, r=10, t=0, b=0)  # set the margin of the chart
     )
 
-    # 创建图表
     fig = go.Figure(data=[gpu_trace, mem_trace], layout=layout)
     return fig
 
 
-def mem_bar(used, total):
+def mem_bar(used: float, total: float) -> str:
+    """
+    Generates a memory usage bar.
+
+    Args:
+        used (float): The amount of memory used in GiB.
+        total (float): The total amount of memory available in GiB.
+    Returns:
+        str: A string representing the memory usage bar in HTML format.
+    """
     bar_length = 50
     used_bars = int(bar_length * used / total)
     bar = '|' * used_bars + ' ' * (bar_length - used_bars)
@@ -98,6 +115,15 @@ def mem_bar(used, total):
 
 
 def refresh_gpu_data():
+    """
+    Refreshes and returns the current GPU data in an HTML formatted string.
+
+    Returns:
+        str: An HTML formatted string containing the GPU information, including 
+             GPU clock speed, memory clock speed, temperature, power usage, 
+             GPU utilization, and memory usage.
+    """
+
     output = get_nvidia_smi_info()
     gpu_info = parse_nvidia_smi_output(output)
 
@@ -120,6 +146,9 @@ def refresh_gpu_data():
 
 
 def initialize_history():
+    """
+    Initializes the GPU utilization and memory usage history.
+    """
     for _ in range(20):
         output = get_nvidia_smi_info()
         gpu_info = parse_nvidia_smi_output(output)
@@ -127,13 +156,13 @@ def initialize_history():
         mem_usage_history.append(round(gpu_info.get('mem_percent', 0), 1))
 
 
-# 启动 Gradio 应用
 if __name__ == "__main__":
-    time_interval = 0.01  # 每 0.1 秒刷新一次
-    # Gradio 界面配置
+    # set the update interval of the GPU information
+    time_interval = 0.01
+    # create the GPU information display and chart
     with gr.Blocks() as demo:
         with gr.Column():
-            # 存在闪缩问题，暂时注掉
+            # Flickering issue exists, temporarily commented out
             # gpu_info_display = gr.HTML(refresh_gpu_data, every=time_interval, elem_id="gpu_info")
             initialize_history()
             gpu_chart = gr.Plot(update_charts, every=time_interval)
