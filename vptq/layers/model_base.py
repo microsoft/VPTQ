@@ -62,7 +62,7 @@ def attach_execution_device_hook(
         )
 
     # Break the recursion if we get to a preload module.
-    if (preload_module_classes is not None and module.__class__.__name__ in preload_module_classes):
+    if preload_module_classes is not None and module.__class__.__name__ in preload_module_classes:
         return
 
     for child in module.children():
