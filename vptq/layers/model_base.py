@@ -136,7 +136,7 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             max_memory=max_memory,
             no_split_module_classes=no_split_module_classes[0],
             dtype=torch_dtype,
-            # preload_module_classes=["VQuantLinear"]
+            preload_module_classes=["VQuantLinear"]
         )
 
         # check cuda kernel exist
