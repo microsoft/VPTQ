@@ -47,9 +47,9 @@ def make_quant_linear(module, quant_conf, name="", target_layer=None):
 def attach_execution_device_hook(
     module: torch.nn.Module,
     execution_device,
-    skip_keys  = None,
-    preload_module_classes = None,
-    tied_params_map = None,
+    skip_keys=None,
+    preload_module_classes=None,
+    tied_params_map=None,
 ):
     """
     A bug of accelerate, https://github.com/huggingface/accelerate/issues/3060
@@ -66,9 +66,10 @@ def attach_execution_device_hook(
         return
 
     for child in module.children():
-        attach_execution_device_hook(
-            child, execution_device, tied_params_map=tied_params_map, preload_module_classes=preload_module_classes
-        )
+        attach_execution_device_hook(child,
+                                     execution_device,
+                                     tied_params_map=tied_params_map,
+                                     preload_module_classes=preload_module_classes)
 
 
 class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
@@ -126,15 +127,13 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             max_memory = local_max_memory
         max_memory[0] *= 0.1
         accelerate.hooks.attach_execution_device_hook = attach_execution_device_hook
-        model = accelerate.load_checkpoint_and_dispatch(
-            model,
-            checkpoint=checkpoint,
-            device_map=device_map,
-            max_memory=max_memory,
-            no_split_module_classes=no_split_module_classes[0],
-            dtype=torch_dtype,
-            preload_module_classes=["VQuantLinear"]
-        )
+        model = accelerate.load_checkpoint_and_dispatch(model,
+                                                        checkpoint=checkpoint,
+                                                        device_map=device_map,
+                                                        max_memory=max_memory,
+                                                        no_split_module_classes=no_split_module_classes[0],
+                                                        dtype=torch_dtype,
+                                                        preload_module_classes=["VQuantLinear"])
 
         # check cuda kernel exist
         if importlib.util.find_spec("vptq.ops") is not None:
