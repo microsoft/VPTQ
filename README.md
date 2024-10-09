@@ -52,7 +52,11 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 - latest datasets
 
 ### Install VPTQ on your machine
+**recommend** For saving your time to build the package, Please install VPTQ from the latest Release directly
 
+https://github.com/microsoft/VPTQ/releases
+
+[Not Aavailbe if Release package]
 > Preparation steps that might be needed: Set up CUDA PATH.
 ```bash
 export PATH=/usr/local/cuda-12/bin/:$PATH  # set dependent on your environment
