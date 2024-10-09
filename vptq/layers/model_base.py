@@ -66,10 +66,12 @@ def attach_execution_device_hook(
         return
 
     for child in module.children():
-        attach_execution_device_hook(child,
-                                     execution_device,
-                                     tied_params_map=tied_params_map,
-                                     preload_module_classes=preload_module_classes)
+        attach_execution_device_hook(
+            child,
+            execution_device,
+            tied_params_map=tied_params_map,
+            preload_module_classes=preload_module_classes,
+        )
 
 
 class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
@@ -121,11 +123,11 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
         # force to use one GPU as most as possible
         model_buffer_size = accelerate.utils.modeling.compute_module_sizes(model, dtype=torch_dtype)[""]
         local_max_memory = accelerate.utils.modeling.get_max_memory()
-        if 0 in local_max_memory and local_max_memory[0] * 0.015 > model_buffer_size:
+        if 0 in local_max_memory and local_max_memory[0] * 0.85 > model_buffer_size:
             local_max_memory = {0: local_max_memory[0]}
         if max_memory is None:
             max_memory = local_max_memory
-        max_memory[0] *= 0.1
+
         accelerate.hooks.attach_execution_device_hook = attach_execution_device_hook
         model = accelerate.load_checkpoint_and_dispatch(model,
                                                         checkpoint=checkpoint,
