@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 #include <cmath>
-#include <math_constants.h>
 #include <ATen/cuda/CUDAContext.h>
 #include <torch/extension.h>
 #include "common.h"
@@ -10,7 +9,7 @@
 
 template <typename T>
 struct C10ToNvType {
-  typedef __nv_bfloat16 type;
+  typedef __bfloat16 type;
 };
 
 template <>
@@ -42,9 +41,10 @@ __global__ void WqA16WithOutliers_PackIndice(
   int in_y = bidx;
   __shared__ float shared_output[GROUPSIZE][cuda::kBlockSize / 32 + 1];
   scalar_t tmp_output[GROUPSIZE];
+  const scalar_t zero_value = ZERO_VALUE(scalar_t());
 #pragma unroll
   for (int i = 0; i < GROUPSIZE; i++) {
-    tmp_output[i] = scalar_t(0.0f);
+    tmp_output[i] = zero_value;
   }
   input_data = input_data + in_features * bidy;
   out = out + out_features * bidy * gridDim.z;
@@ -169,11 +169,10 @@ __global__ void WqA16WithOutliers_PackIndice(
       reduce_out = cuda::warpReduceSum<cuda::kBlockSize / 32>(reduce_out);
       if (landid == 0 && (in_y * GROUPSIZE + wid) < out_features) {
         if constexpr (Do_Reduce) {
-          out[(wid)*gridDim.z] = cuda::ConvertFromFloat<scalar_t>(reduce_out, scalar_t(0.0f)) +
-                                 ((bidz == 0 && bias != 0) ? bias[wid] : scalar_t(0.0f));
+          out[(wid)*gridDim.z] = cuda::ConvertFromFloat<scalar_t>(reduce_out, zero_value) +
+                                 ((bidz == 0 && bias != 0) ? bias[wid] : zero_value);
         } else {
-          out[wid] =
-              cuda::ConvertFromFloat<scalar_t>(reduce_out, scalar_t(0.0f)) + ((bias != 0) ? bias[wid] : scalar_t(0.0f));
+          out[wid] = cuda::ConvertFromFloat<scalar_t>(reduce_out, zero_value) + ((bias != 0) ? bias[wid] : zero_value);
         }
       }
     }
@@ -215,7 +214,7 @@ __global__ void DequantizeWithOutliers_PackIndice(scalar_t* out, const int32_t* 
         if ((gi + j) >= out_features) {
           return;
         }
-        out[(gi + j) * in_features + in_x] = outliers_centroids_start[j] * scale + bias;
+        out[(gi + j) * in_features + in_x] = FMA(outliers_centroids_start[j], scale, bias);
       }
     }
     return;
@@ -334,9 +333,6 @@ torch::Tensor lauch_deqantize_outliers_cuda_packkernel(
 #define callDequantWithOutliers_dtype(IDXBITS, BASEGROUP, OUT_OUF_INF, ResidualBits)  \
   if (centroids.dtype() == at::ScalarType::Half) {                                    \
     using scalar_t = c10::Half;                                                       \
-    callDequantWithOutliers(scalar_t, IDXBITS, BASEGROUP, OUT_OUF_INF, ResidualBits); \
-  } else if (centroids.dtype() == at::ScalarType::Float) {                            \
-    using scalar_t = float;                                                           \
     callDequantWithOutliers(scalar_t, IDXBITS, BASEGROUP, OUT_OUF_INF, ResidualBits); \
   } else {                                                                            \
     using scalar_t = c10::BFloat16;                                                   \
@@ -504,9 +500,6 @@ torch::Tensor lauch_gemv_outliers_cuda_packkernel(
 #define CallWqA16kernel_dtype(out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits)  \
   if (input.dtype() == at::ScalarType::Half) {                                       \
     using scalar_t = c10::Half;                                                      \
-    CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits); \
-  } else if (input.dtype() == at::ScalarType::Float) {                               \
-    using scalar_t = float;                                                          \
     CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce, ResidualBits); \
   } else {                                                                           \
     using scalar_t = c10::BFloat16;                                                  \

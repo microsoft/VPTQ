@@ -6,6 +6,7 @@
 import os
 from pathlib import Path
 
+import torch
 from setuptools import find_packages, setup
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
@@ -30,10 +31,17 @@ def build_cuda_extensions():
         delimiter = ' ' if ';' not in TORCH_CUDA_ARCH_LIST else ' '
         TORCH_CUDA_ARCH_LIST = TORCH_CUDA_ARCH_LIST.split(delimiter)
         compute_capabilities = [int(10 * float(arch)) for arch in TORCH_CUDA_ARCH_LIST if '+' not in arch]
-
-    print(" build for compute capabilities: ==============", compute_capabilities)
-    for cap in compute_capabilities:
-        arch_flags += ["-gencode", f"arch=compute_{cap},code=sm_{cap}"]
+    if torch.cuda.is_available() and torch.version.cuda:
+        print(" build for compute capabilities: ==============", compute_capabilities)
+        for cap in compute_capabilities:
+            arch_flags += ["-gencode", f"arch=compute_{cap},code=sm_{cap}"]
+    elif torch.cuda.is_available() and torch.version.hip:
+        if os.getenv("PYTORCH_ROCM_ARCH", None) is None:
+            arch_name = torch.cuda.get_device_properties().gcnArchName.split(":")[0]
+            os.environ["PYTORCH_ROCM_ARCH"] = arch_name
+            print(
+                "Please set the environment variable PYTORCH_ROCM_ARCH to compile for ROCm," +
+                "building for default arch:", arch_name)
     extra_compile_args = {
         "nvcc": [
             "-O3",
@@ -46,13 +54,16 @@ def build_cuda_extensions():
             "-U__CUDA_NO_BFLOAT16_CONVERSIONS__",
             "-U__CUDA_NO_BFLOAT162_OPERATORS__",
             "-U__CUDA_NO_BFLOAT162_CONVERSIONS__",
-            "--expt-relaxed-constexpr",
-            "--expt-extended-lambda",
-            "--use_fast_math",
-            "-lineinfo",
         ] + arch_flags,
         "cxx": ["-O3", "-fopenmp", "-lgomp", "-std=c++17", "-DENABLE_BF16"],
     }
+
+    if torch.cuda.is_available() and torch.version.cuda:
+        extra_compile_args["nvcc"].extend(
+            ["--expt-relaxed-constexpr", "--expt-extended-lambda"
+             "--use_fast_math", "-lineinfo"])
+    else:
+        extra_compile_args["nvcc"].extend(["-fbracket-depth=1024"])
 
     extensions = CUDAExtension(
         "vptq.ops",
