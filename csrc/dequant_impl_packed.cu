@@ -39,7 +39,7 @@ __global__ void WqA16WithOutliers_PackIndice(
     tidx += bidz * cuda::kBlockSize * Do_Reduce;
   }
   int in_y = bidx;
-  __shared__ float shared_output[GROUPSIZE][cuda::kBlockSize / 32 + 1];
+  __shared__ float shared_output[GROUPSIZE][cuda::kBlockSize / WARP_SIZE + 1];
   scalar_t tmp_output[GROUPSIZE];
   const scalar_t zero_value = ZERO_VALUE(scalar_t());
 #pragma unroll
@@ -140,14 +140,14 @@ __global__ void WqA16WithOutliers_PackIndice(
     }
   }
 
-  // warp_size = 32
-  int warpid = threadIdx.x / 32;  // at most 8 warp= 256/32
-  int landid = threadIdx.x % 32;
+  // warp_size = WARP_SIZE
+  int warpid = threadIdx.x / WARP_SIZE;  // at most 8 warp= 256/WARP_SIZE
+  int landid = threadIdx.x % WARP_SIZE;
 #pragma unroll
   for (int gi = 0; gi < GROUPSIZE; gi++) {
     float reduce_out = 0.f;
     reduce_out = cuda::ConvertToFloat(tmp_output[gi]);
-    reduce_out = cuda::warpReduceSum<32>(reduce_out);
+    reduce_out = cuda::warpReduceSum<WARP_SIZE>(reduce_out);
     if (landid == 0) {
       shared_output[gi][warpid] = reduce_out;
     }
@@ -162,11 +162,11 @@ __global__ void WqA16WithOutliers_PackIndice(
   }
 
   __syncthreads();
-  if (landid < cuda::kBlockSize / 32) {
+  if (landid < cuda::kBlockSize / WARP_SIZE) {
 #pragma unroll
-    for (int wid = warpid; wid < GROUPSIZE; wid += cuda::kBlockSize / 32) {
+    for (int wid = warpid; wid < GROUPSIZE; wid += cuda::kBlockSize / WARP_SIZE) {
       float reduce_out = shared_output[wid][landid];
-      reduce_out = cuda::warpReduceSum<cuda::kBlockSize / 32>(reduce_out);
+      reduce_out = cuda::warpReduceSum<cuda::kBlockSize / WARP_SIZE>(reduce_out);
       if (landid == 0 && (in_y * GROUPSIZE + wid) < out_features) {
         if constexpr (Do_Reduce) {
           out[(wid)*gridDim.z] = cuda::ConvertFromFloat<scalar_t>(reduce_out, zero_value) +

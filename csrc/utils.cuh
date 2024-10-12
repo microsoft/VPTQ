@@ -69,6 +69,7 @@ float __device__ __forceinline__ ConvertToFloat(T v) {
 
 template <unsigned int WarpSize>
 __device__ __forceinline__ float warpReduceSum(float sum) {
+  if constexpr (WarpSize >= 64) sum += SHFL_DOWN(sum, 32);  // 0-16, 1-17, 2-18, etc.
   if constexpr (WarpSize >= 32) sum += SHFL_DOWN(sum, 16);  // 0-16, 1-17, 2-18, etc.
   if constexpr (WarpSize >= 16) sum += SHFL_DOWN(sum, 8);   // 0-8, 1-9, 2-10, etc.
   if constexpr (WarpSize >= 8) sum += SHFL_DOWN(sum, 4);    // 0-4, 1-5, 2-6, etc.
