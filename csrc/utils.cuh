@@ -219,7 +219,7 @@ template <typename T>
 T __device__ __forceinline__ FMA(T a, T b, T c) {
   if constexpr (std::is_same<T, __bfloat16>::value) {
 #if (defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 800) && !defined(USE_ROCM)
-    float x = __bfloat16float(a.x) * __bfloat16float(b.x) + __bfloat16float(c.x);
+    float x = __bfloat16float(a) * __bfloat16float(b) + __bfloat16float(c);
     return __bfloat16{__float2bfloat16(x)};
 #else
     return __hfma(a, b, c);
