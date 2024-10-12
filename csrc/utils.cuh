@@ -9,12 +9,14 @@
 
   #define VPTQ_LDG(arg) __ldg(arg)
   #define SHFL_DOWN(val, offset) __shfl_down(val, offset)
+  #define WARP_SIZE warpSize
 typedef __hip_bfloat162 __bfloat162;
 typedef __hip_bfloat16 __bfloat16;
 #else
   #include <cuda_fp16.h>
   #include <cuda_bf16.h>
 
+  #define WARP_SIZE 32
   #define VPTQ_LDG(arg) *(arg)
   #define SHFL_DOWN(val, offset) __shfl_down_sync(0xffffffff, val, offset)
 typedef __nv_bfloat162 __bfloat162;
