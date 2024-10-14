@@ -66,8 +66,7 @@ def build_cuda_extensions():
         extra_compile_args["nvcc"].extend(["-fbracket-depth=1024"])
     else:
         extra_compile_args["nvcc"].extend(
-            ["--expt-relaxed-constexpr", "--expt-extended-lambda"
-             "--use_fast_math", "-lineinfo"])
+            ["--expt-relaxed-constexpr", "--expt-extended-lambda", "--use_fast_math", "-lineinfo"])
 
     extensions = CUDAExtension(
         "vptq.ops",
