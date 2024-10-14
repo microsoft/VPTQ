@@ -13,7 +13,7 @@ import safetensors
 import torch
 import transformers
 from tqdm import tqdm
-import importlib.util
+
 from .vqlinear import VQuantLinear
 
 
