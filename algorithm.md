@@ -2,16 +2,20 @@
 
 ## Environment Setting
 ```bash
+# create conda environment
 conda env create -f algo-environment.yml
+# install VPTQ without compiling to save time
 git clone https://github.com/microsoft/VPTQ.git
 cd VPTQ
+conda activate vptq-algo
+SKIP_COMPILE=1 pip install -e . --no-build-isolation
 ```
 
 ## Quantization Example
 ```bash
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python np_vptq.py \
         --model_name meta-llama/Meta-Llama-3.1-8B-Instruct \
-        --dataset c4 --output_dir Experiments/Meta-Llama-3.1-Instruct-8B/ \
+        --output_dir Experiments/Meta-Llama-3.1-Instruct-8B/ \
         --vector_lens -1 8 \
         --num_centroids -1 256 \
         --num_res_centroids -1 256 \

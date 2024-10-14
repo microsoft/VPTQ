@@ -17,6 +17,6 @@ dependencies:
   - pip:
     - accelerate
     - flash_attn==2.5.8
-    - transformers>4.44
+    - transformers>=4.45
     - datasets
     - tensorboard
