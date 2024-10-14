@@ -33,6 +33,7 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 
 
 ## News
+- [2024-10-14] 🚀 Add Rocm support
 - [2024-10-6] 🚀 **Try it on Google Colab** <a target="_blank" href="https://colab.research.google.com/github/microsoft/VPTQ/blob/main/notebooks/vptq_example.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="VPTQ In Colab"/></a>  
 - [2024-10-5] 🚀 **Add free Huggingface Demo**: [Huggingface Demo](https://huggingface.co/spaces/VPTQ-community/VPTQ-Demo)
 - [2024-10-4] ✏️ Updated the VPTQ tech report and fixed typos.
