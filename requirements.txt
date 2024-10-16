@@ -6,3 +6,4 @@ psutil
 accelerate
 gradio
 plotly==5.9.0
+pynvml
