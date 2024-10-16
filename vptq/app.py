@@ -15,16 +15,20 @@ from vptq.app_utils import get_chat_loop_generator
 
 models = [
     {
-        "name": "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v16-k65536-65536-woft",
-        "bits": "2 bits"
+        "name": "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-65536-woft",
+        "bits": "4 bits"
     },
     {
         "name": "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-256-woft",
         "bits": "3 bits"
     },
     {
-        "name": "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-65536-woft",
-        "bits": "4 bits"
+        "name": "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v16-k65536-65536-woft",
+        "bits": "2 bits"
+    },
+    {
+        "name": "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k32768-0-woft",
+        "bits": "1.875 bits"
     },
     {
         "name": "VPTQ-community/Meta-Llama-3.1-8B-Instruct-v8-k65536-65536-woft",
@@ -42,6 +46,14 @@ models = [
         "name": "VPTQ-community/Qwen2.5-72B-Instruct-v16-k65536-65536-woft",
         "bits": "2 bits"
     },
+    {
+        "name": "VPTQ-community/Qwen2.5-72B-Instruct-v16-k65536-32768-woft",
+        "bits": "1.94 bits"
+    },
+    # {
+    #     "name": "VPTQ-community/Meta-Llama-3.1-405B-Instruct-v16-k65536-256-woft",
+    #     "bits": "2 bits"
+    # },
 ]
 
 model_choices = [f"{model['name']} ({model['bits']})" for model in models]
@@ -62,8 +74,8 @@ def download_models_in_background():
 download_thread = threading.Thread(target=download_models_in_background)
 download_thread.start()
 
-loaded_models = {}
-
+loaded_model = None
+loaded_model_name = None
 
 def respond(
     message,
@@ -76,12 +88,15 @@ def respond(
 ):
     model_name = display_to_model[selected_model_display_label]
 
-    # Check if the model is already loaded
-    if model_name not in loaded_models:
-        # Load and store the model in the cache
-        loaded_models[model_name] = get_chat_loop_generator(model_name)
+    global loaded_model_name
 
-    chat_completion = loaded_models[model_name]
+    # Check if the model is already loaded
+    if model_name is not loaded_model_name:
+        # Load and store the model in the cache
+        loaded_model = get_chat_loop_generator(model_name)
+        loaded_model_name = model_name
+
+    chat_completion = loaded_model 
 
     messages = [{"role": "system", "content": system_message}]
 
