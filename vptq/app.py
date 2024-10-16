@@ -4,13 +4,65 @@
 # --------------------------------------------------------------------------
 
 import os
+import threading
 
 import gradio as gr
+from huggingface_hub import snapshot_download
 
+from vptq.app_gpu import disable_gpu_info, enable_gpu_info
 from vptq.app_gpu import update_charts as _update_charts
 from vptq.app_utils import get_chat_loop_generator
 
-chat_completion = get_chat_loop_generator("VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k32768-0-woft")
+models = [
+    {
+        "name": "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v16-k65536-65536-woft",
+        "bits": "2 bits"
+    },
+    {
+        "name": "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-256-woft",
+        "bits": "3 bits"
+    },
+    {
+        "name": "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-65536-woft",
+        "bits": "4 bits"
+    },
+    {
+        "name": "VPTQ-community/Meta-Llama-3.1-8B-Instruct-v8-k65536-65536-woft",
+        "bits": "4 bits"
+    },
+    {
+        "name": "VPTQ-community/Qwen2.5-72B-Instruct-v8-k65536-65536-woft",
+        "bits": "4 bits"
+    },
+    {
+        "name": "VPTQ-community/Qwen2.5-72B-Instruct-v8-k65536-256-woft",
+        "bits": "3 bits"
+    },
+    {
+        "name": "VPTQ-community/Qwen2.5-72B-Instruct-v16-k65536-65536-woft",
+        "bits": "2 bits"
+    },
+]
+
+model_choices = [f"{model['name']} ({model['bits']})" for model in models]
+display_to_model = {f"{model['name']} ({model['bits']})": model['name'] for model in models}
+
+
+def download_model(model):
+    print(f"Downloading {model['name']}...")
+    snapshot_download(repo_id=model['name'])
+
+
+def download_models_in_background():
+    print(f'Downloading models for the first time...')
+    for model in models:
+        download_model(model)
+
+
+download_thread = threading.Thread(target=download_models_in_background)
+download_thread.start()
+
+loaded_models = {}
 
 
 def respond(
@@ -20,7 +72,17 @@ def respond(
     max_tokens,
     temperature,
     top_p,
+    selected_model_display_label,
 ):
+    model_name = display_to_model[selected_model_display_label]
+
+    # Check if the model is already loaded
+    if model_name not in loaded_models:
+        # Load and store the model in the cache
+        loaded_models[model_name] = get_chat_loop_generator(model_name)
+
+    chat_completion = loaded_models[model_name]
+
     messages = [{"role": "system", "content": system_message}]
 
     for val in history:
@@ -49,13 +111,14 @@ def respond(
 """
 For information on how to customize the ChatInterface, peruse the gradio docs: https://www.gradio.app/docs/chatinterface
 """
+enable_gpu_info()
 with gr.Blocks(fill_height=True) as demo:
     with gr.Row():
 
         def update_chart():
             return _update_charts(chart_height=200)
 
-        gpu_chart = gr.Plot(update_chart, every=0.01)  # update every 0.01 seconds
+        gpu_chart = gr.Plot(update_chart, every=0.1)  # update every 0.1 seconds
 
     with gr.Column():
         chat_interface = gr.ChatInterface(
@@ -71,9 +134,15 @@ with gr.Blocks(fill_height=True) as demo:
                     step=0.05,
                     label="Top-p (nucleus sampling)",
                 ),
+                gr.Dropdown(
+                    choices=model_choices,
+                    value=model_choices[0],
+                    label="Select Model",
+                ),
             ],
         )
 
 if __name__ == "__main__":
     share = os.getenv("SHARE_LINK", None) in ["1", "true", "True"]
     demo.launch(share=share)
+    disable_gpu_info()
