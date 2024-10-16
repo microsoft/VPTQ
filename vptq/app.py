@@ -35,6 +35,14 @@ models = [
         "bits": "4 bits"
     },
     {
+        "name": "VPTQ-community/Meta-Llama-3.1-8B-Instruct-v8-k65536-256-woft",
+        "bits": "3 bits"
+    },
+    {
+        "name": "VPTQ-community/Meta-Llama-3.1-8B-Instruct-v12-k65536-4096-woft",
+        "bits": "2.3 bits"
+    },
+    {
         "name": "VPTQ-community/Qwen2.5-72B-Instruct-v8-k65536-65536-woft",
         "bits": "4 bits"
     },
