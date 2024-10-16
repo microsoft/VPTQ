@@ -96,8 +96,9 @@ def respond(
 ):
     model_name = display_to_model[selected_model_display_label]
 
+    global loaded_model
     global loaded_model_name
-
+    
     # Check if the model is already loaded
     if model_name is not loaded_model_name:
         # Load and store the model in the cache
