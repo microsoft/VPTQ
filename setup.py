@@ -22,7 +22,7 @@ def get_version():
 
 
 def build_cuda_extensions():
-    compute_capabilities = [80]
+    compute_capabilities = [70, 75, 80, 86, 89, 90]
     arch_flags = []
     TORCH_CUDA_ARCH_LIST = os.getenv("TORCH_CUDA_ARCH_LIST", None)
     if TORCH_CUDA_ARCH_LIST is None:
