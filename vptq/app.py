@@ -54,7 +54,7 @@ def download_model(model):
 
 
 def download_models_in_background():
-    print(f'Downloading models for the first time...')
+    print('Downloading models for the first time...')
     for model in models:
         download_model(model)
 
