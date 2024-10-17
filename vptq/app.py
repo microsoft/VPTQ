@@ -58,14 +58,11 @@ models = [
         "name": "VPTQ-community/Qwen2.5-72B-Instruct-v16-k65536-32768-woft",
         "bits": "1.94 bits"
     },
-    # {
-    #     "name": "VPTQ-community/Meta-Llama-3.1-405B-Instruct-v16-k65536-256-woft",
-    #     "bits": "2 bits"
-    # },
 ]
 
 model_choices = [f"{model['name']} ({model['bits']})" for model in models]
-display_to_model = {f"{model['name']} ({model['bits']})": model['name'] for model in models}
+display_to_model = {
+    f"{model['name']} ({model['bits']})": model['name'] for model in models}
 
 
 def download_model(model):
@@ -79,11 +76,9 @@ def download_models_in_background():
         download_model(model)
 
 
-download_thread = threading.Thread(target=download_models_in_background)
-download_thread.start()
-
 loaded_model = None
 loaded_model_name = None
+
 
 def respond(
     message,
@@ -98,14 +93,14 @@ def respond(
 
     global loaded_model
     global loaded_model_name
-    
+
     # Check if the model is already loaded
     if model_name is not loaded_model_name:
         # Load and store the model in the cache
         loaded_model = get_chat_loop_generator(model_name)
         loaded_model_name = model_name
 
-    chat_completion = loaded_model 
+    chat_completion = loaded_model
 
     messages = [{"role": "system", "content": system_message}]
 
@@ -142,15 +137,19 @@ with gr.Blocks(fill_height=True) as demo:
         def update_chart():
             return _update_charts(chart_height=200)
 
-        gpu_chart = gr.Plot(update_chart, every=0.1)  # update every 0.1 seconds
+        # update every 0.1 seconds
+        gpu_chart = gr.Plot(update_chart, every=0.1)
 
     with gr.Column():
         chat_interface = gr.ChatInterface(
             respond,
             additional_inputs=[
-                gr.Textbox(value="You are a friendly Chatbot.", label="System message"),
-                gr.Slider(minimum=1, maximum=2048, value=512, step=1, label="Max new tokens"),
-                gr.Slider(minimum=0.1, maximum=4.0, value=0.7, step=0.1, label="Temperature"),
+                gr.Textbox(value="You are a friendly Chatbot.",
+                           label="System message"),
+                gr.Slider(minimum=1, maximum=2048, value=512,
+                          step=1, label="Max new tokens"),
+                gr.Slider(minimum=0.1, maximum=4.0, value=0.7,
+                          step=0.1, label="Temperature"),
                 gr.Slider(
                     minimum=0.1,
                     maximum=1.0,
@@ -168,5 +167,10 @@ with gr.Blocks(fill_height=True) as demo:
 
 if __name__ == "__main__":
     share = os.getenv("SHARE_LINK", None) in ["1", "true", "True"]
+    download = os.getenv("DOWNLOAD_MODEL", None) in ["1", "true", "True"]
+    if download:
+        download_thread = threading.Thread(
+            target=download_models_in_background)
+        download_thread.start()
     demo.launch(share=share)
     disable_gpu_info()
