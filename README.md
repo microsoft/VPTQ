@@ -189,7 +189,7 @@ VPTQ achieves better accuracy and higher throughput with lower quantization over
 
 ## Road Map
 - [ ] Merge the quantization algorithm into the public repository.
-- [ ] Submit the VPTQ method to various inference frameworks (e.g., vLLM, llama.cpp, exllama).
+- [ ] Contribute the VPTQ method to various inference frameworks (e.g., vLLM, llama.cpp, exllama).
 - [ ] Improve the implementation of the inference kernel (e.g., CUDA, ROCm, Triton) and apply kernel fusion by combining dequantization (lookup) and Linear (GEMM) to enhance inference performance.
 - [ ] **TBC**
 
