@@ -5,6 +5,7 @@
 
 import os
 import threading
+import torch
 
 import gradio as gr
 from huggingface_hub import snapshot_download
@@ -58,6 +59,18 @@ models = [
         "name": "VPTQ-community/Qwen2.5-72B-Instruct-v16-k65536-32768-woft",
         "bits": "1.94 bits"
     },
+    {
+        "name": "VPTQ-community/Llama-3.1-Nemotron-70B-Instruct-HF-v8-k65536-65536-woft",
+        "bits": "4 bits"    
+    },
+    {
+        "name": "VPTQ-community/Llama-3.1-Nemotron-70B-Instruct-HF-v8-k65536-256-woft",
+        "bits": "3 bits"
+    },
+    {
+        "name": "VPTQ-community/Llama-3.1-Nemotron-70B-Instruct-HF-v16-k65536-65536-woft",
+        "bits": "2 bits"
+    }
 ]
 
 model_choices = [f"{model['name']} ({model['bits']})" for model in models]
@@ -96,6 +109,8 @@ def respond(
     # Check if the model is already loaded
     if model_name is not loaded_model_name:
         # Load and store the model in the cache
+        loaded_model = None
+        torch.cuda.empty_cache()
         loaded_model = get_chat_loop_generator(model_name)
         loaded_model_name = model_name
 
