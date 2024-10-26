@@ -27,6 +27,7 @@ def build_cuda_extensions():
         return []
     
     compute_capabilities = [70, 75, 80, 86, 89, 90]
+    
     arch_flags = []
     TORCH_CUDA_ARCH_LIST = os.getenv("TORCH_CUDA_ARCH_LIST", None)
     if TORCH_CUDA_ARCH_LIST is None:
@@ -70,8 +71,7 @@ def build_cuda_extensions():
         extra_compile_args["nvcc"].extend(["-fbracket-depth=1024"])
     else:
         extra_compile_args["nvcc"].extend(
-            ["--expt-relaxed-constexpr", "--expt-extended-lambda"
-             "--use_fast_math", "-lineinfo"])
+            ["--expt-relaxed-constexpr", "--expt-extended-lambda", "--use_fast_math", "-lineinfo"])
 
     extensions = CUDAExtension(
         "vptq.ops",
