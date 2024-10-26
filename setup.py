@@ -25,9 +25,9 @@ def build_cuda_extensions():
     if os.getenv("SKIP_COMPILE", "0") == "1":
         print("Skipping CUDA/ROCm extension compilation due to SKIP_COMPILE setting")
         return []
-    
+
     compute_capabilities = [70, 75, 80, 86, 89, 90]
-    
+
     arch_flags = []
     TORCH_CUDA_ARCH_LIST = os.getenv("TORCH_CUDA_ARCH_LIST", None)
     if TORCH_CUDA_ARCH_LIST is None:
