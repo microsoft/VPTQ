@@ -101,8 +101,25 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
         device_map = kwargs.pop("device_map", None)
         max_memory = kwargs.pop("max_memory", None)
 
-        # device_map = accelerate.infer_auto_device_map(model, no_split_module_classes=no_split_module_classes[0],
-        # dtype=torch_dtype)
+        if device_map is None:
+            num_gpus = torch.cuda.device_count()
+            device_names = [f"cuda:{i}" for i in range(num_gpus)]
+            device_names.append("cpu")  # Include CPU for offloading
+
+            gpu_memory = {device: "auto" for device in device_names if device.startswith("cuda")}
+            cpu_memory = {"cpu": "auto"}
+
+            max_memory = {**gpu_memory, **cpu_memory}
+
+            # Infer device map with CPU as a fallback
+            device_map = accelerate.infer_auto_device_map(
+                model,
+                max_memory=max_memory,
+                no_split_module_classes=no_split_module_classes,
+                dtype=torch_dtype,
+                allow_cpu_offload=True,  # Allow offloading to CPU
+            )
+
         if Path(pretrained_model_name_or_path).exists():
             checkpoint = pretrained_model_name_or_path
         else:  # remote
@@ -123,8 +140,10 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
         # force to use one GPU as most as possible
         model_buffer_size = accelerate.utils.modeling.compute_module_sizes(model, dtype=torch_dtype)[""]
         local_max_memory = accelerate.utils.modeling.get_max_memory()
-        if 0 in local_max_memory and local_max_memory[0] * 0.85 > model_buffer_size:
+
+        if 0 in local_max_memory and local_max_memory[0] * 0.9 > model_buffer_size:
             local_max_memory = {0: local_max_memory[0]}
+
         if max_memory is None:
             max_memory = local_max_memory
 

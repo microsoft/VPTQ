@@ -4,9 +4,12 @@
 # --------------------------------------------------------------------------
 
 import os
+import threading
 
 import gradio as gr
+from huggingface_hub import snapshot_download
 
+from vptq.app_gpu import disable_gpu_info, enable_gpu_info
 from vptq.app_gpu import update_charts as _update_charts
 from vptq.app_utils import get_chat_loop_generator
 
@@ -20,6 +23,7 @@ def respond(
     max_tokens,
     temperature,
     top_p,
+    selected_model_display_label,
 ):
     messages = [{"role": "system", "content": system_message}]
 
@@ -49,6 +53,7 @@ def respond(
 """
 For information on how to customize the ChatInterface, peruse the gradio docs: https://www.gradio.app/docs/chatinterface
 """
+enable_gpu_info()
 with gr.Blocks(fill_height=True) as demo:
     with gr.Row():
 
@@ -71,9 +76,19 @@ with gr.Blocks(fill_height=True) as demo:
                     step=0.05,
                     label="Top-p (nucleus sampling)",
                 ),
+                gr.Dropdown(
+                    choices=model_choices,
+                    value=model_choices[0],
+                    label="Select Model",
+                ),
             ],
         )
 
 if __name__ == "__main__":
     share = os.getenv("SHARE_LINK", None) in ["1", "true", "True"]
+    download = os.getenv("DOWNLOAD_MODEL", None) in ["1", "true", "True"]
+    if download:
+        download_thread = threading.Thread(target=download_models_in_background)
+        download_thread.start()
     demo.launch(share=share)
+    disable_gpu_info()
