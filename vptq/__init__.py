@@ -4,4 +4,4 @@
 # --------------------------------------------------------------------------
 
 __version__ = "0.0.2.post1"
-from .layers import AutoModelForCausalLM as AutoModelForCausalLM
+from vptq.layers import AutoModelForCausalLM as AutoModelForCausalLM

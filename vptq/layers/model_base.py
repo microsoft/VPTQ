@@ -14,7 +14,7 @@ import torch
 import transformers
 from tqdm import tqdm
 
-from .vqlinear import VQuantLinear
+from vptq.layers.vqlinear import VQuantLinear
 
 
 def set_op_by_name(layer, name, new_module):

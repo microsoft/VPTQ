@@ -9,7 +9,7 @@ from threading import Thread
 
 import transformers
 
-from .layers.model_base import AutoModelForCausalLM as VQAutoModelQuantization
+from vptq.layers.model_base import AutoModelForCausalLM as VQAutoModelQuantization
 
 
 def define_basic_args():
