@@ -13,7 +13,70 @@ from vptq.app_gpu import disable_gpu_info, enable_gpu_info
 from vptq.app_gpu import update_charts as _update_charts
 from vptq.app_utils import get_chat_loop_generator
 
-chat_completion = get_chat_loop_generator("VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k32768-0-woft")
+models = [
+    {
+        "name": "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-65536-woft",
+        "bits": "4 bits"
+    },
+    {
+        "name": "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-256-woft",
+        "bits": "3 bits"
+    },
+    {
+        "name": "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v16-k65536-65536-woft",
+        "bits": "2 bits"
+    },
+    {
+        "name": "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k32768-0-woft",
+        "bits": "1.875 bits"
+    },
+    {
+        "name": "VPTQ-community/Meta-Llama-3.1-8B-Instruct-v8-k65536-65536-woft",
+        "bits": "4 bits"
+    },
+    {
+        "name": "VPTQ-community/Meta-Llama-3.1-8B-Instruct-v8-k65536-256-woft",
+        "bits": "3 bits"
+    },
+    {
+        "name": "VPTQ-community/Meta-Llama-3.1-8B-Instruct-v12-k65536-4096-woft",
+        "bits": "2.3 bits"
+    },
+    {
+        "name": "VPTQ-community/Qwen2.5-72B-Instruct-v8-k65536-65536-woft",
+        "bits": "4 bits"
+    },
+    {
+        "name": "VPTQ-community/Qwen2.5-72B-Instruct-v8-k65536-256-woft",
+        "bits": "3 bits"
+    },
+    {
+        "name": "VPTQ-community/Qwen2.5-72B-Instruct-v16-k65536-65536-woft",
+        "bits": "2 bits"
+    },
+    {
+        "name": "VPTQ-community/Qwen2.5-72B-Instruct-v16-k65536-32768-woft",
+        "bits": "1.94 bits"
+    },
+]
+
+model_choices = [f"{model['name']} ({model['bits']})" for model in models]
+display_to_model = {f"{model['name']} ({model['bits']})": model['name'] for model in models}
+
+
+def download_model(model):
+    print(f"Downloading {model['name']}...")
+    snapshot_download(repo_id=model['name'])
+
+
+def download_models_in_background():
+    print('Downloading models for the first time...')
+    for model in models:
+        download_model(model)
+
+
+loaded_model = None
+loaded_model_name = None
 
 
 def respond(
@@ -25,6 +88,19 @@ def respond(
     top_p,
     selected_model_display_label,
 ):
+    model_name = display_to_model[selected_model_display_label]
+
+    global loaded_model
+    global loaded_model_name
+
+    # Check if the model is already loaded
+    if model_name is not loaded_model_name:
+        # Load and store the model in the cache
+        loaded_model = get_chat_loop_generator(model_name)
+        loaded_model_name = model_name
+
+    chat_completion = loaded_model
+
     messages = [{"role": "system", "content": system_message}]
 
     for val in history:
@@ -60,7 +136,8 @@ with gr.Blocks(fill_height=True) as demo:
         def update_chart():
             return _update_charts(chart_height=200)
 
-        gpu_chart = gr.Plot(update_chart, every=0.01)  # update every 0.01 seconds
+        # update every 0.1 seconds
+        gpu_chart = gr.Plot(update_chart, every=0.1)
 
     with gr.Column():
         chat_interface = gr.ChatInterface(

@@ -5,6 +5,7 @@
 
 import glob
 import importlib.util
+import importlib.util
 from pathlib import Path
 
 import accelerate
@@ -14,6 +15,7 @@ import torch
 import transformers
 from tqdm import tqdm
 
+from .vqlinear import VQuantLinear
 from .vqlinear import VQuantLinear
 
 
@@ -42,6 +44,36 @@ def make_quant_linear(module, quant_conf, name="", target_layer=None):
             set_op_by_name(module, module_name, new_module)
             del sub_module
     return
+
+
+def attach_execution_device_hook(
+    module: torch.nn.Module,
+    execution_device,
+    skip_keys=None,
+    preload_module_classes=None,
+    tied_params_map=None,
+):
+    """
+    A bug of accelerate, https://github.com/huggingface/accelerate/issues/3060
+    we just hook it here to fix the bug.
+    """
+    if not hasattr(module, "_hf_hook") and len(module.state_dict()) > 0:
+        accelerate.hooks.add_hook_to_module(
+            module,
+            accelerate.hooks.AlignDevicesHook(execution_device, skip_keys=skip_keys, tied_params_map=tied_params_map),
+        )
+
+    # Break the recursion if we get to a preload module.
+    if preload_module_classes is not None and module.__class__.__name__ in preload_module_classes:
+        return
+
+    for child in module.children():
+        attach_execution_device_hook(
+            child,
+            execution_device,
+            tied_params_map=tied_params_map,
+            preload_module_classes=preload_module_classes,
+        )
 
 
 def attach_execution_device_hook(
@@ -163,13 +195,7 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             print('!!! Warning !!!: CUDA kernel not found, please check CUDA and VPTQ installation.')
             print('!!! Warning !!!: Running on Torch Implementation, which is extremely slow.')
 
-        # check cuda kernel exist
-        if importlib.util.find_spec("vptq.ops") is not None:
-            pass
-        else:
-            print('!!! Warning !!!: CUDA kernel not found, please check CUDA and VPTQ installation.')
-            print('!!! Warning !!!: Running on Torch Implementation, which is extremely slow.')
-
+        # weight_bins = glob.glob(str(Path(pretrained_model_name_or_path).absolute() / '*.safetensors'))
         # all_missing_keys = []
         # all_unexpected_keys = []
         # if len(weight_bins) > 0:
