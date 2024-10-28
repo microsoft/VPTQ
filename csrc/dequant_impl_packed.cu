@@ -10,7 +10,6 @@
 template <typename T>
 struct C10ToNvType {
   typedef __bfloat16 type;
-  typedef __bfloat16 type;
 };
 
 template <>
@@ -23,10 +22,6 @@ struct C10ToNvType<float> {
   typedef float type;
 };
 
-template <>
-struct C10ToNvType<float> {
-  typedef float type;
-};
 
 template <typename scalar_t, int IDXBITS, int ResidualBits, int GROUPSIZE, int OL_GroupSize, int Do_Reduce>
 __global__ void WqA16WithOutliers_PackIndice(
@@ -68,10 +63,6 @@ __global__ void WqA16WithOutliers_PackIndice(
     // const scalar_t scale = shared_w_scales[col];
     const int w_col = Do_Reduce ? (invert_perm ? invert_perm[col] : col) : 0;
     const scalar_t input_col_v = input_data[w_col];
-    const scalar_t bias = input_col_v * weight_bias[w_col];
-    scalar_t input_v = input_col_v * weight_scale[w_col];
-    VecType input_v2 = VecType{input_v, input_v};
-    VecType bias2 = VecType{bias, bias};
     const scalar_t bias = input_col_v * weight_bias[w_col];
     scalar_t input_v = input_col_v * weight_scale[w_col];
     VecType input_v2 = VecType{input_v, input_v};
