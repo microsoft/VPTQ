@@ -3,4 +3,4 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from .model_base import AutoModelForCausalLM as AutoModelForCausalLM
+from vptq.model_base import AutoModelForCausalLM as AutoModelForCausalLM
