@@ -14,7 +14,6 @@ import torch
 import transformers
 from tqdm import tqdm
 
-
 from vptq.layers.vqlinear import VQuantLinear
 
 
