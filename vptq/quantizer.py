@@ -10,7 +10,9 @@ from typing import List, Tuple
 import cuml
 import numpy as np
 import torch
-from LUTobq.utils.reshape import reshape
+
+from vptq.utils.reshape import reshape
+
 
 @dataclass
 class QuantizationArguments:
@@ -27,37 +29,42 @@ class QuantizationArguments:
     kmeans_alpha: float = field(default=0)
     enable_norm: bool = field(default=False)
     norm_dim: int = field(default=0)
+    enable_perm: bool = field(default=False)
+
 
 # N-percent outlier Vector Quantizator
 # Partition data into N% outliers and (100-N)%.
 class NPVectorQuantizer:
-    def __init__(self,
-                 layer_name,
-                 logger,
-                 # vector quantization parameters
-                 vector_lens: Tuple[int, int],
-                 num_centroids: Tuple[int, int],
-                 num_res_centroids: Tuple[int, int],
-                 npercent: int,
-                 group_size: int,
-                 group_num: int,
-                 # kmeans parameters
-                 kmeans_mode: str = '',
-                 kmeans_seed: int = 0,
-                 enable_transpose: bool = False,
-                 iter: int = 100,
-                 tol: float = 1e-5,
-                 # kmeans_alpha: float = 0,
-                 # num_rescluster: Tuple[int, int] = (-1, 1),
-                 # norm
-                 enable_norm: bool = False,
-                 norm_dim: int = 0,
-                 debug: bool = False,
-                 loaded_weights: dict = None,):
+
+    def __init__(
+        self,
+        layer_name,
+        logger,
+        # vector quantization parameters
+        vector_lens: Tuple[int, int],
+        num_centroids: Tuple[int, int],
+        num_res_centroids: Tuple[int, int],
+        npercent: int,
+        group_size: int,
+        group_num: int,
+        # kmeans parameters
+        kmeans_mode: str = '',
+        kmeans_seed: int = 0,
+        # enable_transpose: bool = False,
+        iter: int = 100,
+        tol: float = 1e-5,
+        # norm
+        enable_norm: bool = False,
+        norm_dim: int = 0,
+        enable_perm: bool = False,
+        debug: bool = False,
+        # loaded_weights: dict = None,
+    ):
 
         assert isinstance(num_centroids, (list, tuple))
 
-        self.enable_transpose = enable_transpose
+        # self.enable_transpose = enable_transpose
+        self.enable_transpose = True
 
         self.vector_lens = vector_lens
         self.num_centroids = num_centroids
@@ -66,8 +73,7 @@ class NPVectorQuantizer:
 
         self.group_size = group_size
         self.group_num = group_num
-        assert not ((self.group_size != -1) and (self.group_num != -1)
-                    ), 'Can not set both group_size and num_group'
+        assert not ((self.group_size != -1) and (self.group_num != -1)), 'Can not set both group_size and group_num'
         self.iter = iter
         self.tol = tol
         self.kmeans_seed = kmeans_seed
@@ -99,7 +105,7 @@ class NPVectorQuantizer:
         self.vector_norm = None
 
         # load checkpoint
-        self.loaded_weights = loaded_weights
+        # self.loaded_weights = loaded_weights
 
         # reshape
         self.reshaper = {}
@@ -121,11 +127,10 @@ class NPVectorQuantizer:
         self.weight_bias = torch.mean(weight, dim=self.norm_dim)
 
         if self.debug:
-            self.logger.info(
-                f'enabling norm dim {self.norm_dim}, '
-                f'layer_name:{self.layer_name}, '
-                f'scale:{self.weight_scale.shape}, '
-                f'bias:{self.weight_bias.shape}')
+            self.logger.info(f'enabling norm dim {self.norm_dim}, '
+                             f'layer_name:{self.layer_name}, '
+                             f'scale:{self.weight_scale.shape}, '
+                             f'bias:{self.weight_bias.shape}')
 
     # init permutation
     def init_perm(self, hessian, perm=None):
@@ -148,8 +153,7 @@ class NPVectorQuantizer:
 
     def get_group_setting(self, data):
         if self.enable_transpose:
-            initial_outlier_size = int(
-                math.ceil((self.npercent / 100) * data.shape[1]))
+            initial_outlier_size = int(math.ceil((self.npercent / 100) * data.shape[1]))
             remaining_columns = data.shape[1] - initial_outlier_size
             _pad = remaining_columns % self.group_num
             if _pad != 0:
@@ -158,8 +162,7 @@ class NPVectorQuantizer:
                 outlier_size = initial_outlier_size
             self.outlier_size = outlier_size
             if self.group_num != -1:
-                group_size = (data.shape[1] -
-                              self.outlier_size) // self.group_num
+                group_size = (data.shape[1] - self.outlier_size) // self.group_num
                 self.group_size = group_size
             else:
                 assert True, 'only support transpose mode'
@@ -170,30 +173,25 @@ class NPVectorQuantizer:
 
     def get_index_list(self, data):
         if self.group_size == -1 and self.group_num == -1:
-            index_list = [[0, self.outlier_size], [
-                self.outlier_size, None]]    # N% and (100-N)%
+            index_list = [[0, self.outlier_size], [self.outlier_size, None]]  # N% and (100-N)%
             return index_list
 
         # if setting group_size or num_goup, update self.group_size and self.group_num
         if self.group_size != -1:
-            self.group_num = math.ceil(
-                (data.shape[1] - self.outlier_size) / self.group_size)
+            self.group_num = math.ceil((data.shape[1] - self.outlier_size) / self.group_size)
         elif self.group_num != -1:
-            group_size = math.ceil(
-                (data.shape[1] - self.outlier_size) / self.group_num)
+            group_size = math.ceil((data.shape[1] - self.outlier_size) / self.group_num)
             if self.enable_transpose:
                 self.group_size = group_size
             else:
                 # group size should be multiple of vector_len
-                self.group_size = math.ceil(
-                    group_size / self.vector_len) * self.vector_len
-            assert self.group_num == math.ceil(
-                (data.shape[1] - self.outlier_size) / group_size)
+                self.group_size = math.ceil(group_size / self.vector_len) * self.vector_len
+            assert self.group_num == math.ceil((data.shape[1] - self.outlier_size) / group_size)
 
         index_list = [[0, self.outlier_size]] + \
             [[self.outlier_size + t * self.group_size, self.outlier_size + (t+1) * self.group_size]
              for t in range(self.group_num)]
-        
+
         if self.debug:
             self.logger.info(f'group_size: {self.group_size} '
                              f'number of groups: {self.group_num}')
@@ -206,13 +204,12 @@ class NPVectorQuantizer:
         weights: do not support transpose, weight of each column (length should be data.shape[1])
 
         '''
-        self.logger.info(
-            f'data shape: {data.shape}, '
-            f'weights shape: {weights.shape if weights is not None else None}')
+        self.logger.info(f'data shape: {data.shape}, '
+                         f'weights shape: {weights.shape if weights is not None else None}')
 
         quantized_data = []
 
-        # Partition data into (1 + num_group) parts for Product Quantization:
+        # Partition data into (1 + group_num) parts for Product Quantization:
         # the first N% columns: [0,outlier_size],
         # the last (100-N)% columns: [outlier_size, outlier_size + group_size],
         # [outlier_size + group_size, outlier_size + 2 * group_size], ...
@@ -225,54 +222,39 @@ class NPVectorQuantizer:
             if num_centroids == -1:  # Do not quantize, keep original data
                 self.centroids[idx] = None
                 self.indices[idx] = None
-                self.logger.info(
-                    f'idx: {idx}, num_centroids: {num_centroids}, skip'
-                )
+                self.logger.info(f'idx: {idx}, num_centroids: {num_centroids}, skip')
             else:
-                self.reshaper[idx] = reshape(
-                    vector_len=vector_len,
-                    enable_transpose=self.enable_transpose)
+                self.reshaper[idx] = reshape(vector_len=vector_len, enable_transpose=self.enable_transpose)
 
-                sub_vectors, padded_shape = self.reshaper[idx].matrix2vectors(
-                    train_data)
-                vector_weights, _ = self.reshaper[idx].matrix2vectors(
-                    train_weights)
-
+                sub_vectors, padded_shape = self.reshaper[idx].matrix2vectors(train_data)
+                vector_weights, _ = self.reshaper[idx].matrix2vectors(train_weights)
 
                 # kmeans centroids from weight
-                _kmeans = cuml.cluster.KMeans(
-                    n_clusters=num_centroids,
-                    tol=self.tol,
-                    init='random',
-                    max_iter=self.iter,
-                    random_state=0,
-                    n_init=1
-                )
+                _kmeans = cuml.cluster.KMeans(n_clusters=num_centroids,
+                                              tol=self.tol,
+                                              init='random',
+                                              max_iter=self.iter,
+                                              random_state=0,
+                                              n_init=1)
 
-                vector_weights = vector_weights.mean(
-                    dim=1) if vector_weights is not None else None
+                vector_weights = vector_weights.mean(dim=1) if vector_weights is not None else None
 
                 # convert to numpy and float32 to avoid error
                 sub_vectors = sub_vectors.to(torch.float32).cpu().numpy()
                 _kmeans.fit(sub_vectors, sample_weight=vector_weights)
 
-                self.logger.info(
-                    f'cuml kmeans {_kmeans.n_iter_} iterations, error {_kmeans.inertia_}')
+                self.logger.info(f'cuml kmeans {_kmeans.n_iter_} iterations, error {_kmeans.inertia_}')
 
-                self.centroids[idx] = torch.from_numpy(
-                    _kmeans.cluster_centers_).to(device=data.device)
+                self.centroids[idx] = torch.from_numpy(_kmeans.cluster_centers_).to(device=data.device)
 
                 quant_data = self.centroids[idx][_kmeans.labels_]
 
-                self.logger.info(
-                    f'idx: {idx}, quant_data shape: {quant_data.shape}')
+                self.logger.info(f'idx: {idx}, quant_data shape: {quant_data.shape}')
 
                 # reshape vectors to matrix
-                quant_data = self.reshaper[idx].remove_padding(
-                    quant_data.reshape(padded_shape))
+                quant_data = self.reshaper[idx].remove_padding(quant_data.reshape(padded_shape))
 
-                self.logger.info(
-                    f'idx: {idx}, quant_data shape: {quant_data.shape}')
+                self.logger.info(f'idx: {idx}, quant_data shape: {quant_data.shape}')
                 quant_data.to(device=data.device)
                 quantized_data.append(quant_data)
 
@@ -293,7 +275,6 @@ class NPVectorQuantizer:
         cidx = self.get_centroid_cidx(index)
         vector_len = self.outlier_vector_len if cidx == 0 else self.vector_len
         if self.centroids[cidx] is None:
-            # ?
             # keep original data for further quantization
             quantized_data = data
             self.indices[cidx] = None
@@ -320,11 +301,9 @@ class NPVectorQuantizer:
             # indices [out_feature / vector_len], 4096 / 8 = 512
             # self.logger.info(f'indices type: {type(indices), indices.shape}')
             if cidx not in self.indices or self.indices[cidx] is None:
-                self.indices[cidx] = indices.unsqueeze(
-                    1).to(device=data.device)
+                self.indices[cidx] = indices.unsqueeze(1).to(device=data.device)
             else:
-                self.indices[cidx] = torch.hstack(
-                    [self.indices[cidx], indices.unsqueeze(1).to(device=data.device)])
+                self.indices[cidx] = torch.hstack([self.indices[cidx], indices.unsqueeze(1).to(device=data.device)])
             # self.logger.info(f'self.indices[cidx]: {self.indices[cidx].shape}')
 
             # Reshape and remove padding if necessary
@@ -347,65 +326,33 @@ class NPVectorQuantizer:
             if num_centroids == -1:
                 self.res_centroids[idx] = None
                 self.res_indices[idx] = None
-                self.logger.info(
-                    f'idx: {idx}, num_centroids: {num_centroids}, skip'
-                )
+                self.logger.info(f'idx: {idx}, num_centroids: {num_centroids}, skip')
             else:
-                self.res_reshaper[idx] = reshape(
-                    vector_len=vector_len,
-                    enable_transpose=self.enable_transpose)
+                self.res_reshaper[idx] = reshape(vector_len=vector_len, enable_transpose=self.enable_transpose)
 
-                sub_vectors, padded_shape = self.res_reshaper[idx].matrix2vectors(
-                    train_data)
-                vector_weights, _ = self.res_reshaper[idx].matrix2vectors(
-                    train_weights)
+                sub_vectors, padded_shape = self.res_reshaper[idx].matrix2vectors(train_data)
+                vector_weights, _ = self.res_reshaper[idx].matrix2vectors(train_weights)
 
-                if self.enable_load_checkpoint:
-                    idx_offset = 0 if self.enable_outlier else -1
-                    _centroids = self.loaded_weights[f'{self.prefix_layer_name}{self.layer_name}.res_centroids.weight']
-                    # print(f'loaded res_centroids shape: {_centroids.shape}')
-                    _centroids = _centroids[idx_offset + idx].to(torch.float32)
-                    # print(f'loaded res_centroids shape: {_centroids.shape}')
-                    _centroids = _centroids.reshape(
-                        (num_centroids, -1)).cpu().numpy().astype(np.float32)
-                    _kmeans = cuml.cluster.KMeans(
-                        n_clusters=num_centroids,
-                        init=_centroids,
-                        max_iter=0)
-                    _kmeans.fit(sub_vectors)
-                    self.logger.info(
-                        f'load centroids {self.prefix_layer_name}{self.layer_name}.res_centroids.weight, {_centroids.shape}')
-                    self.res_centroids[idx] = torch.from_numpy(
-                        _kmeans.cluster_centers_.get()).to(device=data.device)
-                    quant_data = self.res_centroids[idx][_kmeans.labels_.get()]
-                else:
-                    # kmean
-                    _kmeans = cuml.cluster.KMeans(
-                        n_clusters=num_centroids,
-                        tol=self.tol,
-                        init='random',
-                        max_iter=self.iter,
-                        random_state=0,
-                        n_init=1
-                    )
+                # kmean
+                _kmeans = cuml.cluster.KMeans(n_clusters=num_centroids,
+                                              tol=self.tol,
+                                              init='random',
+                                              max_iter=self.iter,
+                                              random_state=0,
+                                              n_init=1)
 
-                    self.logger.info(
-                        f'kmeans_mode: {self.kmeans_mode}, cuml kmeans, {num_centroids} clusters')
-                    # self.logger.info(sub_vectors.shape)
-                    sub_vectors = sub_vectors.to(torch.float32).cpu().numpy()
-                    _kmeans.fit(sub_vectors, sample_weight=vector_weights)
-                    self.logger.info(
-                        f'cuml kmeans {_kmeans.n_iter_} iterations, error {_kmeans.inertia_}')
+                self.logger.info(f'kmeans_mode: {self.kmeans_mode}, cuml kmeans, {num_centroids} clusters')
+                # self.logger.info(sub_vectors.shape)
+                sub_vectors = sub_vectors.to(torch.float32).cpu().numpy()
+                _kmeans.fit(sub_vectors, sample_weight=vector_weights)
+                self.logger.info(f'cuml kmeans {_kmeans.n_iter_} iterations, error {_kmeans.inertia_}')
 
-                    self.res_centroids[idx] = torch.from_numpy(
-                        _kmeans.cluster_centers_).to(device=data.device)
-                    quant_data = self.res_centroids[idx][_kmeans.labels_]
-                    
-                quant_data = self.res_reshaper[idx].remove_padding(
-                    quant_data.reshape(padded_shape))
+                self.res_centroids[idx] = torch.from_numpy(_kmeans.cluster_centers_).to(device=data.device)
+                quant_data = self.res_centroids[idx][_kmeans.labels_]
 
-                self.logger.info(
-                    f'idx: {idx}, res quant_data shape: {quant_data.shape}')
+                quant_data = self.res_reshaper[idx].remove_padding(quant_data.reshape(padded_shape))
+
+                self.logger.info(f'idx: {idx}, res quant_data shape: {quant_data.shape}')
 
                 quant_data.to(device=data.device)
                 quantized_data.append(quant_data)
@@ -452,8 +399,7 @@ class NPVectorQuantizer:
             if cidx not in self.indices or self.indices[cidx] is None:
                 self.indices[cidx] = indices.unsqueeze(1)
             else:
-                self.indices[cidx] = torch.hstack(
-                    [self.indices[cidx], indices.unsqueeze(1)])
+                self.indices[cidx] = torch.hstack([self.indices[cidx], indices.unsqueeze(1)])
             # self.logger.info(f'self.indices[cidx]: {self.indices[cidx].shape}')
 
             quantized_data = self.centroids[cidx][indices]
@@ -461,8 +407,7 @@ class NPVectorQuantizer:
             # residual quantization
             if self.res_centroids[cidx] is not None:
                 residual_data = data - quantized_data
-                dist = torch.cdist(residual_data.float(),
-                                   self.res_centroids[cidx].float())
+                dist = torch.cdist(residual_data.float(), self.res_centroids[cidx].float())
                 res_indices = dist.argmin(dim=-1)
 
                 # self.logger.info(f'residual indices type: {type(res_indices), res_indices.shape}')
@@ -474,8 +419,7 @@ class NPVectorQuantizer:
                     # self.logger.info(f'type: {type(self.res_indices[cidx])}')
                     # self.logger.info(f'shape: {self.res_indices[cidx].shape}')
                 else:
-                    self.res_indices[cidx] = torch.hstack(
-                        [self.res_indices[cidx], res_indices.unsqueeze(1)])
+                    self.res_indices[cidx] = torch.hstack([self.res_indices[cidx], res_indices.unsqueeze(1)])
                     # self.logger.info(f'type: {type(self.res_indices[cidx])}')
                     # self.logger.info(f'type: {type(res_indices.unsqueeze(1))}, shape: {res_indices.unsqueeze(1).shape}')
                 # self.logger.info(f'self.res_indices[cidx]: {self.res_indices[cidx].shape}')
@@ -497,9 +441,7 @@ class NPVectorQuantizer:
         # check shape
         self.centroids = centroids.to(device=self.centroids.device)
         if res_centroids is not None:
-            self.res_centroids = res_centroids.to(
-                device=self.res_centroids.device)
-
+            self.res_centroids = res_centroids.to(device=self.res_centroids.device)
 
     def clear_indices(self):
         self.indices = {0: None}
