@@ -43,12 +43,8 @@ __global__ void WqA16WithOutliers_PackIndice(
   __shared__ float shared_output[GROUPSIZE][cuda::kBlockSize / WARP_SIZE + 1];
   scalar_t tmp_output[GROUPSIZE];
   const scalar_t zero_value = ZERO_VALUE(scalar_t());
-  __shared__ float shared_output[GROUPSIZE][cuda::kBlockSize / WARP_SIZE + 1];
-  scalar_t tmp_output[GROUPSIZE];
-  const scalar_t zero_value = ZERO_VALUE(scalar_t());
 #pragma unroll
   for (int i = 0; i < GROUPSIZE; i++) {
-    tmp_output[i] = zero_value;
     tmp_output[i] = zero_value;
   }
   input_data = input_data + in_features * bidy;
