@@ -33,6 +33,7 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 
 
 ## News
+- [2024-10-28] ✨ VPTQ algorithm early-released at [algorithm branch](https://github.com/microsoft/VPTQ/tree/algorithm), and checkout the [tutorial](https://github.com/microsoft/VPTQ/blob/algorithm/algorithm.md).
 - [2024-10-22] 🌐 Open source community contributes [**Meta Llama 3.1 Nemotron 70B** models](https://huggingface.co/collections/VPTQ-community/vptq-llama-31-nemotron-70b-instruct-hf-without-finetune-671730b96f16208d0b3fe942), check [how VPTQ counts 'r' on local GPU](documents/example_count_r.md). We are continuing to work on quantizing the 4-6 bit versions. Please stay tuned!
 - [2024-10-21] 🌐 Open source community contributes [**Meta Llama 3.1 405B @ 3/4 bits** models](https://huggingface.co/collections/VPTQ-community/vptq-llama-31-405b-instruct-without-finetune-66f4413f9ba55e1a9e52cfb0)
 - [2024-10-18] 🌐 Open source community contributes [**Mistral Large Instruct 2407 (123B)** models](https://huggingface.co/collections/VPTQ-community/vptq-mistral-large-instruct-2407-without-finetune-6711ebfb7faf85eed9cceb16)
