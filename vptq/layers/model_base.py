@@ -5,6 +5,7 @@
 
 import glob
 import importlib.util
+import importlib.util
 from pathlib import Path
 
 import accelerate
@@ -14,6 +15,7 @@ import torch
 import transformers
 from tqdm import tqdm
 
+from .vqlinear import VQuantLinear
 from .vqlinear import VQuantLinear
 
 
@@ -37,7 +39,7 @@ def make_quant_linear(module, quant_conf, name="", target_layer=None):
                                         desc="Replacing linear layers..."):
         if module_name in quant_conf:
             layer_conf = quant_conf[module_name]
-            new_module = target_layer(**layer_conf, enable_proxy_error=False, dtype=sub_module.weight.dtype)
+            new_module = target_layer(**layer_conf, dtype=sub_module.weight.dtype)
             # print(f"Replacing {module_name} with {new_module}, {layer_conf}")
             set_op_by_name(module, module_name, new_module)
             del sub_module
@@ -74,10 +76,40 @@ def attach_execution_device_hook(
         )
 
 
+def attach_execution_device_hook(
+    module: torch.nn.Module,
+    execution_device,
+    skip_keys=None,
+    preload_module_classes=None,
+    tied_params_map=None,
+):
+    """
+    A bug of accelerate, https://github.com/huggingface/accelerate/issues/3060
+    we just hook it here to fix the bug.
+    """
+    if not hasattr(module, "_hf_hook") and len(module.state_dict()) > 0:
+        accelerate.hooks.add_hook_to_module(
+            module,
+            accelerate.hooks.AlignDevicesHook(execution_device, skip_keys=skip_keys, tied_params_map=tied_params_map),
+        )
+
+    # Break the recursion if we get to a preload module.
+    if preload_module_classes is not None and module.__class__.__name__ in preload_module_classes:
+        return
+
+    for child in module.children():
+        attach_execution_device_hook(
+            child,
+            execution_device,
+            tied_params_map=tied_params_map,
+            preload_module_classes=preload_module_classes,
+        )
+
+
 class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
 
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
+    def from_pretrained(cls, pretrained_model_name_or_path, *args, **kwargs):
         init_contexts = [
             transformers.modeling_utils.no_init_weights(),
             accelerate.init_empty_weights(),
@@ -87,7 +119,7 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
         torch_dtype = kwargs.get("dtype", auto_conf.torch_dtype)
         cls_kwargs["torch_dtype"] = torch_dtype
         with transformers.utils.generic.ContextManagers(init_contexts):
-            model = cls.from_config(auto_conf, *model_args, **cls_kwargs)
+            model = cls.from_config(auto_conf, *args, **cls_kwargs)
 
         target_layer = VQuantLinear
         quant_config = auto_conf.quant_config

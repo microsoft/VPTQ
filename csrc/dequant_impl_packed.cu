@@ -10,11 +10,17 @@
 template <typename T>
 struct C10ToNvType {
   typedef __bfloat16 type;
+  typedef __bfloat16 type;
 };
 
 template <>
 struct C10ToNvType<c10::Half> {
   typedef __half type;
+};
+
+template <>
+struct C10ToNvType<float> {
+  typedef float type;
 };
 
 template <>
@@ -28,7 +34,7 @@ __global__ void WqA16WithOutliers_PackIndice(
     const scalar_t* __restrict__ centroids, const scalar_t* __restrict__ residual_centroids,
     const scalar_t* outliers_centroids, const uint16_t* invert_perm, const scalar_t* weight_scale,
     const scalar_t* weight_bias, const scalar_t* bias, int out_features, int in_features, int outliers_infeatures,
-    const int index_stride_0, const int index_stride_1, const int centroids_stride_0, const int group_nums) {
+    const int index_stride_0, const int index_stride_1, const int centroids_stride_0, const int group_num) {
   static_assert((GROUPSIZE & 1) == 0, "GROUPSIZE must be even ");
   int bidx = blockIdx.x;  // out_features//base_groupsize
   int bidy = blockIdx.y;  // batch
@@ -42,8 +48,12 @@ __global__ void WqA16WithOutliers_PackIndice(
   __shared__ float shared_output[GROUPSIZE][cuda::kBlockSize / WARP_SIZE + 1];
   scalar_t tmp_output[GROUPSIZE];
   const scalar_t zero_value = ZERO_VALUE(scalar_t());
+  __shared__ float shared_output[GROUPSIZE][cuda::kBlockSize / WARP_SIZE + 1];
+  scalar_t tmp_output[GROUPSIZE];
+  const scalar_t zero_value = ZERO_VALUE(scalar_t());
 #pragma unroll
   for (int i = 0; i < GROUPSIZE; i++) {
+    tmp_output[i] = zero_value;
     tmp_output[i] = zero_value;
   }
   input_data = input_data + in_features * bidy;
@@ -52,12 +62,16 @@ __global__ void WqA16WithOutliers_PackIndice(
     return;
   }
   scalar_t base[GROUPSIZE];
-  const int inliers_infeatures_in_group = (in_features - outliers_infeatures) / group_nums;
+  const int inliers_infeatures_in_group = (in_features - outliers_infeatures) / group_num;
   const int col_end = Do_Reduce ? min((bidz + 1) * cuda::kBlockSize * Do_Reduce, in_features) : in_features;
   for (int col = tidx; col < col_end; col += cuda::kBlockSize) {
     // const scalar_t scale = shared_w_scales[col];
     const int w_col = Do_Reduce ? (invert_perm ? invert_perm[col] : col) : 0;
     const scalar_t input_col_v = input_data[w_col];
+    const scalar_t bias = input_col_v * weight_bias[w_col];
+    scalar_t input_v = input_col_v * weight_scale[w_col];
+    VecType input_v2 = VecType{input_v, input_v};
+    VecType bias2 = VecType{bias, bias};
     const scalar_t bias = input_col_v * weight_bias[w_col];
     scalar_t input_v = input_col_v * weight_scale[w_col];
     VecType input_v2 = VecType{input_v, input_v};
@@ -93,7 +107,7 @@ __global__ void WqA16WithOutliers_PackIndice(
       const scalar_t* centroids_cb = centroids;
       const scalar_t* residual_centroids_cb = residual_centroids;
       const uint32_t* q_indice_cb = (const uint32_t*)q_indice;
-      if (group_nums > 1) {  // has multi-ple codebooks
+      if (group_num > 1) {  // has multi-ple codebooks
         mappped_inx_in_a_codebook = mapped_inliers_inx % inliers_infeatures_in_group;
         const int code_books_id = mapped_inliers_inx / inliers_infeatures_in_group;
         q_indice_cb += code_books_id * index_stride_0;
@@ -187,7 +201,7 @@ __global__ void DequantizeWithOutliers_PackIndice(scalar_t* out, const int32_t* 
                                                   const scalar_t* weight_scale, const scalar_t* weight_bias,
                                                   int out_features, int in_features, int outliers_infeatures,
                                                   int OL_GroupSize, const int index_stride_0, const int index_stride_1,
-                                                  const int centroids_stride_0, const int group_nums) {
+                                                  const int centroids_stride_0, const int group_num) {
   int bid = blockIdx.x;
   int tid = (bid * cuda::kBlockSize + threadIdx.x);
   int in_x = tid % in_features;
@@ -220,13 +234,13 @@ __global__ void DequantizeWithOutliers_PackIndice(scalar_t* out, const int32_t* 
     return;
   }
 
-  const int inliers_infeatures_in_group = (in_features - outliers_infeatures) / group_nums;
+  const int inliers_infeatures_in_group = (in_features - outliers_infeatures) / group_num;
 
   const int mapped_inliers_inx = (mapped_index_x - outliers_infeatures);
   const int code_books_id = mapped_inliers_inx / inliers_infeatures_in_group;
   const int mappped_inx_in_a_codebook = mapped_inliers_inx % inliers_infeatures_in_group;
 
-  if (group_nums > 1) {  // has multi-ple codebooks
+  if (group_num > 1) {  // has multi-ple codebooks
     q_indice += code_books_id * index_stride_0;
     centroids += code_books_id * centroids_stride_0;
     residual_centroids += code_books_id * centroids_stride_0;
