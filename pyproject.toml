@@ -49,7 +49,8 @@ column_limit = 120
 indent_width = 4
 based_on_style = "google"
 split_before_logical_operator = false
-
+dedent_closing_brackets = true
+coalesce_brackets = true
 
 [tool.codespell]
 ignore-words-list = "ist"
@@ -58,3 +59,9 @@ skip = "./VPTQ_arxiv.pdf,./build"
 [tool.isort]
 use_parentheses = true
 skip_gitignore = true
+line_length = 120
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+combine_as_imports = true
+ensure_newline_before_comments = true
