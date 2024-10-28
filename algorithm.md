@@ -20,10 +20,12 @@ Current VPTQ only provides a `coarse-grained` quantization parameter, and you ca
 ## Environment Setting
 ```bash
 # create conda environment
-conda env create -f algo-environment.yml
-# install VPTQ without compiling to save time
 git clone https://github.com/microsoft/VPTQ.git
 cd VPTQ
+git checkout algorithm
+
+conda env create -f algo-environment.yml
+# install VPTQ without compiling to save time
 conda activate vptq-algo
 
 # install VPTQ with cuda 12.1 support for A100 (8.0)
