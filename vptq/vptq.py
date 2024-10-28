@@ -15,25 +15,27 @@ torch.backends.cudnn.allow_tf32 = False
 
 class VPTQ:
 
-    def __init__(self,
-                 layer,
-                 quantizer,
-                 hessian,
-                 inv_hessian,
-                 perm,
-                 zero_idx,
-                 logger,
-                 collect_act=False,
-                 layer_name='',
-                 block_size=128,
-                 step=1,
-                 percdamp=.01,
-                 group_size=-1,
-                 group_num=-1,
-                 enable_perm=None,
-                 enable_norm=False,
-                 norm_dim=0,
-                 debug=False):
+    def __init__(
+        self,
+        layer,
+        quantizer,
+        hessian,
+        inv_hessian,
+        perm,
+        zero_idx,
+        logger,
+        collect_act=False,
+        layer_name='',
+        block_size=128,
+        step=1,
+        percdamp=.01,
+        group_size=-1,
+        group_num=-1,
+        enable_perm=None,
+        enable_norm=False,
+        norm_dim=0,
+        debug=False
+    ):
         # set layer
         # self.layer = layer
 
@@ -169,8 +171,10 @@ class VPTQ:
         weight[:, self.zero_idx] = 0
 
         if self.debug:
-            self.logger.info(f'kmeans_mode: {self.quantizer.kmeans_mode}, '
-                             f'enable_perm: {self.quantizer.enable_perm}')
+            self.logger.info(
+                f'kmeans_mode: {self.quantizer.kmeans_mode}, '
+                f'enable_perm: {self.quantizer.enable_perm}'
+            )
 
         # permute weight and hessian
         if self.quantizer.enable_perm is not None:
@@ -209,12 +213,16 @@ class VPTQ:
 
             if self.debug:
                 self.logger.info(f'{self.layer_name} 1st kmeans time: {time.time() - tick}')
-                self.logger.info(f'{self.layer_name} qweight init shape: {qweight_init.shape}, '
-                                 f'weight shape: {weight.shape}')
+                self.logger.info(
+                    f'{self.layer_name} qweight init shape: {qweight_init.shape}, '
+                    f'weight shape: {weight.shape}'
+                )
 
                 error_sum, sum, error_norm = self.get_error(weight, qweight_init, hessian)
-                self.logger.info(f'{self.layer_name} proxy error before VPTQ: '
-                                 f'{error_sum.item()}, {sum.item()}, {error_norm.item()}')
+                self.logger.info(
+                    f'{self.layer_name} proxy error before VPTQ: '
+                    f'{error_sum.item()}, {sum.item()}, {error_norm.item()}'
+                )
 
         # step 2: VPTQ with initialized centroids ###
         _weight = weight.clone().to(self.dev)
@@ -234,8 +242,10 @@ class VPTQ:
         if self.debug:
             error_sum, sum, norm_error = self.get_error(weight, qweight, hessian)
             self.logger.info(f'{self.layer_name} 1st error time: {time.time() - tick}')
-            self.logger.info(f'{self.layer_name} proxy error after VPTQ: {error_sum.item()}, '
-                             f'{sum.item()}, {norm_error.item()}')
+            self.logger.info(
+                f'{self.layer_name} proxy error after VPTQ: {error_sum.item()}, '
+                f'{sum.item()}, {norm_error.item()}'
+            )
             # self.logger.info(f'qerror^2: {torch.mean(qerror ** 2).item()}')
 
         # step 3: residual quantization
@@ -274,8 +284,10 @@ class VPTQ:
             if self.debug:
                 self.logger.info(f'{self.layer_name} 2ed error time: {time.time() - tick}')
                 error_sum, sum, norm_error = self.get_error(weight, qweight, hessian)
-                self.logger.info(f'{self.layer_name} proxy error after residual VPTQ: '
-                                 f'{error_sum.item()}, {sum.item()}, {norm_error.item()}')
+                self.logger.info(
+                    f'{self.layer_name} proxy error after residual VPTQ: '
+                    f'{error_sum.item()}, {sum.item()}, {norm_error.item()}'
+                )
 
         # self.quantizer.save(qweight)
 

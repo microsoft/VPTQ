@@ -9,8 +9,7 @@ import threading
 import gradio as gr
 from huggingface_hub import snapshot_download
 
-from vptq.app_gpu import disable_gpu_info, enable_gpu_info
-from vptq.app_gpu import update_charts as _update_charts
+from vptq.app_gpu import disable_gpu_info, enable_gpu_info, update_charts as _update_charts
 from vptq.app_utils import get_chat_loop_generator
 
 models = [
@@ -114,11 +113,11 @@ def respond(
     response = ""
 
     for message in chat_completion(
-            messages,
-            max_tokens=max_tokens,
-            stream=True,
-            temperature=temperature,
-            top_p=top_p,
+        messages,
+        max_tokens=max_tokens,
+        stream=True,
+        temperature=temperature,
+        top_p=top_p,
     ):
         token = message
 

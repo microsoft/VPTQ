@@ -28,9 +28,9 @@ def get_llama(model_name, seqlen=None):
     torch.nn.init.uniform_ = skip
     torch.nn.init.normal_ = skip
     from transformers import LlamaForCausalLM
-    model = LlamaForCausalLM.from_pretrained(model_name,
-                                             attn_implementation="flash_attention_2",
-                                             torch_dtype=torch.bfloat16)
+    model = LlamaForCausalLM.from_pretrained(
+        model_name, attn_implementation="flash_attention_2", torch_dtype=torch.bfloat16
+    )
 
     if seqlen is not None:
         model.seqlen = seqlen
@@ -125,15 +125,17 @@ def quant_llama(model, args, quant_args, dev='cuda'):
             # we have to set CUDA_VISIBLE_DEVICES here
             # cuml only supports to run on GPU:0
             os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_idx)
-            p = mp.Process(target=quantize_executer,
-                           args=(
-                               gpu_idx,
-                               tasks[gpu_idx],
-                               args,
-                               quant_args,
-                               input_queues,
-                               output_queues,
-                           ))
+            p = mp.Process(
+                target=quantize_executer,
+                args=(
+                    gpu_idx,
+                    tasks[gpu_idx],
+                    args,
+                    quant_args,
+                    input_queues,
+                    output_queues,
+                )
+            )
 
             p.start()
             processes.append(p)
@@ -155,14 +157,16 @@ def quant_llama(model, args, quant_args, dev='cuda'):
         if args.save_qlinear:
             for layer_idx in range(len(layers)):
                 # load to cpu
-                layer_state_dicts[layer_idx] = torch.load(f'{args.output_dir}/qlinear_layer_state_{layer_idx}.pt',
-                                                          map_location='cpu')
+                layer_state_dicts[layer_idx] = torch.load(
+                    f'{args.output_dir}/qlinear_layer_state_{layer_idx}.pt', map_location='cpu'
+                )
                 # bypass KeyError: torch.uint16
                 for key, value in layer_state_dicts[layer_idx].items():
                     if "indices" in key:
                         layer_state_dicts[layer_idx][key] = value.view(torch.uint16)
-                layer_qlinear_args[layer_idx] = torch.load(f'{args.output_dir}/qlinear_args_{layer_idx}.pt',
-                                                           map_location='cpu')
+                layer_qlinear_args[layer_idx] = torch.load(
+                    f'{args.output_dir}/qlinear_args_{layer_idx}.pt', map_location='cpu'
+                )
         else:
             while not output_queues.empty():
                 (gpu_id, layer_idx, _layer_state_dict, _layer_qlinear_args) = output_queues.get()
@@ -211,8 +215,8 @@ def get_quantized_llama(model_name, seqlen, layer_state_dicts, layer_qlinear_arg
         # print(f'default dtype: {dtype}')
         for param_name, param in layer_state_dict.items():
             if layer_state_dict[param_name].dtype not in [
-                    dtype, torch.int64, torch.int32, torch.int16, torch.int8, torch.uint64, torch.uint32, torch.uint16,
-                    torch.uint8, torch.bool
+                dtype, torch.int64, torch.int32, torch.int16, torch.int8, torch.uint64, torch.uint32, torch.uint16,
+                torch.uint8, torch.bool
             ]:
                 layer_state_dict[param_name] = layer_state_dict[param_name].to(dtype)
 

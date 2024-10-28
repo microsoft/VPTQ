@@ -22,7 +22,6 @@ struct C10ToNvType<float> {
   typedef float type;
 };
 
-
 template <typename scalar_t, int IDXBITS, int ResidualBits, int GROUPSIZE, int OL_GroupSize, int Do_Reduce>
 __global__ void WqA16WithOutliers_PackIndice(
     scalar_t* out, const scalar_t* input_data, const int32_t* q_indice, const uint16_t* q_indice_outliers,

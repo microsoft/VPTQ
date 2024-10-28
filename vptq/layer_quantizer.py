@@ -85,19 +85,21 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
             )
 
             # init vptq algo
-            _vptq = VPTQ(linear,
-                         hessian=hessian,
-                         inv_hessian=inv_hessian,
-                         perm=perm,
-                         quantizer=quantizer,
-                         zero_idx=zero_idx,
-                         logger=logger,
-                         collect_act=False,
-                         layer_name=layer_name,
-                         enable_perm='hessian',
-                         enable_norm=quant_args.enable_norm,
-                         norm_dim=0,
-                         debug=True)
+            _vptq = VPTQ(
+                linear,
+                hessian=hessian,
+                inv_hessian=inv_hessian,
+                perm=perm,
+                quantizer=quantizer,
+                zero_idx=zero_idx,
+                logger=logger,
+                collect_act=False,
+                layer_name=layer_name,
+                enable_perm='hessian',
+                enable_norm=quant_args.enable_norm,
+                norm_dim=0,
+                debug=True
+            )
 
             # quant by VPTQ algorithm
             _vptq.fast_vector_quant()
@@ -154,15 +156,17 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
             weight_scale = _vptq.quantizer.weight_scale
             weight_bias = _vptq.quantizer.weight_bias
 
-            qlayer.init_parameters(centroids=centroids,
-                                   indices=indices,
-                                   res_centroids=res_centroids,
-                                   res_indices=res_indices,
-                                   weight_scale=weight_scale,
-                                   weight_bias=weight_bias,
-                                   bias=linear.bias,
-                                   perm=perm,
-                                   dtype=dtype)
+            qlayer.init_parameters(
+                centroids=centroids,
+                indices=indices,
+                res_centroids=res_centroids,
+                res_indices=res_indices,
+                weight_scale=weight_scale,
+                weight_bias=weight_bias,
+                bias=linear.bias,
+                perm=perm,
+                dtype=dtype
+            )
 
             qlayer.to(dev)
 

@@ -24,12 +24,14 @@ from vptq.utils.config import Config
 # from transformers import AutoTokenizer
 
 
-def pack_index(indice: torch.Tensor,
-               index_bits: int,
-               res_indice: torch.Tensor = None,
-               res_bits: int = 0,
-               index_dtype: torch.dtype = torch.uint16,
-               as_dtype: torch.dtype = torch.int32) -> torch.Tensor:
+def pack_index(
+    indice: torch.Tensor,
+    index_bits: int,
+    res_indice: torch.Tensor = None,
+    res_bits: int = 0,
+    index_dtype: torch.dtype = torch.uint16,
+    as_dtype: torch.dtype = torch.int32
+) -> torch.Tensor:
 
     total_bits = index_bits + res_bits
     assert total_bits <= 32, f"total index bits {total_bits} should be less than 32"
@@ -58,13 +60,15 @@ def pack_index(indice: torch.Tensor,
     out = torch.bitwise_left_shift(out, wf1)
     out = out.sum(dim=-1).to(torch.uint32).view(as_dtype)
 
-    unpack_indices = unpack_index_tensor(out,
-                                         index_bits,
-                                         indice.shape[-1],
-                                         res_bits,
-                                         res_indice.shape[-1] if res_indice is not None else 0,
-                                         index_dtype=index_dtype,
-                                         as_dtype=as_dtype)
+    unpack_indices = unpack_index_tensor(
+        out,
+        index_bits,
+        indice.shape[-1],
+        res_bits,
+        res_indice.shape[-1] if res_indice is not None else 0,
+        index_dtype=index_dtype,
+        as_dtype=as_dtype
+    )
     assert torch.allclose(
         indice.view(index_dtype).to(torch.int64),
         unpack_indices[0],
@@ -72,35 +76,41 @@ def pack_index(indice: torch.Tensor,
 
     assert torch.allclose(
         indice.view(index_dtype).to(torch.int64),
-        unpack_index_tensor(out,
-                            index_bits,
-                            indice.shape[-1],
-                            res_bits,
-                            res_indice.shape[-1] if res_indice is not None else 0,
-                            index_dtype=index_dtype,
-                            as_dtype=as_dtype)[0],
+        unpack_index_tensor(
+            out,
+            index_bits,
+            indice.shape[-1],
+            res_bits,
+            res_indice.shape[-1] if res_indice is not None else 0,
+            index_dtype=index_dtype,
+            as_dtype=as_dtype
+        )[0],
     )
     if res_indice is not None:
         assert torch.allclose(
             res_indice.view(index_dtype).to(torch.int64),
-            unpack_index_tensor(out,
-                                index_bits,
-                                indice.shape[-1],
-                                res_bits,
-                                res_indice.shape[-1] if res_indice is not None else 0,
-                                index_dtype=index_dtype,
-                                as_dtype=as_dtype)[1],
+            unpack_index_tensor(
+                out,
+                index_bits,
+                indice.shape[-1],
+                res_bits,
+                res_indice.shape[-1] if res_indice is not None else 0,
+                index_dtype=index_dtype,
+                as_dtype=as_dtype
+            )[1],
         )
     return out
 
 
-def unpack_index_tensor(pack_tensor: torch.Tensor,
-                        index_bits: int,
-                        num_elements: int,
-                        res_bits: int = 0,
-                        num_res_elements: int = 0,
-                        index_dtype: torch.dtype = torch.uint16,
-                        as_dtype: torch.dtype = torch.int32) -> torch.Tensor:
+def unpack_index_tensor(
+    pack_tensor: torch.Tensor,
+    index_bits: int,
+    num_elements: int,
+    res_bits: int = 0,
+    num_res_elements: int = 0,
+    index_dtype: torch.dtype = torch.uint16,
+    as_dtype: torch.dtype = torch.int32
+) -> torch.Tensor:
 
     total_bits = index_bits + res_bits
     wf = torch.arange(0, 32, 1).to(pack_tensor.device).view(1, 1, 1, -1)
@@ -148,27 +158,31 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
             #     f'dtype: {sub_mod.indices.dtype}')
 
             if sub_mod.indices.dtype == torch.int64:
-                sub_mod.indices.data = dtype_convert(sub_mod.indices.data, sub_mod.indices.data.dtype, to_dtype,
-                                                     as_type)
+                sub_mod.indices.data = dtype_convert(
+                    sub_mod.indices.data, sub_mod.indices.data.dtype, to_dtype, as_type
+                )
             else:
                 sub_mod.indices.data = dtype_convert(sub_mod.indices.data, from_dtype, to_dtype, as_type)
 
             if hasattr(sub_mod, "res_indices") and \
                     sub_mod.res_indices is not None:
                 if sub_mod.res_indices.dtype == torch.int64:
-                    sub_mod.res_indices.data = dtype_convert(sub_mod.res_indices.data, sub_mod.res_indices.data.dtype,
-                                                             to_dtype, as_type)
+                    sub_mod.res_indices.data = dtype_convert(
+                        sub_mod.res_indices.data, sub_mod.res_indices.data.dtype, to_dtype, as_type
+                    )
                 else:
                     sub_mod.res_indices.data = dtype_convert(sub_mod.res_indices.data, from_dtype, to_dtype, as_type)
 
             if hasattr(sub_mod, "outlier_indices") and \
                     sub_mod.outlier_indices is not None:
                 if sub_mod.outlier_indices.dtype == torch.int64:
-                    sub_mod.outlier_indices.data = dtype_convert(sub_mod.outlier_indices.data,
-                                                                 sub_mod.outlier_indices.data.dtype, to_dtype, as_type)
+                    sub_mod.outlier_indices.data = dtype_convert(
+                        sub_mod.outlier_indices.data, sub_mod.outlier_indices.data.dtype, to_dtype, as_type
+                    )
                 else:
-                    sub_mod.outlier_indices.data = dtype_convert(sub_mod.outlier_indices.data, from_dtype, to_dtype,
-                                                                 as_type)
+                    sub_mod.outlier_indices.data = dtype_convert(
+                        sub_mod.outlier_indices.data, from_dtype, to_dtype, as_type
+                    )
 
             if sub_mod.perm.dtype == torch.int64:
                 sub_mod.perm.data = dtype_convert(sub_mod.perm.data, sub_mod.perm.data.dtype, to_dtype, as_type)
@@ -180,7 +194,8 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
                 index_bits=int(math.log2(sub_mod.num_centroids)),
                 res_indice=sub_mod.res_indices,
                 res_bits=int(math.log2(sub_mod.num_res_centroids)) if sub_mod.res_indices is not None else 0,
-                index_dtype=to_dtype).data
+                index_dtype=to_dtype
+            ).data
 
             sub_mod.res_indices = None
 

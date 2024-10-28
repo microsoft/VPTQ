@@ -121,10 +121,9 @@ if __name__ == "__main__":
     for seqlen in seqlens:
         model.seqlen = seqlen
         for dataset in datasets:
-            dataloader, testloader = get_data_loader(dataset,
-                                                     seed=args.seed,
-                                                     model=args.model_name,
-                                                     seqlen=model.seqlen)
+            dataloader, testloader = get_data_loader(
+                dataset, seed=args.seed, model=args.model_name, seqlen=model.seqlen
+            )
             print(dataset)
             if 'llama' in args.model_name.lower() \
                     or 'mistral' in args.model_name.lower():

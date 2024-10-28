@@ -127,10 +127,12 @@ class NPVectorQuantizer:
         self.weight_bias = torch.mean(weight, dim=self.norm_dim)
 
         if self.debug:
-            self.logger.info(f'enabling norm dim {self.norm_dim}, '
-                             f'layer_name:{self.layer_name}, '
-                             f'scale:{self.weight_scale.shape}, '
-                             f'bias:{self.weight_bias.shape}')
+            self.logger.info(
+                f'enabling norm dim {self.norm_dim}, '
+                f'layer_name:{self.layer_name}, '
+                f'scale:{self.weight_scale.shape}, '
+                f'bias:{self.weight_bias.shape}'
+            )
 
     # init permutation
     def init_perm(self, hessian, perm=None):
@@ -204,8 +206,10 @@ class NPVectorQuantizer:
         weights: do not support transpose, weight of each column (length should be data.shape[1])
 
         '''
-        self.logger.info(f'data shape: {data.shape}, '
-                         f'weights shape: {weights.shape if weights is not None else None}')
+        self.logger.info(
+            f'data shape: {data.shape}, '
+            f'weights shape: {weights.shape if weights is not None else None}'
+        )
 
         quantized_data = []
 
@@ -230,12 +234,9 @@ class NPVectorQuantizer:
                 vector_weights, _ = self.reshaper[idx].matrix2vectors(train_weights)
 
                 # kmeans centroids from weight
-                _kmeans = cuml.cluster.KMeans(n_clusters=num_centroids,
-                                              tol=self.tol,
-                                              init='random',
-                                              max_iter=self.iter,
-                                              random_state=0,
-                                              n_init=1)
+                _kmeans = cuml.cluster.KMeans(
+                    n_clusters=num_centroids, tol=self.tol, init='random', max_iter=self.iter, random_state=0, n_init=1
+                )
 
                 vector_weights = vector_weights.mean(dim=1) if vector_weights is not None else None
 
@@ -334,12 +335,9 @@ class NPVectorQuantizer:
                 vector_weights, _ = self.res_reshaper[idx].matrix2vectors(train_weights)
 
                 # kmean
-                _kmeans = cuml.cluster.KMeans(n_clusters=num_centroids,
-                                              tol=self.tol,
-                                              init='random',
-                                              max_iter=self.iter,
-                                              random_state=0,
-                                              n_init=1)
+                _kmeans = cuml.cluster.KMeans(
+                    n_clusters=num_centroids, tol=self.tol, init='random', max_iter=self.iter, random_state=0, n_init=1
+                )
 
                 self.logger.info(f'kmeans_mode: {self.kmeans_mode}, cuml kmeans, {num_centroids} clusters')
                 # self.logger.info(sub_vectors.shape)
