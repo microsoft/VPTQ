@@ -3,6 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from .app_utils import main
+from vptq.app_utils import main
 
 main()

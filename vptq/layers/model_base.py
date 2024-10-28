@@ -14,7 +14,7 @@ import torch
 import transformers
 from tqdm import tqdm
 
-from .vqlinear import VQuantLinear
+from vptq.vqlinear import VQuantLinear
 
 
 def set_op_by_name(layer, name, new_module):
@@ -32,9 +32,9 @@ def set_op_by_name(layer, name, new_module):
 
 
 def make_quant_linear(module, quant_conf, name="", target_layer=None):
-    for module_name, sub_module in tqdm(module.named_modules(),
-                                        total=len(list(module.named_modules())),
-                                        desc="Replacing linear layers..."):
+    for module_name, sub_module in tqdm(
+        module.named_modules(), total=len(list(module.named_modules())), desc="Replacing linear layers..."
+    ):
         if module_name in quant_conf:
             layer_conf = quant_conf[module_name]
             new_module = target_layer(**layer_conf, enable_proxy_error=False, dtype=sub_module.weight.dtype)
@@ -124,9 +124,9 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             checkpoint = pretrained_model_name_or_path
         else:  # remote
             token_arg = {"token": kwargs.get("token", None)}
-            checkpoint = huggingface_hub.snapshot_download(repo_id=pretrained_model_name_or_path,
-                                                           ignore_patterns=["*.bin"],
-                                                           **token_arg)
+            checkpoint = huggingface_hub.snapshot_download(
+                repo_id=pretrained_model_name_or_path, ignore_patterns=["*.bin"], **token_arg
+            )
             weight_bins = glob.glob(str(Path(checkpoint).absolute() / "*.safetensors"))
             index_json = glob.glob(str(Path(checkpoint).absolute() / "*.index.json"))
             pytorch_model_bin = glob.glob(str(Path(checkpoint).absolute() / "pytorch_model.bin"))
@@ -148,13 +148,15 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             max_memory = local_max_memory
 
         accelerate.hooks.attach_execution_device_hook = attach_execution_device_hook
-        model = accelerate.load_checkpoint_and_dispatch(model,
-                                                        checkpoint=checkpoint,
-                                                        device_map=device_map,
-                                                        max_memory=max_memory,
-                                                        no_split_module_classes=no_split_module_classes[0],
-                                                        dtype=torch_dtype,
-                                                        preload_module_classes=["VQuantLinear"])
+        model = accelerate.load_checkpoint_and_dispatch(
+            model,
+            checkpoint=checkpoint,
+            device_map=device_map,
+            max_memory=max_memory,
+            no_split_module_classes=no_split_module_classes[0],
+            dtype=torch_dtype,
+            preload_module_classes=["VQuantLinear"]
+        )
 
         # check cuda kernel exist
         if importlib.util.find_spec("vptq.ops") is not None:

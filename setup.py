@@ -65,8 +65,9 @@ def build_cuda_extensions():
     if torch.cuda.is_available() and torch.version.hip is not None:
         extra_compile_args["nvcc"].extend(["-fbracket-depth=1024"])
     else:
-        extra_compile_args["nvcc"].extend(
-            ["--expt-relaxed-constexpr", "--expt-extended-lambda", "--use_fast_math", "-lineinfo"])
+        extra_compile_args["nvcc"].extend([
+            "--expt-relaxed-constexpr", "--expt-extended-lambda", "--use_fast_math", "-lineinfo"
+        ])
 
     extensions = CUDAExtension(
         "vptq.ops",

@@ -82,13 +82,15 @@ def update_charts(chart_height: int = 200) -> go.Figure:
             titlefont=dict(color='blue'),
             tickfont=dict(color='blue'),
         ),
-        yaxis2=dict(title='Memory Usage (GiB)',
-                    range=[0, max(24,
-                                  max(mem_usage_history) + 1)],
-                    titlefont=dict(color='red'),
-                    tickfont=dict(color='red'),
-                    overlaying='y',
-                    side='right'),
+        yaxis2=dict(
+            title='Memory Usage (GiB)',
+            range=[0, max(24,
+                          max(mem_usage_history) + 1)],
+            titlefont=dict(color='red'),
+            tickfont=dict(color='red'),
+            overlaying='y',
+            side='right'
+        ),
         height=chart_height,  # set the height of the chart
         margin=dict(l=10, r=10, t=0, b=0),  # set the margin of the chart
         showlegend=False  # disable the legend
