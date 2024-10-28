@@ -2,7 +2,11 @@
 
 # Format Python files using yapf
 echo "Running yapf..."
-yapf --recursive . --in-place
+find . -type f -name "*.py" \
+    ! -path "./build/*" \
+    ! -path "./.git/*" \
+    ! -path "*.egg-info/*" \
+    -print0 | xargs -0 yapf --in-place
 
 # Format Python imports using isort
 echo "Running isort..."

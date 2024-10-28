@@ -640,9 +640,7 @@ class VQuantLinear(nn.Module):
                 if self.vector_quant_dim == "in":
                     assert True, "Not implemented"
                 else:
-                    qweight_outlier = qweight_outlier[
-                        :-self.outlier_padding,
-                    ]
+                    qweight_outlier = qweight_outlier[:-self.outlier_padding,]
             # print('qweight: ', qweight.shape)
             # print('qweight_outlier: ', qweight_outlier.shape)
             qweight = torch.cat([qweight_outlier, qweight], dim=1)
