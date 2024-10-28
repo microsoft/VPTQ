@@ -113,11 +113,11 @@ def respond(
     response = ""
 
     for message in chat_completion(
-            messages,
-            max_tokens=max_tokens,
-            stream=True,
-            temperature=temperature,
-            top_p=top_p,
+        messages,
+        max_tokens=max_tokens,
+        stream=True,
+        temperature=temperature,
+        top_p=top_p,
     ):
         token = message
 
