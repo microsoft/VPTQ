@@ -3,5 +3,5 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-__version__ = "0.0.2.post1"
+__version__ = "0.0.3"
 from vptq.layers import AutoModelForCausalLM as AutoModelForCausalLM

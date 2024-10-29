@@ -256,7 +256,11 @@ T __device__ __forceinline__ ADD2(T a, T b) {
 template <typename T>
 T __device__ __forceinline__ ZERO_VALUE(T a) {
   if constexpr (std::is_same<T, __bfloat16>::value) {
-    return __ushort_as_bfloat16((unsigned short)0x0000U);
+#if defined(USE_ROCM)
+    return __float2bfloat16(0.0f);
+#else
+    return __float2bfloat16_rn(0.0f);
+#endif
   } else if constexpr (std::is_same<T, float>::value) {
     return 0.0f;
   } else {

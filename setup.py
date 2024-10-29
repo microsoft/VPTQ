@@ -51,6 +51,9 @@ def build_cuda_extensions():
             arch_flags += ["-gencode", f"arch=compute_{cap},code=sm_{cap}"]
     print(" build for compute capabilities: ==============", compute_capabilities)
 
+    # set nvcc threads
+    nvcc_threads = os.getenv("NVCC_THREADS") or "4"
+
     extra_compile_args = {
         "nvcc": [
             "-O3",
@@ -63,6 +66,7 @@ def build_cuda_extensions():
             "-U__CUDA_NO_BFLOAT16_CONVERSIONS__",
             "-U__CUDA_NO_BFLOAT162_OPERATORS__",
             "-U__CUDA_NO_BFLOAT162_CONVERSIONS__",
+            f"--threads={nvcc_threads}",
         ] + arch_flags,
         "cxx": ["-O3", "-fopenmp", "-lgomp", "-std=c++17", "-DENABLE_BF16"],
     }
