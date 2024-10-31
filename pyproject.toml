@@ -1,3 +1,25 @@
+[project]
+name = "VPTQ"
+version = "0.0.3"
+authors = [
+  { name="Yang Wang", email="wyatuestc@gmai.com" },
+  { name="Jicheng Wen", email="wejoincy@gmail.com"},
+]
+
+description = "VPTQ (Vector Post-Training Quantization) is a novel Post-Training Quantization method."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries",
+]
+
+[project.urls]
+Homepage = "https://github.com/microsoft/VPTQ"
+Issues = "https://github.com/microsoft/VPTQ/issues"
+
 [build-system]
 # Should be mirrored in requirements.txt
 requires = [
@@ -65,3 +87,7 @@ include_trailing_comma = true
 force_grid_wrap = 0
 combine_as_imports = true
 ensure_newline_before_comments = true
+
+# ignore pdf files
+[tool.setuptools]
+packages.find.exclude = ["**/*.pdf"]

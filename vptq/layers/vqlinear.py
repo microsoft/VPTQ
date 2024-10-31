@@ -431,9 +431,9 @@ class VQuantLinear(nn.Module):
             indices, res_indices = self.unpack_index_tensor(
                 pack_tensor=self.indices,
                 index_bits=index_bits,
-                num_elements=self.in_features,
+                num_elements=self.group_size,
                 res_bits=index_res_bits,
-                num_res_elements=self.in_features,
+                num_res_elements=self.group_size,
                 index_dtype=torch.uint16,
             )
 
