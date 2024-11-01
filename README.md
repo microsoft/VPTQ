@@ -54,6 +54,7 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 - torch >= 2.2.0
 - transformers >= 4.44.0
 - Accelerate >= 0.33.0
+- flash_attn >= 2.5.0
 - latest datasets
 
 ### Install VPTQ on your machine
