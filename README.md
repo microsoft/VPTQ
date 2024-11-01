@@ -33,6 +33,7 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 
 
 ## News
+- [2024-11-01] 📦 VPTQ is now available on [PyPI](https://pypi.org/project/vptq/)! You can install it easily using the command: `pip install vptq`.
 - [2024-10-28] ✨ VPTQ algorithm early-released at [algorithm branch](https://github.com/microsoft/VPTQ/tree/algorithm), and checkout the [tutorial](https://github.com/microsoft/VPTQ/blob/algorithm/algorithm.md).
 - [2024-10-22] 🌐 Open source community contributes [**Meta Llama 3.1 Nemotron 70B** models](https://huggingface.co/collections/VPTQ-community/vptq-llama-31-nemotron-70b-instruct-hf-without-finetune-671730b96f16208d0b3fe942), check [how VPTQ counts 'r' on local GPU](documents/example_count_r.md). We are continuing to work on quantizing the 4-6 bit versions. Please stay tuned!
 - [2024-10-21] 🌐 Open source community contributes [**Meta Llama 3.1 405B @ 3/4 bits** models](https://huggingface.co/collections/VPTQ-community/vptq-llama-31-405b-instruct-without-finetune-66f4413f9ba55e1a9e52cfb0)
@@ -54,24 +55,35 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 - torch >= 2.2.0
 - transformers >= 4.44.0
 - Accelerate >= 0.33.0
+- flash_attn >= 2.5.0
 - latest datasets
 
 ### Install VPTQ on your machine
 **recommend** For saving your time to build the package, Please install VPTQ from the latest Release directly
 
+```bash
+pip install vptq
+```
+or from
+
 https://github.com/microsoft/VPTQ/releases
 
+#### build from source
 [Not Aavailbe if Release package]
 > Preparation steps that might be needed: Set up CUDA PATH.
 ```bash
 export PATH=/usr/local/cuda-12/bin/:$PATH  # set dependent on your environment
 ```
-
 *Will Take several minutes to compile CUDA kernels*, please be patient. Current compilation builds on SM 7.0, 7.5, 8.0, 8,6, 9.0 to reduce the compilation time. You can set `TORCH_CUDA_ARCH_LIST` to your specific architecture.
 
 ```bash
 pip install git+https://github.com/microsoft/VPTQ.git --no-build-isolation
 ```
+You can configure the required CUDA architectures and the number of nvcc compile threads by setting 
+```bash
+TORCH_CUDA_ARCH_LIST=8.0,9.0 and NVCC_THREADS=16 pip install -e . --no-build-isolation
+```
+to reduce compilation time.
 
 
 **Example: Run Llama 3.1 70b on RTX4090 (24G @ ~2bits) in real time**
@@ -192,7 +204,7 @@ VPTQ achieves better accuracy and higher throughput with lower quantization over
 ---
 
 ## Road Map
-- [ ] Merge the quantization algorithm into the public repository.
+- [x] Merge the quantization algorithm into the public repository.
 - [ ] Contribute the VPTQ method to various inference frameworks (e.g., vLLM, llama.cpp, exllama).
 - [ ] Improve the implementation of the inference kernel (e.g., CUDA, ROCm, Triton) and apply kernel fusion by combining dequantization (lookup) and Linear (GEMM) to enhance inference performance.
 - [ ] **TBC**
