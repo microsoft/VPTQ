@@ -1,5 +1,5 @@
 [project]
-name = "VPTQ"
+name = "vptq"
 version = "0.0.3"
 authors = [
   { name="Yang Wang", email="wyatuestc@gmai.com" },
