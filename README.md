@@ -81,7 +81,7 @@ pip install git+https://github.com/microsoft/VPTQ.git --no-build-isolation
 ```
 You can configure the required CUDA architectures and the number of nvcc compile threads by setting 
 ```bash
-TORCH_CUDA_ARCH_LIST=8.0,9.0 and NVCC_THREADS=16 pip install -e . --no-build-isolation
+TORCH_CUDA_ARCH_LIST=8.0,9.0 NVCC_THREADS=16 pip install -e . --no-build-isolation
 ```
 to reduce compilation time.
 
