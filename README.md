@@ -70,8 +70,13 @@ https://github.com/microsoft/VPTQ/releases
 
 #### build from source
 [Not Aavailbe if Release package]
-> Preparation steps that might be needed: Set up CUDA PATH.
+
+> Preparation steps that might be needed: Set up CUDA_HOME and PATH.
+
+Replace `cuda-12` with your own CUDA version. Run `nvcc --version` to find out version.
+
 ```bash
+export CUDA_HOME=/usr/local/cuda-12
 export PATH=/usr/local/cuda-12/bin/:$PATH  # set dependent on your environment
 ```
 *Will Take several minutes to compile CUDA kernels*, please be patient. Current compilation builds on SM 7.0, 7.5, 8.0, 8,6, 9.0 to reduce the compilation time. You can set `TORCH_CUDA_ARCH_LIST` to your specific architecture.
