@@ -73,9 +73,10 @@ https://github.com/microsoft/VPTQ/releases
 
 > Preparation steps that might be needed: Set up CUDA_HOME and PATH.
 
-Replace `cuda-12` with your own CUDA version. Run `nvcc --version` to find out version.
+Set `cuda-12` to your own CUDA version and environment. Run `nvcc --version` to find out your version, and `which nvcc` to check your CUDA PATH.
 
 ```bash
+# example
 export CUDA_HOME=/usr/local/cuda-12
 export PATH=/usr/local/cuda-12/bin/:$PATH  # set dependent on your environment
 ```
