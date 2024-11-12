@@ -211,8 +211,12 @@ VPTQ achieves better accuracy and higher throughput with lower quantization over
 
 ## Road Map
 - [x] Merge the quantization algorithm into the public repository.
-- [ ] Contribute the VPTQ method to various inference frameworks (e.g., vLLM, llama.cpp, exllama).
+- [x] Release on [Pypi](https://pypi.org/project/vptq)
 - [ ] Improve the implementation of the inference kernel (e.g., CUDA, ROCm, Triton) and apply kernel fusion by combining dequantization (lookup) and Linear (GEMM) to enhance inference performance.
+- [ ] Support VLM models @YangWang92
+- [ ] Contribute VPTQ to [Huggingface Transformers](https://github.com/huggingface/transformers)
+- [ ] Contribute VPTQ to vLLM, LLM Compressor
+- [ ] Contribute VPTQ to llama.cpp/exllama.
 - [ ] **TBC**
 
 ## Project main members: 
