@@ -3,7 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-__version__ = "0.0.4"
+import importlib.metadata
+
 from vptq.layers import AutoModelForCausalLM, VQuantLinear
+
+__version__ = importlib.metadata.version("vptq")
 
 __all__ = ["AutoModelForCausalLM", "VQuantLinear"]
