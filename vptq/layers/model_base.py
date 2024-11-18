@@ -91,10 +91,11 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
 
         target_layer = VQuantLinear
         quantization_config = auto_conf.quantization_config
+        config_for_layers = quantization_config['config_for_layers']
 
         # replace linear layers with quantized linear layers
         with transformers.utils.generic.ContextManagers([accelerate.init_empty_weights()]):
-            make_quant_linear(model, quantization_config, target_layer=target_layer)
+            make_quant_linear(model, config_for_layers, target_layer=target_layer)
 
         no_split_module_classes = [i[1].__class__.__name__ for i in model.named_modules() if i[0].endswith(".0")]
 
