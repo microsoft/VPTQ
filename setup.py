@@ -14,9 +14,9 @@ cur_path = Path(__file__).parent
 
 
 def get_version():
-    with open(cur_path / "vptq/__init__.py") as f:
+    with open(cur_path / "pyproject.toml") as f:
         for line in f:
-            if "__version__" in line:
+            if "version" in line:
                 return line.split("=")[-1].strip().strip('"')
     return "0.0.1"
 
