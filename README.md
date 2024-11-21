@@ -217,6 +217,7 @@ VPTQ achieves better accuracy and higher throughput with lower quantization over
 - [ ] Contribute VPTQ to [Huggingface Transformers](https://github.com/huggingface/transformers)
 - [ ] Contribute VPTQ to vLLM, LLM Compressor
 - [ ] Contribute VPTQ to llama.cpp/exllama.
+- [ ] Contribute VPTQ to Edge devices deployment.
 - [ ] **TBC**
 
 ## Project main members: 
