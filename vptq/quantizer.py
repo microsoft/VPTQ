@@ -30,7 +30,8 @@ class QuantizationArguments:
     enable_norm: bool = field(default=False)
     norm_dim: int = field(default=0)
     enable_perm: bool = field(default=False)
-
+    enable_abs: bool = field(default=False)
+    enable_fp8: bool = field(default=False)
 
 # N-percent outlier Vector Quantizator
 # Partition data into N% outliers and (100-N)%.
