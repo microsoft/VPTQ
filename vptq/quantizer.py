@@ -57,6 +57,7 @@ class NPVectorQuantizer:
         # norm
         enable_norm: bool = False,
         norm_dim: int = 0,
+        enable_abs: bool = False,
         enable_perm: bool = False,
         debug: bool = False,
         # loaded_weights: dict = None,
@@ -99,10 +100,14 @@ class NPVectorQuantizer:
         self.enable_norm = enable_norm
         self.norm_dim = norm_dim
 
+        self.enable_abs = enable_abs
+        
         # centroids and indices
         self.centroids, self.indices = {}, {}
+        self.indices_sign = {}
         # residual centroids and indices
         self.res_centroids, self.res_indices = {}, {}
+        self.res_indices_sign = {}
         self.vector_norm = None
 
         # load checkpoint
@@ -227,6 +232,8 @@ class NPVectorQuantizer:
             if num_centroids == -1:  # Do not quantize, keep original data
                 self.centroids[idx] = None
                 self.indices[idx] = None
+                if self.enable_abs:
+                    self.indices_sign[idx] = None
                 self.logger.info(f'idx: {idx}, num_centroids: {num_centroids}, skip')
             else:
                 self.reshaper[idx] = reshape(vector_len=vector_len, enable_transpose=self.enable_transpose)
@@ -242,6 +249,12 @@ class NPVectorQuantizer:
                 vector_weights = vector_weights.mean(dim=1) if vector_weights is not None else None
 
                 # convert to numpy and float32 to avoid error
+                if self.enable_abs:
+                    sub_vectors_sign = torch.sign(sub_vectors)
+                    sub_vectors = torch.abs(sub_vectors)
+                    print(f'sub_vectors_sign shape: {sub_vectors_sign.shape}')
+                    print(f'sub_vectors shape: {sub_vectors.shape}')
+
                 sub_vectors = sub_vectors.to(torch.float32).cpu().numpy()
                 _kmeans.fit(sub_vectors, sample_weight=vector_weights)
 
@@ -250,6 +263,10 @@ class NPVectorQuantizer:
                 self.centroids[idx] = torch.from_numpy(_kmeans.cluster_centers_).to(device=data.device)
 
                 quant_data = self.centroids[idx][_kmeans.labels_]
+
+                if self.enable_abs:
+                    # ?
+                    quant_data = quant_data * sub_vectors_sign
 
                 self.logger.info(f'idx: {idx}, quant_data shape: {quant_data.shape}')
 
@@ -280,6 +297,8 @@ class NPVectorQuantizer:
             # keep original data for further quantization
             quantized_data = data
             self.indices[cidx] = None
+            if self.enable_abs:
+                self.indices_sign[cidx] = None
         else:
             # matrix to vectors
             data, is_padded, pad_cols = self.reshaper[cidx].add_padding(data)

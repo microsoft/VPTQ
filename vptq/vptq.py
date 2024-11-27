@@ -34,6 +34,7 @@ class VPTQ:
         enable_perm=None,
         enable_norm=False,
         norm_dim=0,
+        enable_abs=False,
         debug=False
     ):
         # set layer
@@ -107,6 +108,8 @@ class VPTQ:
         # weight norm
         self.enable_norm = enable_norm
         self.norm_dim = norm_dim
+        
+        self.enable_abs = enable_abs
         # self.quantizer.weight_scale = None
         # self.quantizer.weight_bias = None
 
