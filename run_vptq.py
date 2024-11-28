@@ -84,12 +84,23 @@ if __name__ == "__main__":
 
     # save model, not for inference
     if args.save_model:
+        # save model for debug 
         model_path = osp.join(args.output_dir, 'model/')
-        model.save_pretrained(model_path)
-        print(f'save model to {model_path}')
-        tokenizer = AutoTokenizer.from_pretrained(f'{args.model_name}', legacy=False)
-        tokenizer.save_pretrained(model_path)
-        print(f'save tokenizer to {model_path}')
+        torch.save(model, model_path)
+        
+        # model_path = osp.join(args.output_dir, 'model/')
+        # model.save_pretrained(model_path)
+        
+        # # save config 
+        # config_path = osp.join(args.output_dir, 'model/config.json')
+        # with open(config_path, 'w') as f:
+        #     json.dump(model.config.to_dict(), f)
+
+        # print(f'save config to {config_path}')
+        # print(f'save model to {model_path}')
+        # tokenizer = AutoTokenizer.from_pretrained(f'{args.model_name}', legacy=False)
+        # tokenizer.save_pretrained(model_path)
+        # print(f'save tokenizer to {model_path}')
 
     # save packed model for inference
     if args.save_packed_model:
