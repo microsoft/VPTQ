@@ -140,12 +140,8 @@ class VPTQ:
             #         f'bias:{self.quantizer.weight_bias.shape}')
             self.quantizer.init_norm(weight)
 
-            if self.norm_dim == 0:
-                weight = (weight - self.quantizer.weight_bias.unsqueeze(0)) / \
-                    self.quantizer.weight_scale.unsqueeze(0)
-            else:  # norm_dim == 1
-                weight = (weight - self.quantizer.weight_bias.unsqueeze(1)) / \
-                    self.quantizer.weight_scale.unsqueeze(1)
+            weight = (weight - self.quantizer.weight_bias.unsqueeze(self.norm_dim)) / \
+                self.quantizer.weight_scale.unsqueeze(self.norm_dim)
                     
         if isinstance(self.layer, nn.Conv2d):
             weight = weight.flatten(1)
@@ -306,12 +302,8 @@ class VPTQ:
         qweight = qweight.reshape(self.layer.weight.shape).to(self.layer.weight.data.dtype)
 
         if self.enable_norm:
-            if self.norm_dim == 0:
-                qweight = qweight * self.quantizer.weight_scale.unsqueeze(0) + \
-                    self.quantizer.weight_bias.unsqueeze(0)
-            else:  # norm_dim == 1
-                qweight = qweight * self.quantizer.weight_scale.unsqueeze(1) + \
-                    self.quantizer.weight_bias.unsqueeze(1)
+            qweight = qweight * self.quantizer.weight_scale.unsqueeze(self.norm_dim) + \
+                self.quantizer.weight_bias.unsqueeze(self.norm_dim)
 
         self.qweight = qweight
 

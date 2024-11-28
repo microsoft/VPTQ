@@ -127,7 +127,7 @@ class VQuantLinear(nn.Module):
 
             if self.enable_abs:
                 self.outlier_indices_sign = Parameter(
-                    torch.empty((1, self.ouliter_num_indices, self.outlier_vector_len, self.outlier_size), dtype=torch.int16, device=device),
+                    torch.empty((1, self.ouliter_num_indices, self.outlier_size), dtype=torch.int16, device=device),
                     requires_grad=False,
                 )
 
@@ -196,7 +196,7 @@ class VQuantLinear(nn.Module):
                 )
                 if self.enable_abs:
                     self.indices_sign = Parameter(
-                        torch.empty((self.num_codebooks, self.num_indices, self.vector_len, self.group_size),
+                        torch.empty((self.num_codebooks, self.num_indices, self.group_size),
                                     dtype=torch.int16,
                                     device=device),
                         requires_grad=False,
@@ -217,7 +217,7 @@ class VQuantLinear(nn.Module):
                 )
                 if self.enable_abs:
                     self.res_indices_sign = Parameter(
-                        torch.empty((self.num_codebooks, self.num_indices, self.vector_len, self.group_size),
+                        torch.empty((self.num_codebooks, self.num_indices, self.group_size),
                                     dtype=torch.int16,
                                     device=device),
                         requires_grad=False,

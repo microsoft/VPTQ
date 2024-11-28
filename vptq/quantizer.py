@@ -248,13 +248,14 @@ class NPVectorQuantizer:
 
                 vector_weights = vector_weights.mean(dim=1) if vector_weights is not None else None
 
-                # convert to numpy and float32 to avoid error
+
+                # abs for k-means
                 if self.enable_abs:
                     sub_vectors_sign = torch.sign(sub_vectors)
                     sub_vectors = torch.abs(sub_vectors)
-                    print(f'sub_vectors_sign shape: {sub_vectors_sign.shape}')
                     print(f'sub_vectors shape: {sub_vectors.shape}')
 
+                # convert to numpy and float32 to avoid error
                 sub_vectors = sub_vectors.to(torch.float32).cpu().numpy()
                 _kmeans.fit(sub_vectors, sample_weight=vector_weights)
 
@@ -265,7 +266,7 @@ class NPVectorQuantizer:
                 quant_data = self.centroids[idx][_kmeans.labels_]
 
                 if self.enable_abs:
-                    # ?
+                    self.logger.info(f'quant_data shape: {quant_data.shape}, sub_vectors_sign shape: {sub_vectors_sign.shape}')
                     quant_data = quant_data * sub_vectors_sign
 
                 self.logger.info(f'idx: {idx}, quant_data shape: {quant_data.shape}')
