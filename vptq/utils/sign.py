@@ -22,14 +22,24 @@ def pack_sign(data):
 
 # unpack sign bits of vector from 16-bit integers
 def unpack_sign(packed_signs, vector_len):
+    original_shape = packed_signs.shape
+    packed_signs = packed_signs.reshape(-1)
+
+    # Unpack bits for each integer
     unpacked = torch.zeros(packed_signs.shape[0], 16, dtype=torch.int8, device=packed_signs.device)
     for i in range(16):
         unpacked[:, i] = (packed_signs >> i) & 1
-
+    
+    # Convert to -1/+1 and trim to vector_len
     signs = (unpacked == 1).to(torch.int16) * -2 + 1
     signs = signs[:, :vector_len]
+    
+    # Restore original dimensions and add vector_len dimension
+    new_shape = original_shape + (vector_len,)
+    signs = signs.reshape(new_shape)
+    
     return signs
-
+    
 if __name__ == '__main__':
     # Test with batch dimension
     test_cases = [

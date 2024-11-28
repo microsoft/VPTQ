@@ -245,6 +245,9 @@ class VPTQ:
                 f'{self.layer_name} proxy error after VPTQ: {error_sum.item()}, '
                 f'{sum.item()}, {norm_error.item()}'
             )
+            
+            torch.save(qweight, f'{self.layer_name}_qweight.pt')
+            
             # self.logger.info(f'qerror^2: {torch.mean(qerror ** 2).item()}')
 
         # step 3: residual quantization
