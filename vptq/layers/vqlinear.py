@@ -504,10 +504,10 @@ class VQuantLinear(nn.Module):
         
         if self.enable_abs:
             indices_sign = self.indices_sign
-            print(f'indices_sign: {indices_sign.shape}') 
+            # print(f'indices_sign: {indices_sign.shape}') 
             # TODO: check?
             indices_sign = unpack_sign(indices_sign, self.vector_len)
-            print(f'unpacked indices_sign: {indices_sign.shape}')
+            # print(f'unpacked indices_sign: {indices_sign.shape}')
             # num_codebooks, num_indices, group_size, vector_len
             # indices_sign = indices_sign.reshape(self.num_codebooks, -1, self.group_size, self.vector_len)
              

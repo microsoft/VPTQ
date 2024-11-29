@@ -249,10 +249,10 @@ class NPVectorQuantizer:
 
                 # abs for k-means
                 if self.enable_abs:
+                    self.logger.info(f'sub_vectors shape: {sub_vectors.shape}')
                     sub_vectors_sign = pack_sign(sub_vectors)
                     sub_vectors = torch.abs(sub_vectors)
                     self.logger.info(f'sub_vectors_sign shape: {sub_vectors_sign.shape}')
-                    self.logger.info(f'sub_vectors shape: {sub_vectors.shape}')
 
                 # convert to numpy and float32 to avoid error
                 sub_vectors = sub_vectors.to(torch.float32).cpu().numpy()
@@ -320,18 +320,17 @@ class NPVectorQuantizer:
             if self.enable_abs:
                 data_sign = pack_sign(data)
                 data = torch.abs(data)
-                # self.logger.info(f'data_sign shape: {data_sign.shape}') 
+                # self.logger.info(f'data shape: {data.shape}, data_sign shape: {data_sign.shape}') 
 
             dist = torch.cdist(data.float(), self.centroids[cidx].float())
 
             indices = dist.argmin(dim=-1)
             
             if self.enable_abs:
-                # self.logger.info(f'indices shape: {indices.shape}')
                 quantized_data = self.centroids[cidx][indices]
                 unpacked_signs = unpack_sign(data_sign, vector_len)
                 unpacked_signs = unpacked_signs.reshape(quantized_data.shape)
-                # self.logger.info(f'unpacked_signs shape: {unpacked_signs.shape}')
+                # self.logger.info(f'indices shape: {indices.shape}, unpacked_signs shape: {unpacked_signs.shape}')
                 quantized_data = quantized_data * unpacked_signs
             else:
                 quantized_data = self.centroids[cidx][indices]
@@ -348,9 +347,10 @@ class NPVectorQuantizer:
             if self.enable_abs:
                 # self.logger.info(f'quantized_data shape: {quantized_data.shape}')
                 if cidx not in self.indices_sign or self.indices_sign[cidx] is None:
-                    self.indices_sign[cidx] = data_sign 
+                    self.indices_sign[cidx] = data_sign.unsqueeze(1).to(device=data.device)
                 else:
-                    self.indices_sign[cidx] = torch.hstack([self.indices_sign[cidx], data_sign])
+                    self.indices_sign[cidx] = torch.hstack([self.indices_sign[cidx], data_sign.unsqueeze(1).to(device=data.device)])
+                    # self.logger.info(f'indices_sign[{cidx}] shape: {self.indices_sign[cidx].shape}, data_sign shape: {data_sign.shape}')
 
             # Reshape and remove padding if necessary
             quantized_data = quantized_data.reshape(padded_shape)
