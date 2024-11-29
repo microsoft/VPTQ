@@ -1,5 +1,18 @@
+<div align="center" id="top">
 
 # VPTQ: Extreme Low-bit Vector Post-Training Quantization for Large Language Models
+
+[![Documentation](https://img.shields.io/badge/docs-latest-green)](https://xgrammar.mlc.ai/docs/)
+[![License](https://img.shields.io/badge/license-mit-blue)](https://github.com/microsoft/VPTQ/blob/main/LICENSE)
+[![PyPi](https://img.shields.io/pypi/v/vptq)](https://pypi.org/project/vptq/)
+
+**Efficient, Flexible and Compressing LLM in less than 2bits**
+
+
+[Get Started](#installation) | [Technical Report](https://arxiv.org/pdf/2409.17066)
+
+</div>
+
 - [TL;DR](#tl-dr)
 - [News](#news)
 - [Installation](#installation)
