@@ -431,12 +431,9 @@ class NPVectorQuantizer:
 
         cidx = self.get_centroid_cidx(index)
         vector_len = self.outlier_vector_len if cidx == 0 else self.vector_len
-
         if self.centroids[cidx] is None:
             quantized_data = data
             self.indices[cidx] = None
-            if self.enable_abs:
-                self.indices_sign[cidx] = None
         else:
             data, is_padded, pad_cols = self.reshaper[cidx].add_padding(data)
 
@@ -450,45 +447,23 @@ class NPVectorQuantizer:
             shape = data.shape
             data = data.reshape(-1, vector_len)
 
-            if self.enable_abs:
-                data_sign = pack_sign(data)
-                data = torch.abs(data)
-                # self.logger.info(f'data_sign shape: {data_sign.shape}')
-
             # original centroid quantization
             dist = torch.cdist(data.float(), self.centroids[cidx].float())
             indices = dist.argmin(dim=-1)
 
             # self.logger.info(f'indices type: {type(indices), indices.shape}')
 
-            # save indices to self.indices
             if cidx not in self.indices or self.indices[cidx] is None:
                 self.indices[cidx] = indices.unsqueeze(1)
             else:
                 self.indices[cidx] = torch.hstack([self.indices[cidx], indices.unsqueeze(1)])
             # self.logger.info(f'self.indices[cidx]: {self.indices[cidx].shape}')
 
-            # save indices sign to self.indices_sign
-            if self.enable_abs:
-                self.logger.info(f'quantized_data shape: {quantized_data.shape}')
-                self.logger.info(f'packed_signs shape: {data_sign.shape}')
-                
-                if cidx not in self.indices_sign or self.indices_sign[cidx] is None:
-                    self.indices_sign[cidx] = data_sign
-                else:
-                    self.indices_sign[cidx] = torch.hstack([self.indices_sign[cidx], data_sign])
-
             quantized_data = self.centroids[cidx][indices]
 
             # residual quantization
             if self.res_centroids[cidx] is not None:
                 residual_data = data - quantized_data
-
-                if self.enable_abs:
-                    res_indices_sign = pack_sign(residual_data)
-                    residual_data = torch.abs(residual_data)
-                    # self.logger.info(f'residual_data_sign shape: {residual_data_sign.shape}')
-
                 dist = torch.cdist(residual_data.float(), self.res_centroids[cidx].float())
                 res_indices = dist.argmin(dim=-1)
 
@@ -506,19 +481,8 @@ class NPVectorQuantizer:
                     # self.logger.info(f'type: {type(res_indices.unsqueeze(1))}, shape: {res_indices.unsqueeze(1).shape}')
                 # self.logger.info(f'self.res_indices[cidx]: {self.res_indices[cidx].shape}')
 
-                if self.enable_abs:
-                    self.logger.info(f'residual_data shape: {residual_data.shape}')
-                    self.logger.info(f'residual indices sign shape: {res_indices_sign.shape}')
-                    if cidx not in self.res_indices:
-                        self.res_indices_sign[cidx] = res_indices_sign.unsqueeze(1)
-                    else:
-                        self.res_indices_sign[cidx] = torch.hstack([self.res_indices_sign[cidx], res_indices_sign.unsqueeze(1)]) 
-                    
-                    unpacked_res_signs = unpack_sign(res_indices_sign, vector_len)
-                    residual_quantized_data = self.res_centroids[cidx][res_indices] * unpacked_res_signs
-                else:
-                    residual_quantized_data = self.res_centroids[cidx][res_indices]
-
+                residual_quantized_data = \
+                    self.res_centroids[cidx][res_indices]
                 quantized_data = quantized_data + residual_quantized_data
 
             # Reshape and remove padding if necessary
