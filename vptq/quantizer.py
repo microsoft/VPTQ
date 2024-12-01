@@ -63,6 +63,9 @@ class NPVectorQuantizer:
     ):
 
         assert isinstance(num_centroids, (list, tuple))
+        if enable_abs and num_res_centroids[1] > -1:
+            raise ValueError("Cannot enable both absolute value quantization (enable_abs=True) "
+                            "and residual quantization (num_res_centroids[1] > -1) simultaneously")
 
         # self.enable_transpose = enable_transpose
         self.enable_transpose = True
