@@ -31,7 +31,39 @@ class QuantizationArguments:
     norm_dim: int = field(default=0)
     enable_perm: bool = field(default=False)
     enable_abs: bool = field(default=False)
-    enable_fp8: bool = field(default=False)
+    enable_scale: bool = field(default=False)
+    config_scale: Literal['minmax', 'meanstd', 'absmax'] = field(
+        default='minmax',
+        metadata={
+            "help": "Scaling method for quantization: "
+                   "minmax (min-max scaling), "
+                   "meanstd (mean-std normalization), "
+                   "absmax (absolute max scaling)"
+        }
+    )
+    centroid_dtype: str = field(
+        default='int8',
+        metadata={
+            "help": "Data type for centroids. Options: fp16, bf16, fp8, int8",
+            "dtype_mapping": {
+                "fp16": torch.float16, 
+                "bf16": torch.bfloat16,
+                "fp8": torch.float8_e4m3fn,
+                "int8": torch.int8,
+            }
+        }
+    )
+    scale_dtype: str = field(
+        default='fp16',
+        metadata={
+            "help": "Data type for scale. Options: fp16, bf16, fp8",
+            "dtype_mapping": {
+                "fp16": torch.float16, 
+                "bf16": torch.bfloat16,
+                "fp8": torch.float8_e4m3fn,
+            }
+        }
+    )
 
 # N-percent outlier Vector Quantizator
 # Partition data into N% outliers and (100-N)%.
