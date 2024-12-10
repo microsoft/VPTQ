@@ -34,7 +34,9 @@ def set_op_by_name(layer, name, new_module):
 
 def make_quant_linear(module, quant_conf, name="", target_layer=None):
     for module_name, sub_module in tqdm(
-        module.named_modules(), total=len(list(module.named_modules())), desc="Replacing linear layers..."
+        module.named_modules(),
+        total=len(list(module.named_modules())),
+        desc="Replacing linear layers...",
     ):
         if module_name in quant_conf:
             layer_conf = quant_conf[module_name]
@@ -59,11 +61,16 @@ def attach_execution_device_hook(
     if not hasattr(module, "_hf_hook") and len(module.state_dict()) > 0:
         accelerate.hooks.add_hook_to_module(
             module,
-            accelerate.hooks.AlignDevicesHook(execution_device, skip_keys=skip_keys, tied_params_map=tied_params_map),
+            accelerate.hooks.AlignDevicesHook(
+                execution_device, skip_keys=skip_keys, tied_params_map=tied_params_map
+            ),
         )
 
     # Break the recursion if we get to a preload module.
-    if preload_module_classes is not None and module.__class__.__name__ in preload_module_classes:
+    if (
+        preload_module_classes is not None
+        and module.__class__.__name__ in preload_module_classes
+    ):
         return
 
     for child in module.children():
@@ -89,11 +96,16 @@ def attach_execution_device_hook(
     if not hasattr(module, "_hf_hook") and len(module.state_dict()) > 0:
         accelerate.hooks.add_hook_to_module(
             module,
-            accelerate.hooks.AlignDevicesHook(execution_device, skip_keys=skip_keys, tied_params_map=tied_params_map),
+            accelerate.hooks.AlignDevicesHook(
+                execution_device, skip_keys=skip_keys, tied_params_map=tied_params_map
+            ),
         )
 
     # Break the recursion if we get to a preload module.
-    if preload_module_classes is not None and module.__class__.__name__ in preload_module_classes:
+    if (
+        preload_module_classes is not None
+        and module.__class__.__name__ in preload_module_classes
+    ):
         return
 
     for child in module.children():
@@ -107,13 +119,17 @@ def attach_execution_device_hook(
 
 class AutoModelForCausalLM(transformers.AutoModel):
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path, auto_conf=None, *args, **kwargs):
+    def from_pretrained(
+        cls, pretrained_model_name_or_path, auto_conf=None, *args, **kwargs
+    ):
         init_contexts = [
             transformers.modeling_utils.no_init_weights(),
             accelerate.init_empty_weights(),
         ]
         if auto_conf is None:
-            auto_conf = transformers.AutoConfig.from_pretrained(pretrained_model_name_or_path, **kwargs)
+            auto_conf = transformers.AutoConfig.from_pretrained(
+                pretrained_model_name_or_path, **kwargs
+            )
 
         cls_kwargs = {}
         torch_dtype = kwargs.get("dtype", auto_conf.torch_dtype)
@@ -128,10 +144,16 @@ class AutoModelForCausalLM(transformers.AutoModel):
             quant_config = auto_conf.quant_config
 
         # replace linear layers with quantized linear layers
-        with transformers.utils.generic.ContextManagers([accelerate.init_empty_weights()]):
+        with transformers.utils.generic.ContextManagers(
+            [accelerate.init_empty_weights()]
+        ):
             make_quant_linear(model, quant_config, target_layer=target_layer)
 
-        no_split_module_classes = [i[1].__class__.__name__ for i in model.named_modules() if i[0].endswith(".0")]
+        no_split_module_classes = [
+            i[1].__class__.__name__
+            for i in model.named_modules()
+            if i[0].endswith(".0")
+        ]
 
         device_map = kwargs.pop("device_map", None)
         max_memory = kwargs.pop("max_memory", None)
@@ -141,7 +163,9 @@ class AutoModelForCausalLM(transformers.AutoModel):
             device_names = [f"cuda:{i}" for i in range(num_gpus)]
             device_names.append("cpu")  # Include CPU for offloading
 
-            gpu_memory = {device: "auto" for device in device_names if device.startswith("cuda")}
+            gpu_memory = {
+                device: "auto" for device in device_names if device.startswith("cuda")
+            }
             cpu_memory = {"cpu": "auto"}
 
             max_memory = {**gpu_memory, **cpu_memory}
@@ -160,20 +184,29 @@ class AutoModelForCausalLM(transformers.AutoModel):
         else:  # remote
             token_arg = {"token": kwargs.get("token")}
             checkpoint = huggingface_hub.snapshot_download(
-                repo_id=pretrained_model_name_or_path, ignore_patterns=["*.bin"], **token_arg
+                repo_id=pretrained_model_name_or_path,
+                ignore_patterns=["*.bin"],
+                **token_arg,
             )
             weight_bins = glob.glob(str(Path(checkpoint).absolute() / "*.safetensors"))
             index_json = glob.glob(str(Path(checkpoint).absolute() / "*.index.json"))
-            pytorch_model_bin = glob.glob(str(Path(checkpoint).absolute() / "pytorch_model.bin"))
+            pytorch_model_bin = glob.glob(
+                str(Path(checkpoint).absolute() / "pytorch_model.bin")
+            )
             if len(index_json) > 0:
                 checkpoint = index_json[0]
             elif len(pytorch_model_bin) > 0:
                 pass
             elif len(weight_bins) > 0:
-                torch.save(safetensors.torch.load_file(weight_bins[0]), checkpoint + "/pytorch_model.bin")
+                torch.save(
+                    safetensors.torch.load_file(weight_bins[0]),
+                    checkpoint + "/pytorch_model.bin",
+                )
 
         # force to use one GPU as most as possible
-        model_buffer_size = accelerate.utils.modeling.compute_module_sizes(model, dtype=torch_dtype)[""]
+        model_buffer_size = accelerate.utils.modeling.compute_module_sizes(
+            model, dtype=torch_dtype
+        )[""]
         local_max_memory = accelerate.utils.modeling.get_max_memory()
 
         if 0 in local_max_memory and local_max_memory[0] * 0.9 > model_buffer_size:
@@ -197,8 +230,12 @@ class AutoModelForCausalLM(transformers.AutoModel):
         if importlib.util.find_spec("vptq.ops") is not None:
             pass
         else:
-            print("!!! Warning !!!: CUDA kernel not found, please check CUDA and VPTQ installation.")
-            print("!!! Warning !!!: Running on Torch Implementation, which is extremely slow.")
+            print(
+                "!!! Warning !!!: CUDA kernel not found, please check CUDA and VPTQ installation."
+            )
+            print(
+                "!!! Warning !!!: Running on Torch Implementation, which is extremely slow."
+            )
 
         # weight_bins = glob.glob(str(Path(pretrained_model_name_or_path).absolute() / '*.safetensors'))
         # all_missing_keys = []
@@ -237,7 +274,9 @@ class AutoModelForSentenceEmbeddings(SentenceTransformer):
         model._modules["0"]._modules["auto_model"].embedding_model = None
         torch.cuda.empty_cache()
 
-        model._modules["0"]._modules["auto_model"] = AutoModelForCausalLM.from_pretrained(
+        model._modules["0"]._modules[
+            "auto_model"
+        ] = AutoModelForCausalLM.from_pretrained(
             pretrained_model_name_or_path, auto_conf=text_config, *args, **kwargs
         )
 

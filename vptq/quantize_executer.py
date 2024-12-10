@@ -21,12 +21,12 @@ def setup_logging(log_path, task_id, debug=False):
     logger.setLevel(logging.INFO)
 
     # Set up logging to file
-    log_file = f'{log_path}/{task_id}.log'
+    log_file = f"{log_path}/{task_id}.log"
     file_handler = logging.FileHandler(log_file)
     file_handler.setLevel(logging.INFO)
 
     # Configure log format
-    formatter = logging.Formatter('%(levelname)s - %(message)s')
+    formatter = logging.Formatter("%(levelname)s - %(message)s")
     file_handler.setFormatter(formatter)
 
     # Set up logging to console for debug
@@ -44,16 +44,16 @@ def setup_logging(log_path, task_id, debug=False):
 def quantize_executer(task_id, tasks, args, quant_args, input_queues, output_queues):
     # TODO: we have to set the device in os environment
     # cuml 23.12 only runs on the CUDA:0
-    dev = 'cuda:0'
+    dev = "cuda:0"
     # attention_mask = None
     # position_ids = torch.arange(args.seq_len).unsqueeze(0).to(dev)
 
     # logger
-    log_path = f'{args.output_dir}/logs/'
+    log_path = f"{args.output_dir}/logs/"
     setup_logging(log_path, task_id)
     logger = logging.getLogger()
 
-    logger.info(f'----Quantizing on {dev}----')
+    logger.info(f"----Quantizing on {dev}----")
 
     if output_queues is None:
         layer_state_dicts = {}
@@ -63,7 +63,9 @@ def quantize_executer(task_id, tasks, args, quant_args, input_queues, output_que
         dtype = next(iter(layer.parameters())).dtype
 
         current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-        logger.info(f'----Quantizing layer {layer_idx} ...---- {current_time} on {dev} dtype {dtype}')
+        logger.info(
+            f"----Quantizing layer {layer_idx} ...---- {current_time} on {dev} dtype {dtype}"
+        )
 
         layer, qlinear_args = layer_quantizer(
             args,
@@ -86,8 +88,11 @@ def quantize_executer(task_id, tasks, args, quant_args, input_queues, output_que
                 if "indices" in key:
                     layer_state_dict[key] = value.view(torch.int16)
 
-            torch.save(layer_state_dict, f'{args.output_dir}/qlinear_layer_state_{layer_idx}.pt')
-            torch.save(qlinear_args, f'{args.output_dir}/qlinear_args_{layer_idx}.pt')
+            torch.save(
+                layer_state_dict,
+                f"{args.output_dir}/qlinear_layer_state_{layer_idx}.pt",
+            )
+            torch.save(qlinear_args, f"{args.output_dir}/qlinear_args_{layer_idx}.pt")
         else:
             if output_queues is None:
                 layer_state_dicts[layer_idx] = layer_state_dict

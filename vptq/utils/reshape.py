@@ -6,8 +6,7 @@ import torch
 
 
 # reshape class for matrix to vectors
-class reshape():
-
+class reshape:
     def __init__(self, vector_len, enable_transpose=False):
         self.vector_len = vector_len
         self.enable_transpose = enable_transpose
@@ -25,27 +24,33 @@ class reshape():
         return sub_vectors, self.padded_shape
 
     def add_padding(self, data):
-        '''
+        """
         Check if data need padding columns
         Returns (padded data, is_padded, pad_cols)
-        '''
+        """
         remainder = data.shape[1] % self.vector_len
         if remainder != 0:
-            padded_tensor = torch.zeros((data.shape[0], self.vector_len - remainder),
-                                        dtype=data.dtype,
-                                        device=data.device)
-            return torch.cat((data, padded_tensor), dim=1), True, self.vector_len - remainder
+            padded_tensor = torch.zeros(
+                (data.shape[0], self.vector_len - remainder),
+                dtype=data.dtype,
+                device=data.device,
+            )
+            return (
+                torch.cat((data, padded_tensor), dim=1),
+                True,
+                self.vector_len - remainder,
+            )
         return data, False, 0
 
     def remove_padding(self, data):
-        '''
+        """
         Remove padding
-        '''
+        """
         if self.is_padded:
             if self.enable_transpose:
-                data = data[:, :-self.pad_cols].T
+                data = data[:, : -self.pad_cols].T
             else:
-                data = data[:, :-self.pad_cols]
+                data = data[:, : -self.pad_cols]
         else:
             if self.enable_transpose:
                 data = data.T

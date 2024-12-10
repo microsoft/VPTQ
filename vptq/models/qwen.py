@@ -20,7 +20,6 @@ from vptq.utils.layer_utils import find_layers, replace_layer
 
 # get llama model
 def get_qwen(model_name, seqlen=None):
-
     def skip(*args, **kwargs):
         pass
 
@@ -28,6 +27,7 @@ def get_qwen(model_name, seqlen=None):
     torch.nn.init.uniform_ = skip
     torch.nn.init.normal_ = skip
     from transformers import Qwen2ForCausalLM
+
     model = Qwen2ForCausalLM.from_pretrained(
         model_name, attn_implementation="flash_attention_2", torch_dtype=torch.bfloat16
     )
@@ -38,9 +38,9 @@ def get_qwen(model_name, seqlen=None):
 
 
 # quant qwen model
-def quant_qwen(model, args, quant_args, dev='cuda'):
+def quant_qwen(model, args, quant_args, dev="cuda"):
     # model.model.required_grad = False
-    print('Starting VPTQ...')
+    print("Starting VPTQ...")
 
     use_cache = model.config.use_cache
     model.config.use_cache = False
@@ -48,13 +48,13 @@ def quant_qwen(model, args, quant_args, dev='cuda'):
     layers = model.model.layers
 
     model.model.embed_tokens = model.model.embed_tokens.to(dev)
-    if hasattr(model.model, 'rotary_emb'):
+    if hasattr(model.model, "rotary_emb"):
         model.model.rotary_emb = model.model.rotary_emb.to(dev)
     model.model.norm = model.model.norm.to(dev)
     layers[0] = layers[0].to(dev)
 
     dtype = next(iter(model.parameters())).dtype
-    print(f'model dtype: {dtype}')
+    print(f"model dtype: {dtype}")
 
     # save model to cpu
     model = model.cpu()
@@ -67,19 +67,21 @@ def quant_qwen(model, args, quant_args, dev='cuda'):
 
     torch.cuda.empty_cache()
 
-    model.model.embed_tokens = model.model.embed_tokens.to('cpu')
+    model.model.embed_tokens = model.model.embed_tokens.to("cpu")
 
-    if hasattr(model.model, 'rotary_emb'):
-        model.model.rotary_emb = model.model.rotary_emb.to('cpu')
-    model.model.norm = model.model.norm.to('cpu')
-    layers[0] = layers[0].to('cpu')
+    if hasattr(model.model, "rotary_emb"):
+        model.model.rotary_emb = model.model.rotary_emb.to("cpu")
+    model.model.norm = model.model.norm.to("cpu")
+    layers[0] = layers[0].to("cpu")
     model = model.cpu()
 
     # multiple gpus VPTQ
     quantizers = {}
     layers = model.model.layers
 
-    print(f'----quantization start ...---- {time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())}')
+    print(
+        f'----quantization start ...---- {time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())}'
+    )
 
     # calculate task allocation
     num_tasks_per_gpu = (len(layers) + args.num_gpus - 1) // args.num_gpus
@@ -88,7 +90,9 @@ def quant_qwen(model, args, quant_args, dev='cuda'):
     # allocate tasks to each gpu
     for gpu_idx in range(args.num_gpus):
         task = []
-        for layer_idx in range(gpu_idx * num_tasks_per_gpu, (gpu_idx + 1) * num_tasks_per_gpu):
+        for layer_idx in range(
+            gpu_idx * num_tasks_per_gpu, (gpu_idx + 1) * num_tasks_per_gpu
+        ):
             if layer_idx < len(layers):
                 task.append((layer_idx, layers[layer_idx]))
         tasks.append(task)
@@ -96,16 +100,18 @@ def quant_qwen(model, args, quant_args, dev='cuda'):
     # print task allocation
     for gpu_idx in range(len(tasks)):
         task = [layer_idx for layer_idx, _ in tasks[gpu_idx]]
-        print(f'gpu {gpu_idx} tasks: {task}')
+        print(f"gpu {gpu_idx} tasks: {task}")
 
     # init multiprocessing
     processes = []
-    mq_manager = mp.get_context('spawn').Manager()
+    mq_manager = mp.get_context("spawn").Manager()
     input_queues = mq_manager.Queue()
     output_queues = mq_manager.Queue()
 
     if args.num_gpus == 1:
-        layer_state_dicts, layer_qlinear_args = quantize_executer(0, tasks[0], args, quant_args, None, None)
+        layer_state_dicts, layer_qlinear_args = quantize_executer(
+            0, tasks[0], args, quant_args, None, None
+        )
     else:
         for gpu_idx in range(args.num_gpus):
             # we have to set CUDA_VISIBLE_DEVICES here
@@ -120,7 +126,7 @@ def quant_qwen(model, args, quant_args, dev='cuda'):
                     quant_args,
                     input_queues,
                     output_queues,
-                )
+                ),
             )
 
             p.start()
@@ -129,7 +135,9 @@ def quant_qwen(model, args, quant_args, dev='cuda'):
         for p in processes:
             p.join()
 
-    print(f'----quantization done ...---- {time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())}')
+    print(
+        f'----quantization done ...---- {time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())}'
+    )
 
     # init quantized model
     model_name = model.model.config._name_or_path
@@ -144,33 +152,41 @@ def quant_qwen(model, args, quant_args, dev='cuda'):
             for layer_idx in range(len(layers)):
                 # load to cpu
                 layer_state_dicts[layer_idx] = torch.load(
-                    f'{args.output_dir}/qlinear_layer_state_{layer_idx}.pt', map_location='cpu'
+                    f"{args.output_dir}/qlinear_layer_state_{layer_idx}.pt",
+                    map_location="cpu",
                 )
                 # bypass KeyError: torch.uint16
                 for key, value in layer_state_dicts[layer_idx].items():
                     if "indices" in key:
                         layer_state_dicts[layer_idx][key] = value.view(torch.uint16)
                 layer_qlinear_args[layer_idx] = torch.load(
-                    f'{args.output_dir}/qlinear_args_{layer_idx}.pt', map_location='cpu'
+                    f"{args.output_dir}/qlinear_args_{layer_idx}.pt", map_location="cpu"
                 )
         else:
             while not output_queues.empty():
-                (gpu_id, layer_idx, _layer_state_dict, _layer_qlinear_args) = output_queues.get()
+                (
+                    gpu_id,
+                    layer_idx,
+                    _layer_state_dict,
+                    _layer_qlinear_args,
+                ) = output_queues.get()
                 layer_state_dicts[layer_idx] = _layer_state_dict
                 layer_qlinear_args[layer_idx] = _layer_qlinear_args
-                print(f'gpu {gpu_id} layer {layer_idx} quantized')
+                print(f"gpu {gpu_id} layer {layer_idx} quantized")
 
     # check if all layers are quantized
     if len(layer_state_dicts) != len(layers):
-        print('Error: not all layers are quantized')
+        print("Error: not all layers are quantized")
         exit(1)
 
     # eval_quant = True, evalutes qlinear layers in qwen
-    qmodel = get_quantized_qwen(model_name, args.seq_len, layer_state_dicts, layer_qlinear_args)
+    qmodel = get_quantized_qwen(
+        model_name, args.seq_len, layer_state_dicts, layer_qlinear_args
+    )
 
     model = qmodel
 
-    print(f'qmodel: {model}')
+    print(f"qmodel: {model}")
 
     torch.cuda.empty_cache()
     return model, quantizers
@@ -195,15 +211,23 @@ def get_quantized_qwen(model_name, seqlen, layer_state_dicts, layer_qlinear_args
                 **layer_qlinear_args[layer_idx][name],
                 dtype=dtype,
             )
-            module_name = name.split('.')[-1]
+            module_name = name.split(".")[-1]
             replace_layer(layer, module_name, qlayer)
 
         # convert dtype
         # print(f'default dtype: {dtype}')
         for param_name, param in layer_state_dict.items():
             if layer_state_dict[param_name].dtype not in [
-                dtype, torch.int64, torch.int32, torch.int16, torch.int8, torch.uint64, torch.uint32, torch.uint16,
-                torch.uint8, torch.bool
+                dtype,
+                torch.int64,
+                torch.int32,
+                torch.int16,
+                torch.int8,
+                torch.uint64,
+                torch.uint32,
+                torch.uint16,
+                torch.uint8,
+                torch.bool,
             ]:
                 layer_state_dict[param_name] = layer_state_dict[param_name].to(dtype)
 
@@ -215,7 +239,7 @@ def get_quantized_qwen(model_name, seqlen, layer_state_dicts, layer_qlinear_args
 @torch.no_grad()
 def eval_qwen(model, testenc, dev):
     current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-    print(f'----Evaluating qwen ...---- {current_time}')
+    print(f"----Evaluating qwen ...---- {current_time}")
 
     testenc = testenc.input_ids
     nsamples = testenc.numel() // model.seqlen
@@ -226,30 +250,31 @@ def eval_qwen(model, testenc, dev):
 
     model.model.embed_tokens = model.model.embed_tokens.to(dev)
     # fix for qwen
-    if hasattr(model.model, 'rotary_emb'):
+    if hasattr(model.model, "rotary_emb"):
         model.model.rotary_emb = model.model.rotary_emb.to(dev)
     layers[0] = layers[0].to(dev)
 
     dtype = next(iter(model.parameters())).dtype
-    inps = torch.zeros((nsamples, model.seqlen, model.config.hidden_size), dtype=dtype, device=dev)
-    cache = {'i': 0, 'attention_mask': None}
+    inps = torch.zeros(
+        (nsamples, model.seqlen, model.config.hidden_size), dtype=dtype, device=dev
+    )
+    cache = {"i": 0, "attention_mask": None}
 
     class Catcher(nn.Module):
-
         def __init__(self, module):
             super().__init__()
             self.module = module
 
         def forward(self, inp, **kwargs):
-            inps[cache['i']] = inp
-            cache['i'] += 1
-            cache['attention_mask'] = kwargs['attention_mask']
-            cache['position_ids'] = kwargs['position_ids']
+            inps[cache["i"]] = inp
+            cache["i"] += 1
+            cache["attention_mask"] = kwargs["attention_mask"]
+            cache["position_ids"] = kwargs["position_ids"]
             raise ValueError
 
     layers[0] = Catcher(layers[0])
     for i in range(nsamples):
-        batch = testenc[:, (i * model.seqlen):((i + 1) * model.seqlen)].to(dev)
+        batch = testenc[:, (i * model.seqlen) : ((i + 1) * model.seqlen)].to(dev)
         try:
             model(input_ids=batch)
         except ValueError:
@@ -261,15 +286,19 @@ def eval_qwen(model, testenc, dev):
     torch.cuda.empty_cache()
 
     outs = torch.zeros_like(inps)
-    attention_mask = cache['attention_mask']
-    position_ids = cache['position_ids']
+    attention_mask = cache["attention_mask"]
+    position_ids = cache["position_ids"]
 
     for i in tqdm(range(len(layers))):
         # print(i)
         layer = layers[i].to(dev)
 
         for j in range(nsamples):
-            outs[j] = layer(inps[j].unsqueeze(0).to(dev), attention_mask=attention_mask, position_ids=position_ids)[0]
+            outs[j] = layer(
+                inps[j].unsqueeze(0).to(dev),
+                attention_mask=attention_mask,
+                position_ids=position_ids,
+            )[0]
 
         layers[i] = layer.cpu()
         del layer
@@ -288,9 +317,11 @@ def eval_qwen(model, testenc, dev):
             hidden_states = model.model.norm(hidden_states)
         lm_logits = model.lm_head(hidden_states)
         shift_logits = lm_logits[:, :-1, :].contiguous()
-        shift_labels = testenc[:, (i * model.seqlen):((i + 1) * model.seqlen)][:, 1:]
+        shift_labels = testenc[:, (i * model.seqlen) : ((i + 1) * model.seqlen)][:, 1:]
         loss_fct = nn.CrossEntropyLoss()
-        loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+        loss = loss_fct(
+            shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1)
+        )
         neg_log_likelihood = loss.float() * model.seqlen
         nlls.append(neg_log_likelihood)
     ppl = torch.exp(torch.stack(nlls).sum() / (nsamples * model.seqlen))

@@ -14,7 +14,6 @@ torch.backends.cudnn.allow_tf32 = False
 
 
 class VPTQ:
-
     def __init__(
         self,
         layer,
@@ -25,16 +24,16 @@ class VPTQ:
         zero_idx,
         logger,
         collect_act=False,
-        layer_name='',
+        layer_name="",
         block_size=128,
         step=1,
-        percdamp=.01,
+        percdamp=0.01,
         group_size=-1,
         group_num=-1,
         enable_perm=None,
         enable_norm=False,
         norm_dim=0,
-        debug=False
+        debug=False,
     ):
         # set layer
         # self.layer = layer
@@ -61,21 +60,21 @@ class VPTQ:
         # self.hessian = hessian.to(self.dev)
 
         # preprocess
-        self.layer = layer.to('cpu')
-        self.weight = self.layer.weight.data.to('cpu')
-        self.qweight = torch.zeros_like(self.weight).to('cpu')
-        self.hessian = hessian.to('cpu')
+        self.layer = layer.to("cpu")
+        self.weight = self.layer.weight.data.to("cpu")
+        self.qweight = torch.zeros_like(self.weight).to("cpu")
+        self.hessian = hessian.to("cpu")
 
         if inv_hessian is not None:
-            self.inv_hessian = inv_hessian.to('cpu')
+            self.inv_hessian = inv_hessian.to("cpu")
         else:
             self.inv_hessian = None
         if perm is not None:
-            self.perm = perm.to('cpu')
+            self.perm = perm.to("cpu")
         else:
             self.perm = None
         if zero_idx is not None:
-            self.zero_idx = zero_idx.to('cpu')
+            self.zero_idx = zero_idx.to("cpu")
         else:
             self.zero_idx = None
 
@@ -121,7 +120,7 @@ class VPTQ:
         # step 0: preprocess weight and hessian
         weight = self.weight.clone().float().to(self.dev)
         hessian = self.hessian.clone().to(self.dev)
-        inv_hessian = self.inv_hessian.clone().to('cpu')
+        inv_hessian = self.inv_hessian.clone().to("cpu")
 
         if self.enable_norm:
             # norm weight for quantization
@@ -138,11 +137,13 @@ class VPTQ:
             self.quantizer.init_norm(weight)
 
             if self.norm_dim == 0:
-                weight = (weight - self.quantizer.weight_bias) / \
-                    self.quantizer.weight_scale
+                weight = (
+                    weight - self.quantizer.weight_bias
+                ) / self.quantizer.weight_scale
             else:
-                weight = (weight - self.quantizer.weight_bias.unsqueeze(self.norm_dim)) / \
-                    self.quantizer.weight_scale.unsqueeze(self.norm_dim)
+                weight = (
+                    weight - self.quantizer.weight_bias.unsqueeze(self.norm_dim)
+                ) / self.quantizer.weight_scale.unsqueeze(self.norm_dim)
 
         if isinstance(self.layer, nn.Conv2d):
             weight = weight.flatten(1)
@@ -150,8 +151,11 @@ class VPTQ:
             weight = weight.t()
 
         # set group num and size
-        self.outlier_size, self.group_size, self.group_num = \
-            self.quantizer.get_group_setting(weight)
+        (
+            self.outlier_size,
+            self.group_size,
+            self.group_num,
+        ) = self.quantizer.get_group_setting(weight)
 
         # print(f'group_size: {self.group_size}, group_num: {self.group_num}')
 
@@ -159,8 +163,10 @@ class VPTQ:
         #     self.quantizer.find_params(W, weight=True)
         # del self.H
 
-        if self.quantizer.kmeans_mode == 'hessian':
-            kmeans_weight = torch.diag(hessian).clone().unsqueeze(0).repeat(weight.shape[0], 1)
+        if self.quantizer.kmeans_mode == "hessian":
+            kmeans_weight = (
+                torch.diag(hessian).clone().unsqueeze(0).repeat(weight.shape[0], 1)
+            )
         else:
             kmeans_weight = None
 
@@ -172,8 +178,8 @@ class VPTQ:
 
         if self.debug:
             self.logger.info(
-                f'kmeans_mode: {self.quantizer.kmeans_mode}, '
-                f'enable_perm: {self.quantizer.enable_perm}'
+                f"kmeans_mode: {self.quantizer.kmeans_mode}, "
+                f"enable_perm: {self.quantizer.enable_perm}"
             )
 
         # permute weight and hessian
@@ -187,8 +193,7 @@ class VPTQ:
             hessian = hessian[self.quantizer.perm][:, self.quantizer.perm]
 
             # reorder kmeans_weight
-            if self.quantizer.kmeans_mode in ['hessian'] \
-                    and kmeans_weight is not None:
+            if self.quantizer.kmeans_mode in ["hessian"] and kmeans_weight is not None:
                 kmeans_weight = kmeans_weight[:, self.quantizer.perm]
             else:
                 kmeans_weight = None
@@ -196,9 +201,9 @@ class VPTQ:
             self.quantizer.perm = torch.arange(weight.shape[1])
 
         # save gpu memory
-        weight = weight.to('cpu')
-        hessian = hessian.to('cpu')
-        inv_hessian = inv_hessian.to('cpu')
+        weight = weight.to("cpu")
+        hessian = hessian.to("cpu")
+        inv_hessian = inv_hessian.to("cpu")
         # end of weight and hessian preprocess
 
         # step 1: init centroids ###
@@ -209,19 +214,25 @@ class VPTQ:
             tick = time.time() if self.debug else None
 
             # run k-means, init centroids and get quantized data by k-means
-            qweight_init = self.quantizer.init_centroids_indices(data=_weight, weights=kmeans_weight)
+            qweight_init = self.quantizer.init_centroids_indices(
+                data=_weight, weights=kmeans_weight
+            )
 
             if self.debug:
-                self.logger.info(f'{self.layer_name} 1st kmeans time: {time.time() - tick}')
                 self.logger.info(
-                    f'{self.layer_name} qweight init shape: {qweight_init.shape}, '
-                    f'weight shape: {weight.shape}'
+                    f"{self.layer_name} 1st kmeans time: {time.time() - tick}"
+                )
+                self.logger.info(
+                    f"{self.layer_name} qweight init shape: {qweight_init.shape}, "
+                    f"weight shape: {weight.shape}"
                 )
 
-                error_sum, sum, error_norm = self.get_error(weight, qweight_init, hessian)
+                error_sum, sum, error_norm = self.get_error(
+                    weight, qweight_init, hessian
+                )
                 self.logger.info(
-                    f'{self.layer_name} proxy error before VPTQ: '
-                    f'{error_sum.item()}, {sum.item()}, {error_norm.item()}'
+                    f"{self.layer_name} proxy error before VPTQ: "
+                    f"{error_sum.item()}, {sum.item()}, {error_norm.item()}"
                 )
 
         # step 2: VPTQ with initialized centroids ###
@@ -241,10 +252,10 @@ class VPTQ:
 
         if self.debug:
             error_sum, sum, norm_error = self.get_error(weight, qweight, hessian)
-            self.logger.info(f'{self.layer_name} 1st error time: {time.time() - tick}')
+            self.logger.info(f"{self.layer_name} 1st error time: {time.time() - tick}")
             self.logger.info(
-                f'{self.layer_name} proxy error after VPTQ: {error_sum.item()}, '
-                f'{sum.item()}, {norm_error.item()}'
+                f"{self.layer_name} proxy error after VPTQ: {error_sum.item()}, "
+                f"{sum.item()}, {norm_error.item()}"
             )
             # self.logger.info(f'qerror^2: {torch.mean(qerror ** 2).item()}')
 
@@ -255,12 +266,16 @@ class VPTQ:
                 tick = time.time() if self.debug else None
 
                 # step 3.1: init residual quantization centroids
-                qweight_residual = self.quantizer.init_res_centroids_indices(qerror, kmeans_weight)
+                qweight_residual = self.quantizer.init_res_centroids_indices(
+                    qerror, kmeans_weight
+                )
 
                 # torch.save(Q_residual, f'Q_residual_{self.layer_name}.pt')
 
                 if self.debug:
-                    self.logger.info(f'{self.layer_name} residual time: {time.time() - tick}')
+                    self.logger.info(
+                        f"{self.layer_name} residual time: {time.time() - tick}"
+                    )
 
             _weight = weight.clone().to(self.dev)
             _hessian = hessian.clone().to(self.dev)
@@ -269,10 +284,14 @@ class VPTQ:
             # step 3.2: VPTQ with initialzed residual centroids
             self.quantizer.clear_indices()
             tick = time.time()
-            qweight, qerror = self.vptq(_weight, _hessian, enable_residual=True, inv_hessian=_inv_hessian)
+            qweight, qerror = self.vptq(
+                _weight, _hessian, enable_residual=True, inv_hessian=_inv_hessian
+            )
 
             if self.debug:
-                self.logger.info(f'{self.layer_name} 2ed gptq time: {time.time() - tick}')
+                self.logger.info(
+                    f"{self.layer_name} 2ed gptq time: {time.time() - tick}"
+                )
 
             tick = time.time()
 
@@ -282,11 +301,13 @@ class VPTQ:
             torch.cuda.empty_cache()
 
             if self.debug:
-                self.logger.info(f'{self.layer_name} 2ed error time: {time.time() - tick}')
+                self.logger.info(
+                    f"{self.layer_name} 2ed error time: {time.time() - tick}"
+                )
                 error_sum, sum, norm_error = self.get_error(weight, qweight, hessian)
                 self.logger.info(
-                    f'{self.layer_name} proxy error after residual VPTQ: '
-                    f'{error_sum.item()}, {sum.item()}, {norm_error.item()}'
+                    f"{self.layer_name} proxy error after residual VPTQ: "
+                    f"{error_sum.item()}, {sum.item()}, {norm_error.item()}"
                 )
 
         # self.quantizer.save(qweight)
@@ -300,15 +321,19 @@ class VPTQ:
             qweight = qweight.t()
 
         # reshape back to original shape
-        qweight = qweight.reshape(self.layer.weight.shape).to(self.layer.weight.data.dtype)
+        qweight = qweight.reshape(self.layer.weight.shape).to(
+            self.layer.weight.data.dtype
+        )
 
         if self.enable_norm:
             if self.norm_dim == 0:
-                qweight = qweight * self.quantizer.weight_scale + self.quantizer.weight_bias
+                qweight = (
+                    qweight * self.quantizer.weight_scale + self.quantizer.weight_bias
+                )
             elif self.norm_dim == 1:
-                qweight = qweight * \
-                    self.quantizer.weight_scale.unsqueeze(self.norm_dim) \
-                    + self.quantizer.weight_bias.unsqueeze(self.norm_dim)
+                qweight = qweight * self.quantizer.weight_scale.unsqueeze(
+                    self.norm_dim
+                ) + self.quantizer.weight_bias.unsqueeze(self.norm_dim)
 
         self.qweight = qweight
 
@@ -362,12 +387,16 @@ class VPTQ:
             block_inv_hessian = inv_hessian[i:j, i:j]
 
             for k in range(0, size, self.step):
-                tile_weight = block_weight[:, k:k + self.step]
-                tile_inv_hessian = block_inv_hessian[k:k + self.step, k:k + self.step]
+                tile_weight = block_weight[:, k : k + self.step]
+                tile_inv_hessian = block_inv_hessian[
+                    k : k + self.step, k : k + self.step
+                ]
 
                 # self.logger.info(f'tile_weight:{tile_weight.shape}, tile_inv_hessian:{tile_inv_hessian.shape}')
                 if enable_residual:
-                    tile_qweight = self.quantizer.quantize_residual_vector(tile_weight, i + k)
+                    tile_qweight = self.quantizer.quantize_residual_vector(
+                        tile_weight, i + k
+                    )
                 else:
                     tile_qweight = self.quantizer.quantize_vector(tile_weight, i + k)
                 # self.logger.info(f'tile_qweight:{tile_qweight.shape}')
@@ -375,21 +404,25 @@ class VPTQ:
                 # ?
                 tile_qweight = tile_qweight.reshape(-1, self.step)
 
-                tile_inv_hessian = torch.cholesky_inverse(torch.linalg.cholesky(tile_inv_hessian))
+                tile_inv_hessian = torch.cholesky_inverse(
+                    torch.linalg.cholesky(tile_inv_hessian)
+                )
 
                 # self.logger.info(f'block_qweight:{block_qweight.shape}, tile_qweight:{tile_qweight.shape}')
                 # self.logger.info(f'block_qweight[:, k:k+self.step]: {block_qweight[:, k:k+self.step].shape}')
 
                 # update quantized block qweight
-                block_qweight[:, k:k + self.step] = tile_qweight
+                block_qweight[:, k : k + self.step] = tile_qweight
 
                 # (drow,step)*(step,step)=(drow,step)
                 tile_error = (tile_weight - tile_qweight).matmul(tile_inv_hessian)
 
                 # Losses1[:,i:i+step] =  err1.matmul((w-q).T())
 
-                block_weight[:, k + self.step:] -= tile_error.matmul(block_inv_hessian[k:k + self.step, k + self.step:])
-                block_error[:, k:k + self.step] = tile_error
+                block_weight[:, k + self.step :] -= tile_error.matmul(
+                    block_inv_hessian[k : k + self.step, k + self.step :]
+                )
+                block_error[:, k : k + self.step] = tile_error
 
             qweight[:, i:j] = block_qweight
             # Losses[:, i1:i2] = Losses1 / 2
@@ -409,8 +442,7 @@ class VPTQ:
         return qweight, qerror
 
     def get_error(self, weight, qweight, hessian):
-
-        def _matrix_multiply_with_blocks(A, B, hessian, block_size=64, dev='cuda'):
+        def _matrix_multiply_with_blocks(A, B, hessian, block_size=64, dev="cuda"):
             m_dim = A.shape[0]
             k_dim = A.shape[1]
             n_dim = B.shape[1]
@@ -421,8 +453,12 @@ class VPTQ:
                     i_end = min(i + block_size, m_dim)
                     for j in range(0, n_dim, block_size):
                         j_end = min(j + block_size, n_dim)
-                        result[i:i_end, j:j_end] += A[i:i_end, :].to(dev) @ B[:, j:j_end].to(dev)
-                        result[i:i_end, j:j_end] = result[i:i_end, j:j_end] * hessian[i:i_end, j:j_end]
+                        result[i:i_end, j:j_end] += A[i:i_end, :].to(dev) @ B[
+                            :, j:j_end
+                        ].to(dev)
+                        result[i:i_end, j:j_end] = (
+                            result[i:i_end, j:j_end] * hessian[i:i_end, j:j_end]
+                        )
             else:
                 result = A.to(dev) @ B.to(dev) * hessian
             result = result.to(dev)
@@ -432,13 +468,17 @@ class VPTQ:
         # error_mean = torch.mean(error.T @ error * hessian)
         weight = weight.to(qweight.device)
         hessian = hessian.to(qweight.device)
-        wTw_hessian = _matrix_multiply_with_blocks(weight.T, weight, hessian, block_size=512, dev=qweight.device)
+        wTw_hessian = _matrix_multiply_with_blocks(
+            weight.T, weight, hessian, block_size=512, dev=qweight.device
+        )
         weight_mean = torch.mean(wTw_hessian.to(qweight.device))
         # weight_mean = torch.mean(wTw * hessian)
         del wTw_hessian
         torch.cuda.empty_cache()
         error = qweight - weight
-        eTe_hessian = _matrix_multiply_with_blocks(error.T, error, hessian, block_size=512, dev=qweight.device)
+        eTe_hessian = _matrix_multiply_with_blocks(
+            error.T, error, hessian, block_size=512, dev=qweight.device
+        )
         error_mean = torch.mean(eTe_hessian.to(qweight.device))
         del eTe_hessian
         torch.cuda.empty_cache()

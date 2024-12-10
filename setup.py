@@ -33,9 +33,11 @@ def build_cuda_extensions():
     if TORCH_CUDA_ARCH_LIST is None:
         print("TORCH_CUDA_ARCH_LIST is not set, compiling for all arch")
     else:
-        delimiter = ' ' if ';' not in TORCH_CUDA_ARCH_LIST else ' '
+        delimiter = " " if ";" not in TORCH_CUDA_ARCH_LIST else " "
         TORCH_CUDA_ARCH_LIST = TORCH_CUDA_ARCH_LIST.split(delimiter)
-        compute_capabilities = [int(10 * float(arch)) for arch in TORCH_CUDA_ARCH_LIST if '+' not in arch]
+        compute_capabilities = [
+            int(10 * float(arch)) for arch in TORCH_CUDA_ARCH_LIST if "+" not in arch
+        ]
 
     if torch.cuda.is_available() and torch.version.hip is not None:
         PYTORCH_ROCM_ARCH = os.getenv("PYTORCH_ROCM_ARCH", None)
@@ -67,16 +69,22 @@ def build_cuda_extensions():
             "-U__CUDA_NO_BFLOAT162_OPERATORS__",
             "-U__CUDA_NO_BFLOAT162_CONVERSIONS__",
             f"--threads={nvcc_threads}",
-        ] + arch_flags,
+        ]
+        + arch_flags,
         "cxx": ["-O3", "-fopenmp", "-lgomp", "-std=c++17", "-DENABLE_BF16"],
     }
 
     if torch.cuda.is_available() and torch.version.hip is not None:
         extra_compile_args["nvcc"].extend(["-fbracket-depth=1024"])
     else:
-        extra_compile_args["nvcc"].extend([
-            "--expt-relaxed-constexpr", "--expt-extended-lambda", "--use_fast_math", "-lineinfo"
-        ])
+        extra_compile_args["nvcc"].extend(
+            [
+                "--expt-relaxed-constexpr",
+                "--expt-extended-lambda",
+                "--use_fast_math",
+                "-lineinfo",
+            ]
+        )
 
     extensions = CUDAExtension(
         "vptq.ops",

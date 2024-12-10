@@ -78,7 +78,9 @@ def quant_nvembed(model: SentenceTransformer, args, quant_args, dev="cuda"):
     quantizers = {}
     layers = model.embedding_model.layers
 
-    print(f'----quantization start ...---- {time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())}')
+    print(
+        f'----quantization start ...---- {time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())}'
+    )
 
     # calculate task allocation
     total_layers = len(layers)
@@ -118,7 +120,9 @@ def quant_nvembed(model: SentenceTransformer, args, quant_args, dev="cuda"):
     output_queues = mq_manager.Queue()
 
     if args.num_gpus == 1:
-        layer_state_dicts, layer_qlinear_args = quantize_executer(0, tasks[0], args, quant_args, None, None)
+        layer_state_dicts, layer_qlinear_args = quantize_executer(
+            0, tasks[0], args, quant_args, None, None
+        )
     else:
         for gpu_idx in range(args.num_gpus):
             # we have to set CUDA_VISIBLE_DEVICES here
@@ -142,7 +146,9 @@ def quant_nvembed(model: SentenceTransformer, args, quant_args, dev="cuda"):
         for p in processes:
             p.join()
 
-    print(f'----quantization done ...---- {time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())}')
+    print(
+        f'----quantization done ...---- {time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())}'
+    )
 
     # init quantized model
     model_name = model.embedding_model.config._name_or_path
@@ -157,7 +163,8 @@ def quant_nvembed(model: SentenceTransformer, args, quant_args, dev="cuda"):
             for layer_idx in range(len(layers)):
                 # load to cpu
                 layer_state_dicts[layer_idx] = torch.load(
-                    f"{args.output_dir}/qlinear_layer_state_{layer_idx}.pt", map_location="cpu"
+                    f"{args.output_dir}/qlinear_layer_state_{layer_idx}.pt",
+                    map_location="cpu",
                 )
                 # bypass KeyError: torch.uint16
                 for key, value in layer_state_dicts[layer_idx].items():
@@ -168,7 +175,12 @@ def quant_nvembed(model: SentenceTransformer, args, quant_args, dev="cuda"):
                 )
         else:
             while not output_queues.empty():
-                (gpu_id, layer_idx, _layer_state_dict, _layer_qlinear_args) = output_queues.get()
+                (
+                    gpu_id,
+                    layer_idx,
+                    _layer_state_dict,
+                    _layer_qlinear_args,
+                ) = output_queues.get()
                 layer_state_dicts[layer_idx] = _layer_state_dict
                 layer_qlinear_args[layer_idx] = _layer_qlinear_args
                 print(f"gpu {gpu_id} layer {layer_idx} quantized")
@@ -178,7 +190,9 @@ def quant_nvembed(model: SentenceTransformer, args, quant_args, dev="cuda"):
         print("Error: not all layers are quantized")
         exit(1)
 
-    qmodel = get_quantized_nvembed(model_name, args.seq_len, layer_state_dicts, layer_qlinear_args)
+    qmodel = get_quantized_nvembed(
+        model_name, args.seq_len, layer_state_dicts, layer_qlinear_args
+    )
 
     model = qmodel
 

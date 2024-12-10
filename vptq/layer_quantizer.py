@@ -30,39 +30,39 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
         for name in subset:
             # load Hessian
             name2hessian = {
-                'self_attn.v_proj': 'qkv',
-                'self_attn.q_proj': 'qkv',
-                'self_attn.k_proj': 'qkv',
-                'self_attn.o_proj': 'o',
-                'mlp.up_proj': 'up',
-                'mlp.gate_proj': 'up',
-                'mlp.down_proj': 'down'
+                "self_attn.v_proj": "qkv",
+                "self_attn.q_proj": "qkv",
+                "self_attn.k_proj": "qkv",
+                "self_attn.o_proj": "o",
+                "mlp.up_proj": "up",
+                "mlp.gate_proj": "up",
+                "mlp.down_proj": "down",
             }
 
-            layer_name = f'{layer_idx}_{name2hessian[name]}.pt'
-            hessian_path = f'{args.hessian_path}/{layer_name}'
+            layer_name = f"{layer_idx}_{name2hessian[name]}.pt"
+            hessian_path = f"{args.hessian_path}/{layer_name}"
             hessian, mu = load_hessian(hessian_path, logger)
 
             # init data
             linear = subset[name].to(dev)
-            hessian.to('cpu')
+            hessian.to("cpu")
 
             # load inv_hessian from files to reduce memory usage
             if args.inv_hessian_path is not None:
-                inv_hessian_path = f'{args.inv_hessian_path}/{layer_name}'
+                inv_hessian_path = f"{args.inv_hessian_path}/{layer_name}"
                 inv_hessian, perm, zero_idx = load_inv_hessian(inv_hessian_path, logger)
-                inv_hessian.to('cpu')
-                perm.to('cpu')
-                zero_idx.to('cpu')
+                inv_hessian.to("cpu")
+                perm.to("cpu")
+                zero_idx.to("cpu")
             else:
                 inv_hessian = None
                 perm = None
                 zero_idx = None
 
-            layer_name = f'{layer_idx}.{name}'
+            layer_name = f"{layer_idx}.{name}"
 
             current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-            logger.info(f'----Quantizing llama ...---- {current_time} {layer_name}')
+            logger.info(f"----Quantizing llama ...---- {current_time} {layer_name}")
 
             # init quantizer
             quantizer = NPVectorQuantizer(
@@ -75,7 +75,7 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 group_size=quant_args.group_size,
                 group_num=quant_args.group_num,
                 # enable_transpose=True,
-                kmeans_mode='hessian',
+                kmeans_mode="hessian",
                 iter=quant_args.kiter,
                 tol=quant_args.ktol,
                 debug=True,
@@ -95,10 +95,10 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 logger=logger,
                 collect_act=False,
                 layer_name=layer_name,
-                enable_perm='hessian',
+                enable_perm="hessian",
                 enable_norm=quant_args.enable_norm,
                 norm_dim=0,
-                debug=True
+                debug=True,
             )
 
             # quant by VPTQ algorithm
@@ -145,7 +145,7 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 enable_norm=quant_args.enable_norm,
                 enable_perm=True if _vptq.quantizer.enable_perm is not None else False,
                 # enable_residual=True,
-                vector_quant_dim='out',
+                vector_quant_dim="out",
                 device=dev,
                 dtype=dtype,
                 # indices_as_float=False,
@@ -165,13 +165,13 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 weight_bias=weight_bias,
                 bias=linear.bias,
                 perm=perm,
-                dtype=dtype
+                dtype=dtype,
             )
 
             qlayer.to(dev)
 
             # replace layer with qlinear
-            module_name = name.split('.')[-1]
+            module_name = name.split(".")[-1]
 
             replace_layer(layer, module_name, qlayer)
 

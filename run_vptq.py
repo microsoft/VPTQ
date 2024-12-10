@@ -49,7 +49,9 @@ if __name__ == "__main__":
     args, quant_args = parser.parse_args_into_dataclasses()
 
     # set output folder based on time
-    args.output_dir = osp.join(args.output_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime()))
+    args.output_dir = osp.join(
+        args.output_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
+    )
 
     set_start_method("spawn")
 
@@ -99,7 +101,9 @@ if __name__ == "__main__":
     # save packed model for inference
     if args.save_packed_model:
         model_path = osp.join(args.output_dir, "packed_model/")
-        model = pack_model(model, from_type=torch.uint16, to_type=torch.uint16, as_type=torch.int16)
+        model = pack_model(
+            model, from_type=torch.uint16, to_type=torch.uint16, as_type=torch.int16
+        )
         model.save_pretrained(model_path, safe_serialization=False)
         print(f"save packed model to {model_path}")
         tokenizer = AutoTokenizer.from_pretrained(f"{args.model_name}", legacy=False)
@@ -111,9 +115,13 @@ if __name__ == "__main__":
         import vptq
 
         if isinstance(model, SentenceTransformer):
-            model = vptq.AutoModelForSentenceEmbeddings.from_pretrained(model_path, device_map="auto")
+            model = vptq.AutoModelForSentenceEmbeddings.from_pretrained(
+                model_path, device_map="auto"
+            )
         else:
-            model = vptq.AutoModelForCausalLM.from_pretrained(model_path, device_map="auto")
+            model = vptq.AutoModelForCausalLM.from_pretrained(
+                model_path, device_map="auto"
+            )
 
         print(f"load packed model from {model_path}")
 
@@ -148,7 +156,10 @@ if __name__ == "__main__":
                 dataset, seed=args.seed, model=args.model_name, seqlen=model.seqlen
             )
             print(dataset)
-            if "llama" in args.model_name.lower() or "mistral" in args.model_name.lower():
+            if (
+                "llama" in args.model_name.lower()
+                or "mistral" in args.model_name.lower()
+            ):
                 ppl = eval_llama(model, testloader, "cuda")
             elif "qwen" in args.model_name.lower():
                 ppl = eval_qwen(model, testloader, "cuda")

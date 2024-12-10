@@ -10,10 +10,10 @@ import torch
 # load Hessian from files
 def load_hessian(hessian_path, logger=None):
     if logger is None:
-        print(f'load Hessian from {hessian_path}')
+        print(f"load Hessian from {hessian_path}")
     else:
-        logger.info(f'load Hessian from {hessian_path}')
-    H_data = torch.load(f'{hessian_path}')
+        logger.info(f"load Hessian from {hessian_path}")
+    H_data = torch.load(f"{hessian_path}")
 
     # convert H to sym matrix
     def flat_to_sym(V, N):
@@ -34,9 +34,9 @@ def load_hessian(hessian_path, logger=None):
         H = regularize_H(H, n, 1e-2)
         return H, mu
 
-    H = flat_to_sym(H_data['flatH'], H_data['n'])
-    mu = H_data['mu']
-    n = H_data['n']
+    H = flat_to_sym(H_data["flatH"], H_data["n"])
+    mu = H_data["mu"]
+    n = H_data["n"]
     H, mu = basic_preprocess(H, mu, n)
 
     return H, mu
@@ -46,13 +46,13 @@ def load_hessian(hessian_path, logger=None):
 # TODO: reduce tensor size
 def load_inv_hessian(inv_hessian_path, logger=None):
     if logger is None:
-        print(f'load inv Hessian from {inv_hessian_path}')
+        print(f"load inv Hessian from {inv_hessian_path}")
     else:
-        logger.info(f'load inv Hessian from {inv_hessian_path}')
-    H_data = torch.load(f'{inv_hessian_path}')
+        logger.info(f"load inv Hessian from {inv_hessian_path}")
+    H_data = torch.load(f"{inv_hessian_path}")
 
-    inv_hessian = H_data['invH']
-    perm = H_data['perm']
-    zero_idx = H_data['zero_idx']
+    inv_hessian = H_data["invH"]
+    perm = H_data["perm"]
+    zero_idx = H_data["zero_idx"]
 
     return inv_hessian, perm, zero_idx
