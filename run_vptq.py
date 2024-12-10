@@ -111,7 +111,7 @@ if __name__ == "__main__":
         import vptq
 
         if isinstance(model, SentenceTransformer):
-            model = vptq.AutoModelForSentenceEmbeddings.from_pretrained(model_path)
+            model = vptq.AutoModelForSentenceEmbeddings.from_pretrained(model_path, device_map="auto")
         else:
             model = vptq.AutoModelForCausalLM.from_pretrained(model_path, device_map="auto")
 
