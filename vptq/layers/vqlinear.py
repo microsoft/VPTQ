@@ -651,7 +651,7 @@ class VQuantLinear(nn.Module):
             qweight = self.dequant()
         if qweight.dtype != x.dtype:
             qweight = qweight.to(x.dtype)
-        if self.bias.dtype != x.dtype:
+        if self.bias is not None and self.bias.dtype != x.dtype:
             self.bias = self.bias.to(x.dtype)
         return F.linear(x, qweight, self.bias)
 
