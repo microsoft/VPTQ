@@ -40,6 +40,7 @@ class VQuantLinear(nn.Module):
         debug=False,
         # deprecated
         indices_as_float=None,
+        graph_tracable: bool=True
     ):
         super().__init__()
 
@@ -68,6 +69,7 @@ class VQuantLinear(nn.Module):
         else:
             self.register_parameter("bias", None)
 
+        self.graph_tracable = graph_tracable
         # set configuration
         self.debug = debug
 
@@ -543,9 +545,11 @@ class VQuantLinear(nn.Module):
         return qweight
 
     def forward(self, x):
-        if x.numel() // x.shape[-1] < 3 and (output := self.fast_gemv(x)) is not None:
-            return output
-        qweight = self.fast_dequant()
+        qweight = None
+        if self.graph_tracable:
+            if x.numel() // x.shape[-1] < 3 and (output := self.fast_gemv(x)) is not None:
+                return output
+            qweight = self.fast_dequant()
         if qweight is None:
             qweight = self.dequant()
         return F.linear(x, qweight, self.bias)
