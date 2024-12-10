@@ -10,6 +10,7 @@ from pathlib import Path
 import accelerate
 import huggingface_hub
 import safetensors
+from sentence_transformers import SentenceTransformer
 import torch
 import transformers
 from tqdm import tqdm
@@ -104,15 +105,16 @@ def attach_execution_device_hook(
         )
 
 
-class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
-
+class AutoModelForCausalLM(transformers.AutoModel):
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path, *args, **kwargs):
+    def from_pretrained(cls, pretrained_model_name_or_path, auto_conf=None, *args, **kwargs):
         init_contexts = [
             transformers.modeling_utils.no_init_weights(),
             accelerate.init_empty_weights(),
         ]
-        auto_conf = transformers.AutoConfig.from_pretrained(pretrained_model_name_or_path, **kwargs)
+        if auto_conf is None:
+            auto_conf = transformers.AutoConfig.from_pretrained(pretrained_model_name_or_path, **kwargs)
+
         cls_kwargs = {}
         torch_dtype = kwargs.get("dtype", auto_conf.torch_dtype)
         cls_kwargs["torch_dtype"] = torch_dtype
@@ -120,7 +122,10 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             model = cls.from_config(auto_conf, *args, **cls_kwargs)
 
         target_layer = VQuantLinear
-        quant_config = auto_conf.quant_config
+        if hasattr(auto_conf, "text_config"):
+            quant_config = auto_conf.text_config.quant_config
+        else:
+            quant_config = auto_conf.quant_config
 
         # replace linear layers with quantized linear layers
         with transformers.utils.generic.ContextManagers([accelerate.init_empty_weights()]):
@@ -153,7 +158,7 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
         if Path(pretrained_model_name_or_path).exists():
             checkpoint = pretrained_model_name_or_path
         else:  # remote
-            token_arg = {"token": kwargs.get("token", None)}
+            token_arg = {"token": kwargs.get("token")}
             checkpoint = huggingface_hub.snapshot_download(
                 repo_id=pretrained_model_name_or_path, ignore_patterns=["*.bin"], **token_arg
             )
@@ -185,15 +190,15 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             max_memory=max_memory,
             no_split_module_classes=no_split_module_classes[0],
             dtype=torch_dtype,
-            preload_module_classes=["VQuantLinear"]
+            preload_module_classes=["VQuantLinear"],
         )
 
         # check cuda kernel exist
         if importlib.util.find_spec("vptq.ops") is not None:
             pass
         else:
-            print('!!! Warning !!!: CUDA kernel not found, please check CUDA and VPTQ installation.')
-            print('!!! Warning !!!: Running on Torch Implementation, which is extremely slow.')
+            print("!!! Warning !!!: CUDA kernel not found, please check CUDA and VPTQ installation.")
+            print("!!! Warning !!!: Running on Torch Implementation, which is extremely slow.")
 
         # weight_bins = glob.glob(str(Path(pretrained_model_name_or_path).absolute() / '*.safetensors'))
         # all_missing_keys = []
@@ -212,5 +217,30 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
         # logger.warning(f"Missing keys: {all_missing_keys[:5]}..., Unexpected keys: {all_unexpected_keys[:5]}...")
         model.eval()
 
+        torch.cuda.empty_cache()
+        return model
+
+
+class AutoModelForSentenceEmbeddings(SentenceTransformer):
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path, *args, **kwargs):
+        model_kwargs = {
+            "torch_dtype": torch.bfloat16,
+        }
+        model = SentenceTransformer(
+            pretrained_model_name_or_path,
+            model_kwargs=model_kwargs,
+            trust_remote_code=True,
+        )
+        print(model._modules["0"])
+        text_config = model._modules["0"]._modules["auto_model"].config
+        model._modules["0"]._modules["auto_model"].embedding_model = None
+        torch.cuda.empty_cache()
+
+        model._modules["0"]._modules["auto_model"] = AutoModelForCausalLM.from_pretrained(
+            pretrained_model_name_or_path, auto_conf=text_config, *args, **kwargs
+        )
+
+        model.eval()
         torch.cuda.empty_cache()
         return model
