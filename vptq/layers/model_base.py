@@ -221,7 +221,7 @@ class AutoModelForCausalLM(transformers.AutoModel):
         return model
 
 
-class AutoModelForST(SentenceTransformer):
+class AutoModelForSentenceEmbeddings(SentenceTransformer):
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, *args, **kwargs):
         model_kwargs = {

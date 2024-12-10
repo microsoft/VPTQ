@@ -49,7 +49,7 @@ if __name__ == "__main__":
     args, quant_args = parser.parse_args_into_dataclasses()
 
     # set output folder based on time
-    args.output_dir = osp.join(args.output_dir, time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime()))
+    args.output_dir = osp.join(args.output_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime()))
 
     set_start_method("spawn")
 
@@ -111,7 +111,7 @@ if __name__ == "__main__":
         import vptq
 
         if isinstance(model, SentenceTransformer):
-            model = vptq.AutoModelForST.from_pretrained(model_path)
+            model = vptq.AutoModelForSentenceEmbeddings.from_pretrained(model_path)
         else:
             model = vptq.AutoModelForCausalLM.from_pretrained(model_path, device_map="auto")
 

@@ -4,4 +4,4 @@
 # --------------------------------------------------------------------------
 
 from vptq.layers.model_base import AutoModelForCausalLM as AutoModelForCausalLM
-from vptq.layers.model_base import AutoModelForST as AutoModelForST
+from vptq.layers.model_base import AutoModelForSentenceEmbeddings as AutoModelForSentenceEmbeddings
