@@ -5,3 +5,4 @@
 
 __version__ = "0.0.3"
 from vptq.layers import AutoModelForCausalLM as AutoModelForCausalLM
+from vptq.layers import AutoModelForST as AutoModelForST

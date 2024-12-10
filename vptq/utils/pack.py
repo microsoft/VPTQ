@@ -4,16 +4,12 @@
 # --------------------------------------------------------------------------
 
 # import time
-import glob
 import math
-import os.path as osp
-from argparse import ArgumentParser
 from typing import Dict
 
+from sentence_transformers.SentenceTransformer import SentenceTransformer
 import torch
-from safetensors import safe_open
 
-from vptq.utils.config import Config
 
 # from vptq.models.config import Config
 # from vptq.models.llama import llama_eval
@@ -30,17 +26,17 @@ def pack_index(
     res_indice: torch.Tensor = None,
     res_bits: int = 0,
     index_dtype: torch.dtype = torch.uint16,
-    as_dtype: torch.dtype = torch.int32
+    as_dtype: torch.dtype = torch.int32,
 ) -> torch.Tensor:
-
     total_bits = index_bits + res_bits
     assert total_bits <= 32, f"total index bits {total_bits} should be less than 32"
-    assert as_dtype in [torch.int32], f"as_dtype should be int32"
+    assert as_dtype in [torch.int32], "as_dtype should be int32"
 
     # upcast the indice to uint64 to avoid overflow on signed bit
     if res_indice is not None:
-        merged_indice = ((res_indice.view(index_dtype).to(torch.uint64).view(torch.int64) << index_bits) |
-                         indice.view(index_dtype).to(torch.uint64).view(torch.int64))
+        merged_indice = (res_indice.view(index_dtype).to(torch.uint64).view(torch.int64) << index_bits) | indice.view(
+            index_dtype
+        ).to(torch.uint64).view(torch.int64)
     else:
         merged_indice = indice.view(index_dtype).to(torch.uint64).view(torch.int64)
 
@@ -54,7 +50,7 @@ def pack_index(
         out,
         (0, paded_bits),
         value=0,
-        mode='constant',
+        mode="constant",
     ).reshape(*merged_indice.shape[:-1], -1, 32)
     wf1 = torch.arange(0, 32, 1).to(merged_indice.device).view(1, 1, 1, -1)
     out = torch.bitwise_left_shift(out, wf1)
@@ -67,7 +63,7 @@ def pack_index(
         res_bits,
         res_indice.shape[-1] if res_indice is not None else 0,
         index_dtype=index_dtype,
-        as_dtype=as_dtype
+        as_dtype=as_dtype,
     )
     assert torch.allclose(
         indice.view(index_dtype).to(torch.int64),
@@ -83,7 +79,7 @@ def pack_index(
             res_bits,
             res_indice.shape[-1] if res_indice is not None else 0,
             index_dtype=index_dtype,
-            as_dtype=as_dtype
+            as_dtype=as_dtype,
         )[0],
     )
     if res_indice is not None:
@@ -96,7 +92,7 @@ def pack_index(
                 res_bits,
                 res_indice.shape[-1] if res_indice is not None else 0,
                 index_dtype=index_dtype,
-                as_dtype=as_dtype
+                as_dtype=as_dtype,
             )[1],
         )
     return out
@@ -109,9 +105,8 @@ def unpack_index_tensor(
     res_bits: int = 0,
     num_res_elements: int = 0,
     index_dtype: torch.dtype = torch.uint16,
-    as_dtype: torch.dtype = torch.int32
+    as_dtype: torch.dtype = torch.int32,
 ) -> torch.Tensor:
-
     total_bits = index_bits + res_bits
     wf = torch.arange(0, 32, 1).to(pack_tensor.device).view(1, 1, 1, -1)
     out = torch.bitwise_right_shift(torch.unsqueeze(pack_tensor, -1), wf)
@@ -144,13 +139,12 @@ def dtype_convert(data, from_dtype, to_dtype, as_type):
 
 
 def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
-    print(f"converting model indices from {from_dtype} "
-          f"to {to_dtype} as {as_type}")
+    print(f"converting model indices from {from_dtype} " f"to {to_dtype} as {as_type}")
 
     quant_config = {}
     for mod_name, sub_mod in model.named_modules():
         # print(f'mod_name: {mod_name}, sub_mod: {sub_mod}')
-        if 'VQuantLinear' in str(type(sub_mod)):
+        if "VQuantLinear" in str(type(sub_mod)):
             sub_mod.cuda()
             # print(
             #     f'---debug---'
@@ -164,8 +158,7 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
             else:
                 sub_mod.indices.data = dtype_convert(sub_mod.indices.data, from_dtype, to_dtype, as_type)
 
-            if hasattr(sub_mod, "res_indices") and \
-                    sub_mod.res_indices is not None:
+            if hasattr(sub_mod, "res_indices") and sub_mod.res_indices is not None:
                 if sub_mod.res_indices.dtype == torch.int64:
                     sub_mod.res_indices.data = dtype_convert(
                         sub_mod.res_indices.data, sub_mod.res_indices.data.dtype, to_dtype, as_type
@@ -173,8 +166,7 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
                 else:
                     sub_mod.res_indices.data = dtype_convert(sub_mod.res_indices.data, from_dtype, to_dtype, as_type)
 
-            if hasattr(sub_mod, "outlier_indices") and \
-                    sub_mod.outlier_indices is not None:
+            if hasattr(sub_mod, "outlier_indices") and sub_mod.outlier_indices is not None:
                 if sub_mod.outlier_indices.dtype == torch.int64:
                     sub_mod.outlier_indices.data = dtype_convert(
                         sub_mod.outlier_indices.data, sub_mod.outlier_indices.data.dtype, to_dtype, as_type
@@ -194,7 +186,7 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
                 index_bits=int(math.log2(sub_mod.num_centroids)),
                 res_indice=sub_mod.res_indices,
                 res_bits=int(math.log2(sub_mod.num_res_centroids)) if sub_mod.res_indices is not None else 0,
-                index_dtype=to_dtype
+                index_dtype=to_dtype,
             ).data
 
             sub_mod.res_indices = None
@@ -204,27 +196,45 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
             # assert (sub_mod.fast_dequant() - sub_mod.dequant()).max().item() < 0.001
             sub_mod.cpu()
             quant_config[mod_name] = sub_mod.init_args
-            quant_config[mod_name]['is_indice_packed'] = True
+            quant_config[mod_name]["is_indice_packed"] = True
 
-    model.config.quant_config = quant_config
+    if hasattr(model.config, "text_config"):
+        model.config.text_config.quant_config = quant_config
+    else:
+        model.config.quant_config = quant_config
     return model
 
 
 # # workaround for the issue that the bias field in the config is not updated correctly
 def fix_tensor_in_config(model):
-    config_dict = model.config.to_dict()
-    quant_config = config_dict['quant_config']
+    config = model.config
+    if hasattr(config, "text_config"):
+        config = config.text_config
+    config_dict = config.to_dict()
+    quant_config = config_dict["quant_config"]
     for layer_name, layer_config in quant_config.items():
-        if isinstance(layer_config, Dict) and 'bias' in layer_config.keys():
-            if isinstance(layer_config['bias'], torch.Tensor):
+        if isinstance(layer_config, Dict) and "bias" in layer_config.keys():
+            if isinstance(layer_config["bias"], torch.Tensor):
                 # print(f'Layer {layer_name} has a bias tensor')
-                quant_config[layer_name]['bias'] = True  # Update bias to True
-    config_dict['quant_config'] = quant_config
-    model.config.update(config_dict)
+                quant_config[layer_name]["bias"] = True  # Update bias to True
+    config_dict["quant_config"] = quant_config
+    if hasattr(model.config, "text_config"):
+        model.config.text_config.update(config_dict)
+    else:
+        model.config.update(config_dict)
     return model
 
 
 def pack_model(qmodel, from_type, to_type, as_type):
+    if isinstance(qmodel, SentenceTransformer):
+        st_model = qmodel
+
+        qmodel = qmodel._modules["0"]._modules["auto_model"]
+        model = convert_idx_dtype(qmodel, from_type, to_type, as_type)
+        model = fix_tensor_in_config(model)
+        st_model._modules["0"]._modules["auto_model"] = model
+
+        return st_model
     model = convert_idx_dtype(qmodel, from_type, to_type, as_type)
     model = fix_tensor_in_config(model)
     return model
