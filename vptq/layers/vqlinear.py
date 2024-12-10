@@ -640,7 +640,7 @@ class VQuantLinear(nn.Module):
 
     def forward(self, x):
         qweight = None
-        if self.graph_tracable:
+        if not self.graph_tracable:
             if (
                 x.numel() // x.shape[-1] < 3
                 and (output := self.fast_gemv(x)) is not None
