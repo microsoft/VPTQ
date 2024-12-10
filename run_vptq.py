@@ -119,6 +119,7 @@ if __name__ == "__main__":
 
     model.eval()
 
+    # TODO: add evaluation for SentenceTransformer (MTEB or other)
     if isinstance(model, SentenceTransformer):
         sentence1 = ["The cat saw the mat"]
         sentence2 = ["The cat sat on the mat"]
