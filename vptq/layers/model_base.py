@@ -158,7 +158,7 @@ class AutoModelForCausalLM(transformers.AutoModel):
         if Path(pretrained_model_name_or_path).exists():
             checkpoint = pretrained_model_name_or_path
         else:  # remote
-            token_arg = {"token": kwargs.get("token", None)}
+            token_arg = {"token": kwargs.get("token")}
             checkpoint = huggingface_hub.snapshot_download(
                 repo_id=pretrained_model_name_or_path, ignore_patterns=["*.bin"], **token_arg
             )
@@ -190,15 +190,15 @@ class AutoModelForCausalLM(transformers.AutoModel):
             max_memory=max_memory,
             no_split_module_classes=no_split_module_classes[0],
             dtype=torch_dtype,
-            preload_module_classes=["VQuantLinear"]
+            preload_module_classes=["VQuantLinear"],
         )
 
         # check cuda kernel exist
         if importlib.util.find_spec("vptq.ops") is not None:
             pass
         else:
-            print('!!! Warning !!!: CUDA kernel not found, please check CUDA and VPTQ installation.')
-            print('!!! Warning !!!: Running on Torch Implementation, which is extremely slow.')
+            print("!!! Warning !!!: CUDA kernel not found, please check CUDA and VPTQ installation.")
+            print("!!! Warning !!!: Running on Torch Implementation, which is extremely slow.")
 
         # weight_bins = glob.glob(str(Path(pretrained_model_name_or_path).absolute() / '*.safetensors'))
         # all_missing_keys = []
