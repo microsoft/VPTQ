@@ -649,6 +649,10 @@ class VQuantLinear(nn.Module):
             qweight = self.fast_dequant()
         if qweight is None:
             qweight = self.dequant()
+        if qweight.dtype != x.dtype:
+            qweight = qweight.to(x.dtype)
+        if self.bias.dtype != x.dtype:
+            self.bias = self.bias.to(x.dtype)
         return F.linear(x, qweight, self.bias)
 
     # proxy error
