@@ -141,7 +141,10 @@ def dtype_convert(data, from_dtype, to_dtype, as_type):
 def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
     print(f"converting model indices from {from_dtype} " f"to {to_dtype} as {as_type}")
 
-    quant_config = {}
+    quantization_config = {}
+    quantization_config["quant_method"] = "vptq"
+    quantization_config["config_for_layers"] = {}
+    
     for mod_name, sub_mod in model.named_modules():
         # print(f'mod_name: {mod_name}, sub_mod: {sub_mod}')
         if "VQuantLinear" in str(type(sub_mod)):
@@ -195,13 +198,13 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
 
             # assert (sub_mod.fast_dequant() - sub_mod.dequant()).max().item() < 0.001
             sub_mod.cpu()
-            quant_config[mod_name] = sub_mod.init_args
-            quant_config[mod_name]["is_indice_packed"] = True
+            quantization_config["config_for_layers"][mod_name] = sub_mod.init_args
+            quantization_config["config_for_layers"][mod_name]["is_indice_packed"] = True
 
     if hasattr(model.config, "text_config"):
-        model.config.text_config.quant_config = quant_config
+        model.config.text_config.quantization_config = quantization_config
     else:
-        model.config.quant_config = quant_config
+        model.config.quantization_config = quantization_config
     return model
 
 
@@ -211,13 +214,13 @@ def fix_tensor_in_config(model):
     if hasattr(config, "text_config"):
         config = config.text_config
     config_dict = config.to_dict()
-    quant_config = config_dict["quant_config"]
-    for layer_name, layer_config in quant_config.items():
+    quantization_config = config_dict["quantization_config"]
+    for layer_name, layer_config in quantization_config.items():
         if isinstance(layer_config, Dict) and "bias" in layer_config.keys():
             if isinstance(layer_config["bias"], torch.Tensor):
                 # print(f'Layer {layer_name} has a bias tensor')
-                quant_config[layer_name]["bias"] = True  # Update bias to True
-    config_dict["quant_config"] = quant_config
+                quantization_config[layer_name]["bias"] = True  # Update bias to True
+    config_dict["quantization_config"] = quantization_config
     if hasattr(model.config, "text_config"):
         model.config.text_config.update(config_dict)
     else:

@@ -24,15 +24,21 @@ git clone https://github.com/microsoft/VPTQ.git
 cd VPTQ
 git checkout algorithm
 
+
 conda env create -f algo-environment.yml
-# install VPTQ without compiling to save time
 conda activate vptq-algo
 
-# install VPTQ with cuda 12.1 support for A100 (8.0)
-TORCH_CUDA_ARCH_LIST=8.0 pip install -e . --no-build-isolation
+# set cuda path for flash_attn
+export PATH=/usr/local/cuda-12/bin/:$PATH
+pip install flash-attn==2.5.8
 
+# or install VPTQ without compiling to save time
 # skip CUDA compilation for algorithm development
-# SKIP_COMPILE=1 pip install -e . --no-build-isolation
+SKIP_COMPILE=1 pip install -e . --no-build-isolation
+
+# install VPTQ with cuda 12.1 support for A100 (8.0)
+# TORCH_CUDA_ARCH_LIST=8.0 pip install -e . --no-build-isolation
+
 ```
 ## Quantization Example
 ### Quantization on Meta-Llama-3.1-8B-Instruct
