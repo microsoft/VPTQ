@@ -2,6 +2,7 @@ import os
 import vptq
 import torch
 import argparse
+import torch.multiprocessing as mp
 from transformers import AutoTokenizer
 from transformers import TextStreamer
 from pathlib import Path
@@ -16,6 +17,8 @@ def parse_args():
                       help='Path to the tokenizer')
     parser.add_argument('--output_base_path', type=str, default='.',
                       help='Base path for output models (default: current directory)')
+    parser.add_argument('--num_gpus', type=int, default=8,
+                      help='Number of GPUs to use (default: 8)')
     return parser.parse_args()
 
 def replace_vqlinear(module, current_key_name):
@@ -49,38 +52,66 @@ def replace_vqlinear(module, current_key_name):
             replace_vqlinear(child, current_key_name)
         current_key_name.pop(-1)
 
-def process_model(model_path, tokenizer, base_model_name, output_base_path):
-    print(f"Processing model: {model_path}")
-    model = torch.load(str(model_path), weights_only=False)
-    replace_vqlinear(model, None)
-    
-    date_str = model_path.parent.parts[-1]
-    output_path = Path(output_base_path) / f"{base_model_name}-{date_str}-{vec_len}_model"
-    
-    print(f"Vector length: {vec_len}, saving to {output_path}")
-    model.save_pretrained(output_path)
-    tokenizer.save_pretrained(output_path)
-    print("Model processing complete")
+def process_model(model_path, tokenizer, base_model_name, output_base_path, gpu_id):
+    try:
+        print(f"Processing model: {model_path} on GPU {gpu_id}")
+        # Set the GPU device for this process
+        torch.cuda.set_device(gpu_id)
+        
+        model = torch.load(str(model_path), weights_only=False)
+        replace_vqlinear(model, None)
+        
+        date_str = model_path.parent.parts[-1]
+        output_path = Path(output_base_path) / f"{base_model_name}-{date_str}-{vec_len}_model"
+        
+        print(f"Vector length: {vec_len}, saving to {output_path}")
+        model.save_pretrained(output_path)
+        tokenizer.save_pretrained(output_path)
+        print(f"Model processing complete on GPU {gpu_id}")
+        
+    except Exception as e:
+        print(f"Error processing {model_path} on GPU {gpu_id}: {str(e)}")
+    finally:
+        # Clean up GPU memory
+        torch.cuda.empty_cache()
+
+def process_batch(args_list):
+    model_path, tokenizer_path, base_model_name, output_base_path, gpu_id = args_list
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
+    process_model(model_path, tokenizer, base_model_name, output_base_path, gpu_id)
 
 def main():
     args = parse_args()
     model_paths = Path(args.base_model_path)
-    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
-    
     os.makedirs(args.output_base_path, exist_ok=True)
-     
+    
+    # Get all valid model paths
+    model_path_list = []
     for date_path in model_paths.iterdir():
-        torch.cuda.empty_cache()
         model_path = date_path / "model.pt"
-        
-        if not model_path.exists():
+        if model_path.exists():
+            model_path_list.append(model_path)
+        else:
             print(f"Skipping: {model_path} does not exist")
-            continue
-            
-        try:
-            process_model(model_path, tokenizer, args.base_model_name, args.output_base_path)
-        except Exception as e:
-            print(f"Error processing {model_path}: {str(e)}")
+    
+    # Prepare arguments for parallel processing
+    process_args = []
+    for i, model_path in enumerate(model_path_list):
+        gpu_id = i % args.num_gpus
+        process_args.append((
+            model_path,
+            args.tokenizer_path,
+            args.base_model_name,
+            args.output_base_path,
+            gpu_id
+        ))
+    
+    # Initialize multiprocessing with spawn method
+    mp.set_start_method('spawn', force=True)
+    
+    # Create pool and process models in parallel
+    with mp.Pool(args.num_gpus) as pool:
+        pool.map(process_batch, process_args)
 
 if __name__ == "__main__":
     main()
