@@ -74,7 +74,7 @@ def build_cuda_extensions():
         ])
 
     extensions = CUDAExtension(
-        "vptq.ops",
+        "vptq.cuda_ops",
         [
             "csrc/ops.cc",
             "csrc/dequant_impl_packed.cu",
