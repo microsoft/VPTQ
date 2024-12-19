@@ -1,4 +1,3 @@
-
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
@@ -29,6 +28,7 @@ torch::Tensor lauch_deqantize_outliers_cuda_packkernel(
         outliers_indices,  //[num_cen, c_size, ol_in_f]
     const c10::optional<torch::Tensor>& perm, const torch::Tensor& weight_scale,
     const torch::Tensor& weight_bias);
+
 torch::Tensor lauch_gemv_outliers_cuda_packkernel(
     const int out_features, const torch::Tensor& input,
     const torch::Tensor& q_indice,   //[num_cen, o_c_size, in_inf]

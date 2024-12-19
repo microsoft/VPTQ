@@ -16,6 +16,10 @@ from tqdm import tqdm
 
 from vptq.layers.vqlinear import VQuantLinear
 
+# import pdb
+# import pprint
+# pp = pprint.PrettyPrinter(indent=4)
+
 
 def set_op_by_name(layer, name, new_module):
     levels = name.split(".")
@@ -31,7 +35,7 @@ def set_op_by_name(layer, name, new_module):
         setattr(layer, name, new_module)
 
 
-def make_quant_linear(module, quant_conf, name="", target_layer=None):
+def make_quant_linear(module, quant_conf, target_layer=None):
     for module_name, sub_module in tqdm(
         module.named_modules(),
         total=len(list(module.named_modules())),
@@ -39,6 +43,10 @@ def make_quant_linear(module, quant_conf, name="", target_layer=None):
     ):
         if module_name in quant_conf:
             layer_conf = quant_conf[module_name]
+
+            # print(module_name)
+            # pp.pprint(layer_conf)
+
             new_module = target_layer(
                 **layer_conf,
                 enable_proxy_error=False,

@@ -40,5 +40,5 @@ def load_parameters() -> Tuple[torch.Tensor]:
     return centriods, indices, perm, weight_scale, weight_bias
 
 
-# infer()
-load_parameters()
+infer()
+# load_parameters()
