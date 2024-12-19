@@ -9,7 +9,11 @@ import threading
 import gradio as gr
 from huggingface_hub import snapshot_download
 
-from vptq.app_gpu import disable_gpu_info, enable_gpu_info, update_charts as _update_charts
+from vptq.app_gpu import (
+    disable_gpu_info,
+    enable_gpu_info,
+    update_charts as _update_charts,
+)
 from vptq.app_utils import get_chat_loop_generator
 
 models = [
