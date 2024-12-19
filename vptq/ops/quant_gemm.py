@@ -48,12 +48,12 @@ def unpack_index_tensor(
     unpack_indice = out.to(torch.uint64).view(torch.int64)
 
     indices = (unpack_indice & ((1 << index_bits) - 1)).view(torch.uint64
-                                                             ).to(torch.int64)
+                                                            ).to(torch.int64)
 
     if res_bits > 0:
         res_indices = ((unpack_indice >> index_bits) &
                        ((1 << index_bits) - 1)).view(torch.uint64
-                                                     ).to(torch.int64)
+                                                    ).to(torch.int64)
     else:
         res_indices = None
 
