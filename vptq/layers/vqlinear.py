@@ -103,7 +103,7 @@ class VQuantLinear(nn.Module):
         self.padding = (-self.out_features) % self.vector_len
         self.num_indices = (self.out_features + self.padding) // self.vector_len
 
-        # FIXME: these two fields are indentical for legacy reasons
+        # FIXME: these two fields are identical for legacy reasons
         self.group_num = group_num
         self.num_codebooks = self.group_num
 
