@@ -163,6 +163,7 @@ class VQuantLinear(nn.Module):
 
         # === 3. set centroids and indices for the residual quantization
         # to reduce index size and bypass nccl check
+        self.res_indices = None
         self.is_indice_packed = is_indice_packed
         self.num_res_centroids = num_res_centroids[1]
         self.enable_residual = self.num_res_centroids > 0
@@ -192,6 +193,8 @@ class VQuantLinear(nn.Module):
 
         # === 5. process normalization of the output
         self.enable_norm = enable_norm
+        self.weight_bias = None
+        self.weight_scale = None
         if self.enable_norm:
             self.weight_scale = Parameter(
                 torch.empty(self.in_features, **factory_kwargs),

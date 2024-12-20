@@ -27,9 +27,7 @@ def unpack_index_tensor(
     index_bits: int,
     num_elements: int,
     res_bits: int = 0,
-    num_res_elements: int = 0,
-    index_dtype: torch.dtype = torch.uint16,
-    as_dtype: torch.dtype = torch.int32,
+    num_res_elements: int = 0
 ) -> torch.Tensor:
     total_bits = index_bits + res_bits
     wf = torch.arange(0, 32, 1).to(pack_tensor.device).view(1, 1, 1, -1)
@@ -203,7 +201,7 @@ def quant_gemm(
     residual_centroids_ = None
     if residual_centroids is not None:
         shape = (num_codebooks, num_res_centroids, vector_len)
-        residual_centroids_ = residual_centroids.weight.view(shape)
+        residual_centroids_ = residual_centroids.view(shape)
 
     outlier_centroids_ = None
     if outlier_centroids is not None:
