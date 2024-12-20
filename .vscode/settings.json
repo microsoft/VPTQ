@@ -1,3 +1,3 @@
 {
-    "yapf.args":["--style={based_on_s'tyle: google, column_limit: 120, indent_width: 4}"]
+    "yapf.args":["--style={based_on_s'tyle: google, column_limit: 80, indent_width: 4}"]
 }

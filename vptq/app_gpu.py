@@ -4,7 +4,8 @@ import gradio as gr
 import plotly.graph_objs as go
 import pynvml
 
-# Queues for storing historical data (saving the last 100 GPU utilization and memory usage values)
+# Queues for storing historical data
+# (saving the last 100 GPU utilization and memory usage values)
 gpu_util_history = deque(maxlen=100)
 mem_usage_history = deque(maxlen=100)
 
@@ -51,7 +52,9 @@ def update_charts(chart_height: int = 200) -> go.Figure:
 
     # records the latest GPU utilization and memory usage values
     gpu_util = round(gpu_info.get('gpu_util', 0), 1)
-    mem_used = round(gpu_info.get('mem_used', 0) / 1024, 2)  # Convert MiB to GiB
+    mem_used = round(
+        gpu_info.get('mem_used', 0) / 1024, 2
+    )  # Convert MiB to GiB
     gpu_util_history.append(gpu_util)
     mem_usage_history.append(mem_used)
 
@@ -60,7 +63,8 @@ def update_charts(chart_height: int = 200) -> go.Figure:
         y=list(gpu_util_history),
         mode='lines+markers',
         text=list(gpu_util_history),
-        line=dict(shape='spline', color='blue'),  # Make the line smooth and set color
+        line=dict(shape='spline',
+                  color='blue'),  # Make the line smooth and set color
         yaxis='y1'  # Link to y-axis 1
     )
 
@@ -69,7 +73,8 @@ def update_charts(chart_height: int = 200) -> go.Figure:
         y=list(mem_usage_history),
         mode='lines+markers',
         text=list(mem_usage_history),
-        line=dict(shape='spline', color='red'),  # Make the line smooth and set color
+        line=dict(shape='spline',
+                  color='red'),  # Make the line smooth and set color
         yaxis='y2'  # Link to y-axis 2
     )
 
