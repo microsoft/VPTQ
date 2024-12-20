@@ -138,9 +138,8 @@ def dequant(
         )
         qweight = qweight + res_centroids
 
-    # remove padding
     if padding > 0:
-        qweight = qweight[:-padding, :]
+        qweight = qweight[:-padding, :]  # remove padding
 
     if enable_outlier:
         outlier_centroids = outlier_centroids.weight.view(
@@ -231,6 +230,9 @@ def quant_gemm(
         return out
     else:
         if __cuda_ops_installed:
+            invert_perm = torch.argsort(perm.view(torch.uint16).to(torch.int64))
+            invert_perm = invert_perm.to(torch.uint16).view(torch.int16)
+
             weight = cuda_ops.dequant(
                 indices,
                 centroids_,
@@ -238,7 +240,7 @@ def quant_gemm(
                 residual_centroids_,
                 outlier_indices,
                 outlier_centroids_,
-                perm,
+                invert_perm,
                 weight_scale,
                 weight_bias,
                 vector_len,
