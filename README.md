@@ -45,6 +45,7 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 
 
 ## News
+- **[2024-12-20]** 🚀 **VPTQ ❤️ Huggingface Transformers** VPTQ support has been merged into Huggingface Transformers main branch! Check out the [commit](https://github.com/huggingface/transformers/commit/4e27a4009d3f9d4e44e9be742e8cd742daf074f4#diff-4a073e7151b3f6675fce936a7802eeb6da4ac45d545ad6198be92780f493112bR20) and our Colab example: <a target="_blank" href="https://colab.research.google.com/github/microsoft/VPTQ/blob/main/notebooks/vptq_hf_example"> <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="VPTQ in Colab"/> </a>
 - [2024-12-15] 🌐 Open source community contributes [**Meta Llama 3.3 70B @ 1-4 bits** models](https://huggingface.co/collections/VPTQ-community/vptq-llama-33-70b-instruct-without-finetune-675ef82388de8c1c1bef75ab)
 - [2024-11-01] 📦 VPTQ is now available on [PyPI](https://pypi.org/project/vptq/)! You can install it easily using the command: `pip install vptq`.
 - [2024-10-28] ✨ VPTQ algorithm early-released at [algorithm branch](https://github.com/microsoft/VPTQ/tree/algorithm), and checkout the [tutorial](https://github.com/microsoft/VPTQ/blob/algorithm/algorithm.md).
@@ -72,7 +73,7 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 - latest datasets
 
 ### Install VPTQ on your machine
-**recommend** For saving your time to build the package, Please install VPTQ from the latest Release directly
+**Recommend**: For saving your time to build the package, Please install VPTQ from the latest Release directly
 
 ```bash
 pip install vptq
@@ -82,7 +83,7 @@ or from
 https://github.com/microsoft/VPTQ/releases
 
 #### build from source
-[Not Aavailbe if Release package]
+[Not Available if Release package]
 
 > Preparation steps that might be needed: Set up CUDA_HOME and PATH.
 
@@ -177,8 +178,27 @@ python -m vptq --model=VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-0-wo
 ![Llama3 1-70b-chat](https://github.com/user-attachments/assets/af051234-d1df-4e25-95e7-17a5ce98f3ea)
 
 
-### Python API Example
-Using the Python API:
+### Huggingface Transformers API Example:
+**Now, huggingface transformers main branch supports VPTQ**:
+```python
+#! pip install git+https://github.com/huggingface/transformers.git -U
+#! pip install vptq -U
+
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+# Load VPTQ-quantized model directly from HuggingFace Hub
+model = AutoModelForCausalLM.from_pretrained("VPTQ-community/Meta-Llama-3.3-70B-Instruct-v16-k65536-65536-woft", device_map="auto")
+tokenizer = AutoTokenizer.from_pretrained("VPTQ-community/Meta-Llama-3.3-70B-Instruct-v16-k65536-65536-woft")
+
+# Simple inference
+prompt = "Explain: Do not go gentle into that good night."
+output = model.generate(**tokenizer(prompt, return_tensors="pt").to(model.device))
+print(tokenizer.decode(output[0], skip_special_tokens=True))
+```
+
+
+### Python API Example from VPTQ package:
+Using the Python API from VPTQ package:
 
 ```python
 import vptq
@@ -228,15 +248,16 @@ VPTQ achieves better accuracy and higher throughput with lower quantization over
 - [x] Release on [Pypi](https://pypi.org/project/vptq)
 - [ ] Improve the implementation of the inference kernel (e.g., CUDA, ROCm, Triton) and apply kernel fusion by combining dequantization (lookup) and Linear (GEMM) to enhance inference performance.
 - [ ] Support VLM models @YangWang92
-- [ ] Contribute VPTQ to [Huggingface Transformers](https://github.com/huggingface/transformers)
+- [x] Contribute VPTQ to [Huggingface Transformers](https://github.com/huggingface/transformers) [commit](https://github.com/huggingface/transformers/commit/4e27a4009d3f9d4e44e9be742e8cd742daf074f4#diff-4a073e7151b3f6675fce936a7802eeb6da4ac45d545ad6198be92780f493112bR20)
 - [ ] Contribute VPTQ to vLLM, LLM Compressor
 - [ ] Contribute VPTQ to llama.cpp/exllama.
 - [ ] Contribute VPTQ to Edge devices deployment.
 - [ ] **TBC**
 
-## Project main members: 
+## Project main members:
 * Yifei Liu (@lyf-00)
 * Jicheng Wen (@wejoncy)
+* Ying Cao (@lcy-seso)
 * Yang Wang (@YangWang92)
 
 ## Acknowledgement
