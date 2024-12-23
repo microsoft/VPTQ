@@ -71,7 +71,7 @@ def dequant(
     enable_perm: bool,
     enable_norm: bool,
     num_centroids: int,
-    num_centroids_outlier: int,
+    num_outlier_centroids: int,
     num_res_centroids: int,
     padding: int,
     outlier_padding: int,
@@ -80,7 +80,7 @@ def dequant(
     outlier_size: int,
     vector_len: int,
     outlier_vector_len: int,
-    vector_quant_dim: str = "in"
+    vector_quant_dim: str = "out"
 ) -> torch.Tensor:
     if vector_quant_dim == "in":
         raise ValueError("Not implemented yet.")
@@ -97,8 +97,7 @@ def dequant(
             index_bits=index_bits,
             num_elements=group_size,
             res_bits=index_res_bits,
-            num_res_elements=group_size,
-            index_dtype=torch.uint16
+            num_res_elements=group_size
         )
     else:
         indices = indices.view(torch.uint16).to(torch.int64)
@@ -119,7 +118,7 @@ def dequant(
     qweight = qweight.reshape(-1, num_codebooks * group_size)
 
     if enable_residual:
-        res_centroids = res_centroids.weight.view(
+        res_centroids = res_centroids.view(
             num_codebooks, num_res_centroids, vector_len
         )
         res_indices = res_indices.unsqueeze(-1).expand(-1, -1, -1, vector_len)
@@ -140,8 +139,8 @@ def dequant(
         qweight = qweight[:-padding, :]  # remove padding
 
     if enable_outlier:
-        outlier_centroids = outlier_centroids.weight.view(
-            1, num_centroids_outlier, outlier_vector_len
+        outlier_centroids = outlier_centroids.view(
+            1, num_outlier_centroids, outlier_vector_len
         )
 
         outlier_indices = outlier_indices.view(torch.uint16).to(torch.int64)
@@ -186,27 +185,44 @@ def quant_gemm(
     perm: torch.Tensor,
     weight_scale: torch.Tensor,
     weight_bias: torch.Tensor,
+    vector_len: int,
+    outlier_vector_len: int,
     num_codebooks: int,
     num_centroids: int,
-    vector_len: int,
-    outlier_num_centroids: int,
-    outlier_vector_len: int,
+    num_outlier_centroids: int,
     num_res_centroids: int,
+    is_indice_packed: bool,
+    group_size: int,
+    outlier_size: int,
     in_features: int,
     out_features: int,
+    padding: int,
+    outlier_padding: int,
+    vector_quant_dim: str = "out"
 ) -> torch.Tensor:
     r"""Dequantize the input tensor and perform GEMM operation.
     """
     centroids_ = centroids.view(num_codebooks, num_centroids, vector_len)
+
     residual_centroids_ = None
+    enable_residual = False
     if residual_centroids is not None:
+        enable_residual = True
         shape = (num_codebooks, num_res_centroids, vector_len)
         residual_centroids_ = residual_centroids.view(shape)
 
     outlier_centroids_ = None
+    enable_outlier = False
     if outlier_centroids is not None:
-        shape = (1, outlier_num_centroids, outlier_vector_len)
-        outlier_centroids_ = outlier_centroids.weight.view(shape)
+        enable_outlier = True
+        shape = (1, num_outlier_centroids, outlier_vector_len)
+        outlier_centroids_ = outlier_centroids.view(shape)
+
+    invert_perm = torch.argsort(perm.view(torch.uint16).to(torch.int64))
+    invert_perm = invert_perm.to(torch.uint16).view(torch.int16)
+
+    enable_perm = perm is not None
+    enable_norm = weight_scale is not None and weight_bias is not None
 
     if (x.numel() // x.shape[-1] < 3) and __cuda_ops_installed:
         out = cuda_ops.gemm(
@@ -228,9 +244,6 @@ def quant_gemm(
         return out
     else:
         if __cuda_ops_installed:
-            invert_perm = torch.argsort(perm.view(torch.uint16).to(torch.int64))
-            invert_perm = invert_perm.to(torch.uint16).view(torch.int16)
-
             weight = cuda_ops.dequant(
                 indices,
                 centroids_,
@@ -246,7 +259,33 @@ def quant_gemm(
                 out_features,
             )
         else:
-            weight = dequant(x)
+            weight = dequant(
+                indices=indices,
+                centroids=centroids_,
+                outlier_indices=outlier_indices,
+                outlier_centroids=outlier_centroids_,
+                res_indices=residual_indices,
+                res_centroids=residual_centroids_,
+                perm=perm,
+                weight_scale=weight_scale,
+                weight_bias=weight_bias,
+                is_indice_packed=is_indice_packed,
+                enable_outlier=enable_outlier,
+                enable_residual=enable_residual,
+                enable_perm=enable_perm,
+                enable_norm=enable_norm,
+                num_centroids=num_centroids,
+                num_outlier_centroids=num_outlier_centroids,
+                num_res_centroids=num_res_centroids,
+                num_codebooks=num_codebooks,
+                group_size=group_size,
+                outlier_size=outlier_size,
+                vector_len=vector_len,
+                outlier_vector_len=outlier_vector_len,
+                padding=padding,
+                outlier_padding=outlier_padding,
+                vector_quant_dim=vector_quant_dim
+            )
 
         out = F.linear(x, weight, bias)
         return out

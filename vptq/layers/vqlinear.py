@@ -121,7 +121,7 @@ class VQuantLinear(nn.Module):
         # the first element of `vector_lens` and `num_centroids`
         # stores the information for the outlier quantization component.
         self.outlier_vector_len = vector_lens[0]
-        self.outlier_num_centroids = num_centroids[0]
+        self.num_outlier_centroids = num_centroids[0]
         self.outlier_centroids = None
 
         self.outlier_indices = None
@@ -129,7 +129,7 @@ class VQuantLinear(nn.Module):
 
         self.outlier_num_res_centroids = num_res_centroids[0]
         self.enable_outlier = bool(
-            self.outlier_vector_len > 1 and self.outlier_num_centroids > 0
+            self.outlier_vector_len > 1 and self.num_outlier_centroids > 0
         )
 
         if self.enable_outlier:
@@ -152,7 +152,7 @@ class VQuantLinear(nn.Module):
                 self.out_features + self.outlier_padding
             ) // self.outlier_vector_len
 
-            shape = (1, self.outlier_num_centroids * self.outlier_vector_len)
+            shape = (1, self.num_outlier_centroids * self.outlier_vector_len)
             self.outlier_centroids = nn.Embedding(*shape, **factory_kwargs)
 
             shape = (1, self.ouliter_num_indices, self.outlier_size)
@@ -274,7 +274,7 @@ class VQuantLinear(nn.Module):
             outlier_centroids = centroids[0].clone().detach(
             ).requires_grad_(True)
             outlier_centroids = outlier_centroids.reshape(
-                1, self.outlier_num_centroids * self.outlier_vector_len
+                1, self.num_outlier_centroids * self.outlier_vector_len
             )
             self.outlier_centroids.weight.data = outlier_centroids
 
@@ -358,14 +358,20 @@ class VQuantLinear(nn.Module):
             perm=self.perm,
             weight_scale=self.weight_scale,
             weight_bias=self.weight_bias,
+            vector_len=self.vector_len,
+            outlier_vector_len=self.outlier_vector_len,
             num_codebooks=self.num_codebooks,
             num_centroids=self.num_centroids,
-            vector_len=self.vector_len,
-            outlier_num_centroids=self.outlier_num_centroids,
-            outlier_vector_len=self.outlier_vector_len,
+            num_outlier_centroids=self.num_outlier_centroids,
             num_res_centroids=self.num_res_centroids,
+            is_indice_packed=self.is_indice_packed,
+            group_size=self.group_size,
+            outlier_size=self.outlier_size,
             in_features=self.in_features,
-            out_features=self.out_features
+            out_features=self.out_features,
+            padding=self.padding,
+            outlier_padding=self.outlier_padding,
+            vector_quant_dim=self.vector_quant_dim
         )
         return output
 
@@ -386,7 +392,7 @@ class VQuantLinear(nn.Module):
             enbale_perm=self.enable_perm,
             enable_norm=self.enable_norm,
             num_centroids=self.num_centroids,
-            num_centroids_outlier=self.outlier_num_centroids,
+            num_centroids_outlier=self.num_outlier_centroids,
             num_res_centroids=self.num_res_centroids,
             padding=self.padding,
             outlier_padding=self.outlier_padding,
@@ -473,7 +479,7 @@ class VQuantLinear(nn.Module):
             enbale_perm=self.enable_perm,
             enable_norm=self.enable_norm,
             num_centroids=self.num_centroids,
-            num_centroids_outlier=self.outlier_num_centroids,
+            num_centroids_outlier=self.num_outlier_centroids,
             num_res_centroids=self.num_res_centroids,
             padding=self.padding,
             outlier_padding=self.outlier_padding,
