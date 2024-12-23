@@ -69,19 +69,25 @@ float __device__ __forceinline__ ConvertToFloat(T v) {
 
 template <unsigned int WarpSize>
 __device__ __forceinline__ float warpReduceSum(float sum) {
-  if constexpr (WarpSize >= 64) sum += SHFL_DOWN(sum, 32);  // 0-16, 1-17, 2-18, etc.
-  if constexpr (WarpSize >= 32) sum += SHFL_DOWN(sum, 16);  // 0-16, 1-17, 2-18, etc.
-  if constexpr (WarpSize >= 16) sum += SHFL_DOWN(sum, 8);   // 0-8, 1-9, 2-10, etc.
-  if constexpr (WarpSize >= 8) sum += SHFL_DOWN(sum, 4);    // 0-4, 1-5, 2-6, etc.
-  if constexpr (WarpSize >= 4) sum += SHFL_DOWN(sum, 2);    // 0-2, 1-3, 4-6, 5-7, etc.
-  if constexpr (WarpSize >= 2) sum += SHFL_DOWN(sum, 1);    // 0-1, 2-3, 4-5, etc.
+  if constexpr (WarpSize >= 64)
+    sum += SHFL_DOWN(sum, 32);  // 0-16, 1-17, 2-18, etc.
+  if constexpr (WarpSize >= 32)
+    sum += SHFL_DOWN(sum, 16);  // 0-16, 1-17, 2-18, etc.
+  if constexpr (WarpSize >= 16)
+    sum += SHFL_DOWN(sum, 8);  // 0-8, 1-9, 2-10, etc.
+  if constexpr (WarpSize >= 8) sum += SHFL_DOWN(sum, 4);  // 0-4, 1-5, 2-6, etc.
+  if constexpr (WarpSize >= 4)
+    sum += SHFL_DOWN(sum, 2);  // 0-2, 1-3, 4-6, 5-7, etc.
+  if constexpr (WarpSize >= 2) sum += SHFL_DOWN(sum, 1);  // 0-1, 2-3, 4-5, etc.
   return sum;
 }
 
 template <int GROUPSIZE, typename T>
-__device__ __forceinline__ void ldg_vec_x(T* __restrict__ dst_t32, const uint32_t* __restrict__ src_u32) {
+__device__ __forceinline__ void ldg_vec_x(
+    T* __restrict__ dst_t32, const uint32_t* __restrict__ src_u32) {
   uint32_t* dst_u32 = (uint32_t*)dst_t32;
-  if constexpr (std::is_same<T, float>::value || std::is_same<T, float2>::value) {
+  if constexpr (std::is_same<T, float>::value ||
+                std::is_same<T, float2>::value) {
     return ldg_vec_x<GROUPSIZE * 2>(dst_u32, src_u32);
   }
   int2* dst = (int2*)dst_u32;
@@ -112,11 +118,11 @@ __device__ __forceinline__ void ldg_vec_x(T* __restrict__ dst_t32, const uint32_
     *(int4*)dst = VPTQ_LDG((const int4*)src);
     *(int4*)(dst + 2) = VPTQ_LDG((const int4*)(src + 2));
     // asm volatile("ld.cg.global.v4.u32 {%0, %1, %2, %3}, [%4];"
-    //              : "=r"(dst_u32[0]), "=r"(dst_u32[1]), "=r"(dst_u32[2]), "=r"(dst_u32[3])
-    //              : "l"((const void*)src_u32));
+    //              : "=r"(dst_u32[0]), "=r"(dst_u32[1]), "=r"(dst_u32[2]),
+    //              "=r"(dst_u32[3]) : "l"((const void*)src_u32));
     // asm volatile("ld.cg.global.v4.u32 {%0, %1, %2, %3}, [%4];"
-    //              : "=r"(dst_u32[4]), "=r"(dst_u32[5]), "=r"(dst_u32[6]), "=r"(dst_u32[7])
-    //              : "l"((const void*)(src_u32 + 4)));
+    //              : "=r"(dst_u32[4]), "=r"(dst_u32[5]), "=r"(dst_u32[6]),
+    //              "=r"(dst_u32[7]) : "l"((const void*)(src_u32 + 4)));
   } else if constexpr (GROUPSIZE == 12) {
     if (uint64_t(src) % 16) {
       dst[0] = VPTQ_LDG(src);
@@ -148,17 +154,17 @@ __device__ __forceinline__ void ldg_vec_x(T* __restrict__ dst_t32, const uint32_
     *(((int4*)(dst)) + 2) = VPTQ_LDG(((const int4*)(src)) + 2);
   } else if constexpr (GROUPSIZE == 32) {
     // asm volatile("ld.cg.global.v4.u32 {%0, %1, %2, %3}, [%4];"
-    //              : "=r"(dst_u32[0]), "=r"(dst_u32[1]), "=r"(dst_u32[2]), "=r"(dst_u32[3])
-    //              : "l"((const void*)src_u32));
+    //              : "=r"(dst_u32[0]), "=r"(dst_u32[1]), "=r"(dst_u32[2]),
+    //              "=r"(dst_u32[3]) : "l"((const void*)src_u32));
     // asm volatile("ld.cg.global.v4.u32 {%0, %1, %2, %3}, [%4];"
-    //              : "=r"(dst_u32[4]), "=r"(dst_u32[5]), "=r"(dst_u32[6]), "=r"(dst_u32[7])
-    //              : "l"((const void*)(src_u32 + 4)));
+    //              : "=r"(dst_u32[4]), "=r"(dst_u32[5]), "=r"(dst_u32[6]),
+    //              "=r"(dst_u32[7]) : "l"((const void*)(src_u32 + 4)));
     // asm volatile("ld.cg.global.v4.u32 {%0, %1, %2, %3}, [%4];"
-    //              : "=r"(dst_u32[8]), "=r"(dst_u32[9]), "=r"(dst_u32[10]), "=r"(dst_u32[11])
-    //              : "l"((const void*)(src_u32 + 8)));
+    //              : "=r"(dst_u32[8]), "=r"(dst_u32[9]), "=r"(dst_u32[10]),
+    //              "=r"(dst_u32[11]) : "l"((const void*)(src_u32 + 8)));
     // asm volatile("ld.cg.global.v4.u32 {%0, %1, %2, %3}, [%4];"
-    //              : "=r"(dst_u32[12]), "=r"(dst_u32[13]), "=r"(dst_u32[14]), "=r"(dst_u32[15])
-    //              : "l"((const void*)(src_u32 + 12)));
+    //              : "=r"(dst_u32[12]), "=r"(dst_u32[13]), "=r"(dst_u32[14]),
+    //              "=r"(dst_u32[15]) : "l"((const void*)(src_u32 + 12)));
     *((int4*)(dst)) = VPTQ_LDG((const int4*)(src));
     *(((int4*)(dst)) + 1) = VPTQ_LDG(((const int4*)(src)) + 1);
     *(((int4*)(dst)) + 2) = VPTQ_LDG(((const int4*)(src)) + 2);
@@ -169,7 +175,8 @@ __device__ __forceinline__ void ldg_vec_x(T* __restrict__ dst_t32, const uint32_
 }
 
 template <int WBITS>
-__device__ __forceinline__ uint32_t iterator_packed_tensor(const uint32_t* ptr, int idx) {
+__device__ __forceinline__ uint32_t iterator_packed_tensor(const uint32_t* ptr,
+                                                           int idx) {
   if constexpr (WBITS == 32) {
     return ptr[idx];
   } else if constexpr (WBITS == 16) {
@@ -204,8 +211,10 @@ template <typename T>
 T __device__ __forceinline__ FMA2(T a, T b, T c) {
   if constexpr (std::is_same<T, __bfloat162>::value) {
 #if (defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 800) && !defined(USE_ROCM)
-    float x = __bfloat162float(a.x) * __bfloat162float(b.x) + __bfloat162float(c.x);
-    float y = __bfloat162float(a.y) * __bfloat162float(b.y) + __bfloat162float(c.y);
+    float x =
+        __bfloat162float(a.x) * __bfloat162float(b.x) + __bfloat162float(c.x);
+    float y =
+        __bfloat162float(a.y) * __bfloat162float(b.y) + __bfloat162float(c.y);
     return __bfloat162{__float2bfloat16(x), __float2bfloat16(y)};
 #else
     return __hfma2(a, b, c);
@@ -270,12 +279,14 @@ T __device__ __forceinline__ ZERO_VALUE(T a) {
 
 #if defined(USE_ROCM)
 __device__ __half operator+(const __half& a, const __half& b) {
-  return __hadd(a, b);  // Use HIP's intrinsic __hadd for half-precision addition
+  return __hadd(a,
+                b);  // Use HIP's intrinsic __hadd for half-precision addition
 }
 
 // Overload the * operator for __half
 __device__ __half operator*(const __half& a, const __half& b) {
-  return __hmul(a, b);  // Use HIP's intrinsic __hmul for half-precision multiplication
+  return __hmul(
+      a, b);  // Use HIP's intrinsic __hmul for half-precision multiplication
 }
 
 #endif

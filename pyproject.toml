@@ -2,7 +2,7 @@
 name = "vptq"
 version = "0.0.4"
 authors = [
-  { name="Yang Wang", email="wyatuestc@gmai.com" },
+  { name="Yang Wang", email="wyatuestc@gmail.com" },
   { name="Jicheng Wen", email="wejoincy@gmail.com"},
 ]
 
@@ -67,7 +67,7 @@ ignore = [
 
 [tool.yapf]
 # spaces_before_comment = 4
-column_limit = 120
+column_limit = 80
 indent_width = 4
 based_on_style = "google"
 split_before_logical_operator = false
@@ -81,7 +81,7 @@ skip = "./VPTQ_arxiv.pdf,./build"
 [tool.isort]
 use_parentheses = true
 skip_gitignore = true
-line_length = 120
+line_length = 80
 multi_line_output = 3
 include_trailing_comma = true
 force_grid_wrap = 0
