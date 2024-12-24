@@ -95,7 +95,7 @@ if __name__ == "__main__":
     if args.save_packed_model:
         model_path = osp.join(args.output_dir, 'packed_model/')
         model = pack_model(model, from_type=torch.uint16, to_type=torch.uint16, as_type=torch.int16)
-        model.save_pretrained(model_path, safe_serialization=False)
+        model.save_pretrained(model_path, safe_serialization=True)
         print(f'save packed model to {model_path}')
         tokenizer = AutoTokenizer.from_pretrained(f'{args.model_name}', legacy=False)
 
