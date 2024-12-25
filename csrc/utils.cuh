@@ -279,14 +279,13 @@ T __device__ __forceinline__ ZERO_VALUE(T a) {
 
 #if defined(USE_ROCM)
 __device__ __half operator+(const __half& a, const __half& b) {
-  return __hadd(a,
-                b);  // Use HIP's intrinsic __hadd for half-precision addition
+  // Use HIP's intrinsic __hadd for half-precision addition
+  return __hadd(a, b);
 }
 
 // Overload the * operator for __half
 __device__ __half operator*(const __half& a, const __half& b) {
-  return __hmul(
-      a, b);  // Use HIP's intrinsic __hmul for half-precision multiplication
+  // Use HIP's intrinsic __hmul for half-precision multiplication
+  return __hmul(a, b);
 }
-
 #endif

@@ -163,16 +163,19 @@ class VQuantLinear(nn.Module):
 
         # === 3. set centroids and indices for the residual quantization
         # to reduce index size and bypass nccl check
-        self.res_indices = None
         self.is_indice_packed = is_indice_packed
         self.num_res_centroids = num_res_centroids[1]
         self.enable_residual = self.num_res_centroids > 0
         if self.enable_residual:
+            self.res_indices = None
             self.res_centroids = nn.Embedding(
                 self.num_codebooks, self.num_res_centroids * self.vector_len,
                 **factory_kwargs
             )
-            if self.is_indice_packed is False:
+            if self.is_indice_packed is True:
+                # NOTE: when `is_indice_packed` is True, indices for main and residual quantization components are packed together.
+                pass
+            else:
                 shape = (self.num_codebooks, self.num_indices, self.group_size)
                 self.res_indices = Parameter(
                     torch.empty(shape, dtype=index_type, device=device),
@@ -207,7 +210,8 @@ class VQuantLinear(nn.Module):
 
         # === 6. process packed indices
         self.group_size = group_size
-        if self.is_indice_packed is True:
+        dtype = torch.int32 if self.is_indice_packed else torch.int16
+        if self.is_indice_packed:
             self.index_bits = int(math.log2(self.num_centroids))
 
             self.res_index_bits = 0
@@ -219,7 +223,6 @@ class VQuantLinear(nn.Module):
                 self.group_size * self.total_index_bits / 32
             )
 
-            dtype = torch.int32 if self.is_indice_packed else torch.int16
             shape = (self.num_codebooks, self.num_indices, packed_groupsize)
             self.indices = Parameter(
                 torch.empty(shape, dtype=dtype, device=device),
@@ -229,7 +232,7 @@ class VQuantLinear(nn.Module):
             # unpacked indices
             shape = (self.num_codebooks, self.num_indices, self.group_size)
             self.indices = Parameter(
-                torch.empty(shape, dtype=index_type, device=device),
+                torch.empty(shape, dtype=dtype, device=device),
                 requires_grad=False
             )
 
@@ -265,9 +268,10 @@ class VQuantLinear(nn.Module):
             self.num_codebooks, self.num_indices, self.group_size
         )
 
-        to_type = torch.float16 if self.indices_as_float else torch.uint16
+        index_type = torch.float16 if self.indices_as_float else torch.uint16
         device = self.centroids.weight.device
-        self.indices.data = _indices.to(torch.uint16).view(to_type).to(device)
+        self.indices.data = _indices.to(torch.uint16
+                                       ).view(index_type).to(device)
 
         # step 2, handle outliers
         if self.enable_outlier:

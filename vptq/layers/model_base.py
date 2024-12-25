@@ -5,6 +5,7 @@
 
 import glob
 import importlib.util
+import pprint
 from pathlib import Path
 
 import accelerate
@@ -13,6 +14,8 @@ import safetensors
 import torch
 import transformers
 from tqdm import tqdm
+
+pp = pprint.PrettyPrinter(indent=4)
 
 from vptq.layers.vqlinear import VQuantLinear
 
@@ -37,8 +40,11 @@ def make_quant_linear(module, quant_conf, target_layer=None):
         total=len(list(module.named_modules())),
         desc="Replacing linear layers..."
     ):
+        print("\n")
         if module_name in quant_conf:
             layer_conf = quant_conf[module_name]
+
+            pp.pprint(layer_conf)
 
             new_module = target_layer(
                 **layer_conf,
