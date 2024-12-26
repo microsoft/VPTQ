@@ -9,7 +9,6 @@
 
 **Efficient, Flexible and Compressing LLM in less than 2bits**
 
-
 [Get Started](#installation) | [Technical Report](https://arxiv.org/pdf/2409.17066)
 
 </div>
@@ -39,7 +38,7 @@
 
 ## TL;DR
 
-**Vector Post-Training Quantization (VPTQ)** is a novel Post-Training Quantization method that leverages **Vector Quantization** to high accuracy on LLMs at an extremely low bit-width (<2-bit). 
+**Vector Post-Training Quantization (VPTQ)** is a novel Post-Training Quantization method that leverages **Vector Quantization** to high accuracy on LLMs at an extremely low bit-width (<2-bit).
 VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and maintain high accuracy.
 
 * Better Accuracy on 1-2 bits, (405B @ <2bit, 70B @ 2bit)
@@ -180,25 +179,28 @@ python -m vptq --model=VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-0-wo
 ```
 ![Llama3 1-70b-chat](https://github.com/user-attachments/assets/af051234-d1df-4e25-95e7-17a5ce98f3ea)
 
-
 ### Huggingface Transformers API Example:
+
 **Now, huggingface transformers main branch supports VPTQ**:
+
 ```python
 #! pip install git+https://github.com/huggingface/transformers.git -U
 #! pip install vptq -U
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+model_name = "VPTQ-community/Meta-Llama-3.3-70B-Instruct-v16-k65536-65536-woft"
 # Load VPTQ-quantized model directly from HuggingFace Hub
-model = AutoModelForCausalLM.from_pretrained("VPTQ-community/Meta-Llama-3.3-70B-Instruct-v16-k65536-65536-woft", device_map="auto")
-tokenizer = AutoTokenizer.from_pretrained("VPTQ-community/Meta-Llama-3.3-70B-Instruct-v16-k65536-65536-woft")
+model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
+tokenizer = AutoTokenizer.from_pretrained(model_name)
 
 # Simple inference
 prompt = "Explain: Do not go gentle into that good night."
-output = model.generate(**tokenizer(prompt, return_tensors="pt").to(model.device))
+output = model.generate(
+    **tokenizer(prompt, return_tensors="pt").to(model.device)
+)
 print(tokenizer.decode(output[0], skip_special_tokens=True))
 ```
-
 
 ### Python API Example from VPTQ package:
 Using the Python API from VPTQ package:
@@ -206,11 +208,18 @@ Using the Python API from VPTQ package:
 ```python
 import vptq
 import transformers
-tokenizer = transformers.AutoTokenizer.from_pretrained("VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-0-woft")
-m = vptq.AutoModelForCausalLM.from_pretrained("VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-0-woft", device_map='auto')
 
-inputs = tokenizer("Explain: Do Not Go Gentle into That Good Night", return_tensors="pt").to("cuda")
-out = m.generate(**inputs, max_new_tokens=100, pad_token_id=2)
+model_name = "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-0-woft"
+
+tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
+m = vptq.AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
+
+prompt = "Explain: Do Not Go Gentle into That Good Night"
+out = m.generate(
+    **tokenizer(prompt, return_tensors="pt").to("cuda"),
+    max_new_tokens=100,
+    pad_token_id=2
+)
 print(tokenizer.decode(out[0], skip_special_tokens=True))
 ```
 
