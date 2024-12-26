@@ -34,6 +34,8 @@ class VPTQ:
         enable_perm=None,
         enable_norm=False,
         norm_dim=0,
+        enable_rotate=False,
+        rotate_dim=0,
         debug=False
     ):
         # set layer
@@ -110,6 +112,10 @@ class VPTQ:
         # self.quantizer.weight_scale = None
         # self.quantizer.weight_bias = None
 
+        # rotate 
+        self.enable_rotate = enable_rotate
+        self.rotate_dim = rotate_dim
+        
         # debug flag
         self.debug = debug
         self.logger = logger

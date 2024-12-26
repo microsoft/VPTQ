@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from torch.nn.parameter import Parameter
-
+from fast_hadamard_transform import hadamard_transform
 
 class VQuantLinear(nn.Module):
 
@@ -31,6 +31,8 @@ class VQuantLinear(nn.Module):
         outlier_size: int,
         enable_norm: bool = False,
         enable_perm: bool = False,
+        enable_rotate: bool = False,
+        rotate_dim: int = 0,
         is_indice_packed: bool = False,
         # configuration
         bias: bool = False,
@@ -55,6 +57,8 @@ class VQuantLinear(nn.Module):
             "outlier_size": outlier_size,
             "enable_norm": enable_norm,
             "enable_perm": enable_perm,
+            "enable_rotate": enable_rotate,
+            "rotate_dim": rotate_dim,
             "bias": bias,
             "is_indice_packed": is_indice_packed,
         }
@@ -70,6 +74,10 @@ class VQuantLinear(nn.Module):
 
         # set configuration
         self.debug = debug
+
+        # rotate
+        self.enable_rotate = enable_rotate
+        self.rotate_dim = rotate_dim
 
         # to reduce index size and bypass nccl check
         self.is_indice_packed = is_indice_packed
@@ -459,6 +467,12 @@ class VQuantLinear(nn.Module):
         # selected_centroids = selected_centroids.view(
         #     self.num_codebooks, -1, self.in_features - len(self.outlier_idices), self.vector_len)
         selected_centroids = selected_centroids.view(self.num_codebooks, -1, self.group_size, self.vector_len)
+        
+        if self.enable_rotate:
+            self.logger.info(f"rotate selected_centroids shape: {selected_centroids.shape}")
+            selected_centroids = hadamard_transform(selected_centroids, scale=1.0/self.vector_len)
+            self.logger.info(f"after rotate selected_centroids shape: {selected_centroids.shape}")
+        
         # print(f'3 selected_centroids: {selected_centroids.shape}')
         # print(f'4 selected_centroids: {selected_centroids}')
         selected_centroids = selected_centroids.permute(0, 1, 3, 2)
@@ -485,6 +499,11 @@ class VQuantLinear(nn.Module):
                 self.num_codebooks, -1, self.group_size, self.vector_len
             )
 
+            if self.enable_rotate:
+                self.logger.info(f"rotate selected_res_centroids shape: {selected_res_centroids.shape}")
+                selected_res_centroids = hadamard_transform(selected_res_centroids, scale=1.0/self.vector_len)
+                self.logger.info(f"after rotate selected_res_centroids shape: {selected_res_centroids.shape}")
+            
             selected_res_centroids = selected_res_centroids.permute(0, 1, 3, 2)
 
             qweight = qweight + (
