@@ -4,6 +4,8 @@
 
 [![License](https://img.shields.io/badge/license-mit-blue)](https://github.com/microsoft/VPTQ/blob/main/LICENSE)
 [![PyPi](https://img.shields.io/pypi/v/vptq)](https://pypi.org/project/vptq/)
+[![Algorithm](https://img.shields.io/badge/Algorithm-OpenSource-blue)](https://github.com/microsoft/VPTQ/tree/algorithm)
+
 
 **Efficient, Flexible and Compressing LLM in less than 2bits**
 
@@ -23,6 +25,7 @@
   * [Terminal Chatbot Example](#terminal-chatbot-example)
   * [Python API Example](#python-api-example)
   * [Gradio Web App Example](#gradio-web-app-example)
+- [Alogrithm](#algorithm)
 - [Tech Report](#tech-report)
   * [Early Results from Tech Report](#early-results-from-tech-report)
 - [Road Map](#road-map)
@@ -219,6 +222,9 @@ python -m vptq.app
 ```
 
 ---
+
+## VPTQ Algorithm Early-released
+VPTQ algorithm early-released at [algorithm branch](https://github.com/microsoft/VPTQ/tree/algorithm), and checkout the [tutorial](https://github.com/microsoft/VPTQ/blob/algorithm/algorithm.md).
 
 ## Tech Report
 [VPTQ_tech_report](https://github.com/microsoft/VPTQ/blob/main/VPTQ_tech_report.pdf)
