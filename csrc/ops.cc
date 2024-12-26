@@ -14,17 +14,6 @@
   CHECK_CUDA(x);       \
   CHECK_CONTIGUOUS(x)
 
-// @brief dequantize qweight to fp16
-// @param outf_x_inf has a shape of [output_feature, input_feature]
-// @param q_indice has a shape of [num_centroid, output_channel_size, in_inf]
-// @param centroids has a shape of [num_c, c_size, vec_len]
-// @param q_indice_residual has a shape of [num_centroid, output_channel_size,
-// @param residual_centroids has a shape of [num_c, c_size, vec_len]
-// @param outliers_centroids has a shape of [num_c, c_size, out_vec_len]
-// @param outliers_indices has a shape of [num_centroid, c_size, ol_in_f]
-// @param perm has a shape of [num_centroid, c_size, ol_in_f]
-// @param weight_scale has a shape of [output_feature, input_feature]
-// @param weight_bias has a shape of [output_feature, input_feature]
 torch::Tensor launch_deqantize_outliers_cuda_packkernel(
     const int* outf_x_inf, const torch::Tensor& q_indice,
     const torch::Tensor& centroids,
@@ -35,20 +24,6 @@ torch::Tensor launch_deqantize_outliers_cuda_packkernel(
     const c10::optional<torch::Tensor>& perm, const torch::Tensor& weight_scale,
     const torch::Tensor& weight_bias);
 
-// @brief compute the gemm output, usually gemv
-// @param out_features,
-// @param input,
-// @param q_indice has a shape of [num_centroid, output_channel_size, in_inf]
-// @param centroids has a shape of [num_c, c_size, vec_len]
-// @param q_indice_residual has a shape of [num_centroid, output_channel_size,
-// @param residual_centroids has a shape of [num_c, c_size, vec_len]
-// @param outliers_indices has a shape of [num_centroid, c_size, ol_in_f]
-// @param outliers_centroids has a shape of [num_c, c_size, out_vec_len]
-// @param perm has a shape of [num_centroid, c_size, ol_in_f]
-// @param weight_scale has a shape of [output_feature, input_feature]
-// @param weight_bias has a shape of [output_feature, input_feature]
-// @param bias has a shape of [output_feature]
-// @return
 torch::Tensor launch_gemv_outliers_cuda_packkernel(
     const int out_features, const torch::Tensor& input,
     const torch::Tensor& q_indice, const torch::Tensor& centroids,
@@ -85,8 +60,8 @@ torch::Tensor dequant(const torch::Tensor& q_indice,
   }
   CHECK_INPUT(weight_scale);
   CHECK_INPUT(weight_bias);
-  TORCH_CHECK(q_indice.dtype() == torch::kInt,
-              "`q_indice` must have a type of integer.");
+  TORCH_CHECK_EQ(q_indice.dtype(), torch::kInt)
+      << "`q_indice` must have a type of integer.";
   TORCH_CHECK_GE(groupsize, 2) << "groupsize must be >= 4.";
   TORCH_CHECK_EQ(q_indice.dim(), 3) << "`q_indice` must be a 3D tensor.";
 
@@ -98,11 +73,14 @@ torch::Tensor dequant(const torch::Tensor& q_indice,
     TORCH_CHECK_EQ(centroids.sizes(), residual_centroids.value().sizes())
         << "The numel of centroids and residual_centroids must be the same.";
 
-    TORCH_CHECK(q_indice_residual.value().device().index() == dev_index &&
-                    centroids.device().index() == dev_index &&
-                    residual_centroids.value().device().index() == dev_index &&
-                    perm_dev_index == dev_index,
-                "All input tensors must be on the same device.");
+    TORCH_CHECK_EQ(q_indice_residual.value().device().index(), dev_index)
+        << "the residual index tensor is on a different device.";
+    TORCH_CHECK_EQ(centroids.device().index(), dev_index)
+        << "the centroids tensor is on a different device.";
+    TORCH_CHECK_EQ(residual_centroids.value().device().index(), dev_index)
+        << "the residual centroids tensor is on a different device.";
+    TORCH_CHECK_EQ(perm_dev_index, dev_index)
+        << "the permuation index tensor is on a different device.";
   }
 
   at::cuda::OptionalCUDAGuard guard(q_indice.device());
@@ -118,22 +96,6 @@ torch::Tensor dequant(const torch::Tensor& q_indice,
   return output;
 }
 
-/// @brief compute the gemm output, usually gemv
-/// @param input
-/// @param q_indice
-/// @param centroids
-/// @param q_indice_residual
-/// @param residual_centroids
-/// @param q_indice_outliers
-/// @param outliers_centroids
-/// @param invperm
-/// @param weight_scale
-/// @param weight_bias
-/// @param bias
-/// @param groupsize
-/// @param in_features
-/// @param out_features
-/// @return
 torch::Tensor wqA16Gemm(const torch::Tensor& input,
                         const torch::Tensor& q_indice,
                         const torch::Tensor& centroids,
@@ -152,7 +114,8 @@ torch::Tensor wqA16Gemm(const torch::Tensor& input,
     CHECK_INPUT(q_indice_residual.value());
     CHECK_INPUT(residual_centroids.value());
   }
-  TORCH_CHECK(q_indice.dtype() == torch::kInt, "q_indice must be integers.");
+  TORCH_CHECK_EQ(q_indice.dtype(), torch::kInt)
+      << "`q_indice` must be integers.";
 
   CHECK_INPUT(centroids);
   auto dev_index = q_indice.device().index();
@@ -166,11 +129,17 @@ torch::Tensor wqA16Gemm(const torch::Tensor& input,
   TORCH_CHECK_GE(groupsize, 2) << "groupsize must be >= 2.";
 
   if (q_indice_residual.has_value()) {
-    TORCH_CHECK(q_indice_residual.value().device().index() == dev_index &&
-                    centroids.device().index() == dev_index &&
-                    residual_centroids.value().device().index() == dev_index &&
-                    inv_perm_device_index == dev_index,
-                "All input tensors must be on the same device.");
+    TORCH_CHECK_EQ(centroids.sizes(), residual_centroids.value().sizes())
+        << "The numel of centroids and residual_centroids must be the same.";
+
+    TORCH_CHECK_EQ(q_indice_residual.value().device().index(), dev_index)
+        << "the residual index tensor is on a different device.";
+    TORCH_CHECK_EQ(centroids.device().index(), dev_index)
+        << "the centroids tensor is on a different device.";
+    TORCH_CHECK_EQ(residual_centroids.value().device().index(), dev_index)
+        << "the residual centroids tensor is on a different device.";
+    TORCH_CHECK_EQ(inv_perm_dev_index, dev_index)
+        << "the inverted permuation index tensor is on a different device.";
   }
 
   at::cuda::OptionalCUDAGuard guard(q_indice.device());
