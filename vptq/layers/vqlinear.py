@@ -172,10 +172,9 @@ class VQuantLinear(nn.Module):
                 self.num_codebooks, self.num_res_centroids * self.vector_len,
                 **factory_kwargs
             )
-            if self.is_indice_packed is True:
-                # NOTE: when `is_indice_packed` is True, indices for main and residual quantization components are packed together.
-                pass
-            else:
+            if self.is_indice_packed is False:
+                # NOTE: When `is_indice_packed` is True, indices for the main
+                # and residual quantization components are packed together.
                 shape = (self.num_codebooks, self.num_indices, self.group_size)
                 self.res_indices = Parameter(
                     torch.empty(shape, dtype=index_type, device=device),

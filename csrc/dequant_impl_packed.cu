@@ -339,8 +339,9 @@ torch::Tensor launch_deqantize_outliers_cuda_packkernel(
       residual_centroids.has_value() ? residual_centroids.value().size(-1) : 0;
   TORCH_CHECK(((res_groupsize == base_groupsize) || (res_groupsize == 0)),
               "res_groupsize==base_groupsize is false, must be true");
-  int index_bits =
-      log2(centroids.size(1));  // how many bits to index quantization vector
+
+  // how many bits to index quantization vector
+  int index_bits = log2(centroids.size(1));
   int res_index_bits = residual_centroids.has_value()
                            ? log2(residual_centroids.value().size(1))
                            : 0;
@@ -370,7 +371,9 @@ torch::Tensor launch_deqantize_outliers_cuda_packkernel(
       outliers_indices.has_value()
           ? outliers_indices.value().data_ptr<int16_t>()
           : nullptr;
+
   auto stream = at::cuda::getCurrentCUDAStream().stream();
+
 #define callDequantWithOutliers(scalar_t, IDXBITS, BASEGROUP, OUT_OUF_INF,    \
                                 ResidualBits)                                 \
   {                                                                           \

@@ -189,10 +189,10 @@ python -m vptq --model=VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-0-wo
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-model = "VPTQ-community/Meta-Llama-3.3-70B-Instruct-v16-k65536-65536-woft"
+model_name = "VPTQ-community/Meta-Llama-3.3-70B-Instruct-v16-k65536-65536-woft"
 # Load VPTQ-quantized model directly from HuggingFace Hub
-model = AutoModelForCausalLM.from_pretrained(model, device_map="auto")
-tokenizer = AutoTokenizer.from_pretrained(model)
+model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
+tokenizer = AutoTokenizer.from_pretrained(model_name)
 
 # Simple inference
 prompt = "Explain: Do not go gentle into that good night."
@@ -209,10 +209,10 @@ Using the Python API from VPTQ package:
 import vptq
 import transformers
 
-model = "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-0-woft"
+model_name = "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-0-woft"
 
-tokenizer = transformers.AutoTokenizer.from_pretrained(model)
-m = vptq.AutoModelForCausalLM.from_pretrained(model, device_map="auto")
+tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
+m = vptq.AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
 
 prompt = "Explain: Do Not Go Gentle into That Good Night"
 out = m.generate(

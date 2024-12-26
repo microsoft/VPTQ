@@ -62,7 +62,7 @@ torch::Tensor dequant(const torch::Tensor& q_indice,
   CHECK_INPUT(weight_bias);
   TORCH_CHECK_EQ(q_indice.dtype(), torch::kInt)
       << "`q_indice` must have a type of integer.";
-  TORCH_CHECK_GE(groupsize, 2) << "groupsize must be >= 4.";
+  TORCH_CHECK_GE(groupsize, 2) << "groupsize must be >= 2.";
   TORCH_CHECK_EQ(q_indice.dim(), 3) << "`q_indice` must be a 3D tensor.";
 
   if (q_indice_residual.has_value()) {
@@ -80,7 +80,7 @@ torch::Tensor dequant(const torch::Tensor& q_indice,
     TORCH_CHECK_EQ(residual_centroids.value().device().index(), dev_index)
         << "the residual centroids tensor is on a different device.";
     TORCH_CHECK_EQ(perm_dev_index, dev_index)
-        << "the permuation index tensor is on a different device.";
+        << "the permutation index tensor is on a different device.";
   }
 
   at::cuda::OptionalCUDAGuard guard(q_indice.device());
@@ -138,8 +138,8 @@ torch::Tensor wqA16Gemm(const torch::Tensor& input,
         << "the centroids tensor is on a different device.";
     TORCH_CHECK_EQ(residual_centroids.value().device().index(), dev_index)
         << "the residual centroids tensor is on a different device.";
-    TORCH_CHECK_EQ(inv_perm_dev_index, dev_index)
-        << "the inverted permuation index tensor is on a different device.";
+    TORCH_CHECK_EQ(inv_perm_device_index, dev_index)
+        << "the inverted permutation index tensor is on a different device.";
   }
 
   at::cuda::OptionalCUDAGuard guard(q_indice.device());
@@ -157,7 +157,7 @@ torch::Tensor wqA16Gemm(const torch::Tensor& input,
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("dequant", &dequant,
-        R"DOC(Dequantize matrix weights to fp16
+        R"DOC(Dequantize matrix weights to fp16.
 function type:
 const torch::Tensor& qweight,
 const torch::Tensor& scales,
