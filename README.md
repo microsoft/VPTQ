@@ -25,7 +25,7 @@
   * [Terminal Chatbot Example](#terminal-chatbot-example)
   * [Python API Example](#python-api-example)
   * [Gradio Web App Example](#gradio-web-app-example)
-- [Alogrithm](#algorithm)
+- [Algorithm](#algorithm)
 - [Tech Report](#tech-report)
   * [Early Results from Tech Report](#early-results-from-tech-report)
 - [Road Map](#road-map)
