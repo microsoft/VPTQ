@@ -5,6 +5,7 @@
 
 import time
 
+from numpy import int_
 import torch
 import torch.nn as nn
 import transformers
@@ -31,7 +32,7 @@ class VPTQ:
         percdamp=.01,
         group_size=-1,
         group_num=-1,
-        enable_perm=None,
+        enable_perm=False,
         enable_norm=False,
         norm_dim=0,
         debug=False
@@ -177,7 +178,7 @@ class VPTQ:
             )
 
         # permute weight and hessian
-        if self.quantizer.enable_perm is not None:
+        if self.quantizer.enable_perm:
             # if self.quantizer.enable_perm == 'hessian':
             #     self.quantizer.perm = torch.argsort(torch.diag(hessian), descending=True)
             # init perm in quantizer
@@ -193,6 +194,10 @@ class VPTQ:
             else:
                 kmeans_weight = None
         else:
+            # reverse perm hesisan
+            if self.perm is not None:
+                inv_perm = torch.argsort(self.perm)
+                inv_hessian = inv_hessian[inv_perm][:, inv_perm]
             self.quantizer.perm = torch.arange(weight.shape[1])
 
         # save gpu memory
