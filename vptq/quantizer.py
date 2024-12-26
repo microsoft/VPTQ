@@ -7,6 +7,7 @@ import math
 from dataclasses import dataclass, field
 from typing import List, Tuple
 
+from babel.src.babel.azure.ml.babel.dependencies.fairseq.optim import adamax
 import cuml
 import numpy as np
 import torch
@@ -32,38 +33,38 @@ class QuantizationArguments:
     enable_perm: bool = field(default=False)
     enable_abs: bool = field(default=False)
     enable_scale: bool = field(default=False)
-    config_scale: Literal['minmax', 'meanstd', 'absmax'] = field(
-        default='minmax',
-        metadata={
-            "help": "Scaling method for quantization: "
-                   "minmax (min-max scaling), "
-                   "meanstd (mean-std normalization), "
-                   "absmax (absolute max scaling)"
-        }
-    )
-    centroid_dtype: str = field(
-        default='int8',
-        metadata={
-            "help": "Data type for centroids. Options: fp16, bf16, fp8, int8",
-            "dtype_mapping": {
-                "fp16": torch.float16, 
-                "bf16": torch.bfloat16,
-                "fp8": torch.float8_e4m3fn,
-                "int8": torch.int8,
-            }
-        }
-    )
-    scale_dtype: str = field(
-        default='fp16',
-        metadata={
-            "help": "Data type for scale. Options: fp16, bf16, fp8",
-            "dtype_mapping": {
-                "fp16": torch.float16, 
-                "bf16": torch.bfloat16,
-                "fp8": torch.float8_e4m3fn,
-            }
-        }
-    )
+    # config_scale: Literal['minmax', 'np.nanstd',adamaxax'] = field(
+    #     default='minmax',
+    #     metadata={
+    #         "help": "Scaling method for quantization: "
+    #                "minmax (min-max scaling), "
+    #                "meanstd (mean-std normalization), "
+    #                "absmax (absolute max scaling)"
+    #     }
+    # )
+    # centroid_dtype: str = field(
+    #     default='int8',
+    #     metadata={
+    #         "help": "Data type for centroids. Options: fp16, bf16, fp8, int8",
+    #         "dtype_mapping": {
+    #             "fp16": torch.float16, 
+    #             "bf16": torch.bfloat16,
+    #             "fp8": torch.float8_e4m3fn,
+    #             "int8": torch.int8,
+    #         }
+    #     }
+    # )
+    # scale_dtype: str = field(
+    #     default='fp16',
+    #     metadata={
+    #         "help": "Data type for scale. Options: fp16, bf16, fp8",
+    #         "dtype_mapping": {
+    #             "fp16": torch.float16, 
+    #             "bf16": torch.bfloat16,
+    #             "fp8": torch.float8_e4m3fn,
+    #         }
+    #     }
+    # )
 
 # N-percent outlier Vector Quantizator
 # Partition data into N% outliers and (100-N)%.
