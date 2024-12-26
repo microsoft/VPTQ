@@ -95,7 +95,7 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 logger=logger,
                 collect_act=False,
                 layer_name=layer_name,
-                enable_perm="hessian" if quant_args.enable_perm is not None else False,
+                enable_perm="hessian" if quant_args.enable_perm is True else False,
                 enable_norm=quant_args.enable_norm,
                 norm_dim=0,
                 debug=True
