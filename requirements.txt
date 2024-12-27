@@ -1,5 +1,9 @@
-datasets
+cmake
+packaging
+setuptools>=49.4.0
 torch
+wheel
+datasets
 transformers>=4.45
 safetensors
 psutil
