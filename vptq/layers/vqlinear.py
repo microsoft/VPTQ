@@ -469,9 +469,7 @@ class VQuantLinear(nn.Module):
         selected_centroids = selected_centroids.view(self.num_codebooks, -1, self.group_size, self.vector_len)
         
         if self.enable_rotate:
-            self.logger.info(f"rotate selected_centroids shape: {selected_centroids.shape}")
             selected_centroids = hadamard_transform(selected_centroids, scale=1.0/self.vector_len)
-            self.logger.info(f"after rotate selected_centroids shape: {selected_centroids.shape}")
         
         # print(f'3 selected_centroids: {selected_centroids.shape}')
         # print(f'4 selected_centroids: {selected_centroids}')
@@ -500,9 +498,7 @@ class VQuantLinear(nn.Module):
             )
 
             if self.enable_rotate:
-                self.logger.info(f"rotate selected_res_centroids shape: {selected_res_centroids.shape}")
                 selected_res_centroids = hadamard_transform(selected_res_centroids, scale=1.0/self.vector_len)
-                self.logger.info(f"after rotate selected_res_centroids shape: {selected_res_centroids.shape}")
             
             selected_res_centroids = selected_res_centroids.permute(0, 1, 3, 2)
 
