@@ -125,7 +125,7 @@ def unpack_index_tensor(
     indices = indices.squeeze()
 
     if res_bits > 0:
-        res_indices = ((unpack_indice >> index_bits) & ((1 << index_bits) - 1)).view(torch.uint64).to(torch.int64)
+        res_indices = ((unpack_indice >> index_bits) & ((1 << res_bits) - 1)).view(torch.uint64).to(torch.int64)
         res_indices = res_indices.squeeze()
     else:
         res_indices = None
