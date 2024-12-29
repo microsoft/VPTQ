@@ -1,6 +1,6 @@
 cmake
 packaging
-setuptools>=49.4.0
+setuptools>=64.0.0
 torch
 wheel
 datasets
