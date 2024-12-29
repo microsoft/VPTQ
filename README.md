@@ -67,46 +67,52 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 
 ### Dependencies
 
+- CUDA toolkit
 - python 3.10+
 - torch >= 2.2.0
 - transformers >= 4.44.0
 - Accelerate >= 0.33.0
 - flash_attn >= 2.5.0
 - latest datasets
+- cmake >= 3.18.0
 
-### Install VPTQ on your machine
-**Recommend**: For saving your time to build the package, Please install VPTQ from the latest Release directly
+
+### Install VPTQ on Your Machine
+
+**Recommendation:** To save time on building the package, please install VPTQ directly from the latest release on PyPI:
 
 ```bash
 pip install vptq
 ```
-or from
+or from:
 
-https://github.com/microsoft/VPTQ/releases
+[https://github.com/microsoft/VPTQ/releases](https://github.com/microsoft/VPTQ/releases)
 
-#### build from source
-[Not Available if Release package]
+#### Install from PyPI
 
-> Preparation steps that might be needed: Set up CUDA_HOME and PATH.
-
-Set `cuda-12` to your own CUDA version and environment. Run `nvcc --version` to find out your version, and `which nvcc` to check your CUDA PATH.
-
-```bash
-# example
-export CUDA_HOME=/usr/local/cuda-12
-export PATH=/usr/local/cuda-12/bin/:$PATH  # set dependent on your environment
-```
-*Will Take several minutes to compile CUDA kernels*, please be patient. Current compilation builds on SM 7.0, 7.5, 8.0, 8,6, 9.0 to reduce the compilation time. You can set `TORCH_CUDA_ARCH_LIST` to your specific architecture.
-
+To install from PyPI, run:
 ```bash
 pip install git+https://github.com/microsoft/VPTQ.git --no-build-isolation
 ```
-You can configure the required CUDA architectures and the number of nvcc compile threads by setting 
-```bash
-TORCH_CUDA_ARCH_LIST=8.0,9.0 NVCC_THREADS=16 pip install -e . --no-build-isolation
-```
-to reduce compilation time.
 
+#### Build from Source
+
+If a release package is not available, you can build the package from the source code:
+
+> **_NOTE:_** Ensure Python dependencies and the CUDA toolkit are installed, and that `nvcc` is available in your `PATH`.
+
+1. Build the wheel:
+    ```bash
+    python setup.py build bdist_wheel
+
+    # Install the built wheel
+    pip install dist/vptq-xxx.whl  # Replace xxx with the version number
+    ```
+
+2. Clean the build:
+    ```bash
+    python setup.py clean
+    ```
 
 **Example: Run Llama 3.1 70b on RTX4090 (24G @ ~2bits) in real time**
 ![Llama3 1-70b-prompt](https://github.com/user-attachments/assets/d8729aca-4e1d-4fe1-ac71-c14da4bdd97f)

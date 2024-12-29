@@ -22,7 +22,8 @@ def get_gpu_info():
     Get GPU utilization and memory usage information.
 
     Returns:
-        dict: A dictionary containing GPU utilization and memory usage information.
+        dict: A dictionary containing GPU utilization and memory
+        usage information.
     """
     handle = pynvml.nvmlDeviceGetHandleByIndex(0)  # Assuming a single GPU setup
     utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
@@ -42,10 +43,12 @@ def update_charts(chart_height: int = 200) -> go.Figure:
     Update the GPU utilization and memory usage charts.
 
     Args:
-        chart_height (int, optional): used to set the height of the chart. Defaults to 200.
+        chart_height (int, optional): used to set the height of the
+        chart. Defaults to 200.
 
     Returns:
-        plotly.graph_objs.Figure: The updated figure containing the GPU and memory usage charts.
+        plotly.graph_objs.Figure: The updated figure containing the GPU
+        and memory usage charts.
     """
     # obtain GPU information
     gpu_info = get_gpu_info()
