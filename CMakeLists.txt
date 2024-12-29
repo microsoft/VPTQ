@@ -3,7 +3,7 @@
 # MIT License.
 # --------------------------------------------------------------------------
 
-cmake_minimum_required(VERSION 3.23 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
 project(vptq_cuda_ops LANGUAGES C CXX CUDA)
 
 # Prohibit in-source builds
