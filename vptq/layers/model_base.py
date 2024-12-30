@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 
 import glob
-import importlib.util
 from pathlib import Path
 
 import accelerate
@@ -203,18 +202,6 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             preload_module_classes=["VQuantLinear"]
         )
 
-        # check cuda kernel exist
-        if importlib.util.find_spec("vptq.cuda_ops") is not None:
-            pass
-        else:
-            print((
-                "!!! Warning !!!: CUDA kernels are not found, "
-                "please check CUDA and VPTQ installation."
-            ))
-            print((
-                "!!! Warning !!!: Running on Torch implementations, "
-                "which is extremely slow."
-            ))
         model.eval()
 
         torch.cuda.empty_cache()
