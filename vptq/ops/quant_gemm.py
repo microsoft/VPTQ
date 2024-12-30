@@ -35,8 +35,6 @@ def _load_library(filename: str) -> bool:
         return False
 
 
-# isort: off
-# we need to import the CUDA kernels after importing torch
 __cuda_ops_installed: bool = _load_library("libvptq.so")
 
 

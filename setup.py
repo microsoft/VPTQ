@@ -51,7 +51,9 @@ class CMakeBuildExt(build_ext):
             )
             inplace_file, _ = self._get_inplace_equivalent(build_py, ext)
 
-            target_path = os.path.join(build_py.build_lib, "vptq", inplace_file)
+            target_path = os.path.join(
+                build_py.build_lib, "vptq", "ops", inplace_file
+            )
 
             # Always copy, even if source is older than destination, to ensure
             # that the right extensions for the current Python/platform are
