@@ -2,8 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the
 # MIT License.
 # --------------------------------------------------------------------------
-set(TARGET "cuda_ops")
-file(GLOB_RECURSE SOURCES "*.cu")
+set(TARGET "vptq")
+file(GLOB_RECURSE SOURCES "*.cu" "*.cc")
+message(STATUS "Building ${TARGET} with ${SOURCES}")
 
 cuda_add_library(${TARGET} SHARED ${SOURCES})
 
@@ -29,3 +30,4 @@ target_compile_options(
          --use_fast_math
          --generate-line-info>)
 target_compile_features(${TARGET} PUBLIC cxx_std_17 cuda_std_17)
+target_link_libraries(${TARGET} "${TORCH_LIBRARIES}")

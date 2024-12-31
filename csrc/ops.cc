@@ -4,7 +4,9 @@
 #include "common.h"
 #include <ATen/cuda/CUDAContext.h>
 #include <c10/cuda/CUDAGuard.h>
+
 #include <torch/extension.h>
+#include <torch/library.h>
 
 #define CHECK_CUDA(x) \
   TORCH_CHECK(x.device().is_cuda(), #x " must be a CUDA tensor")
@@ -15,7 +17,7 @@
   CHECK_CONTIGUOUS(x)
 
 torch::Tensor launch_deqantize_outliers_cuda_packkernel(
-    const int* outf_x_inf, const torch::Tensor& q_indice,
+    const int64_t* outf_x_inf, const torch::Tensor& q_indice,
     const torch::Tensor& centroids,
     const c10::optional<torch::Tensor>& q_indice_residual,
     const c10::optional<torch::Tensor>& residual_centroids,
@@ -25,7 +27,7 @@ torch::Tensor launch_deqantize_outliers_cuda_packkernel(
     const torch::Tensor& weight_bias);
 
 torch::Tensor launch_gemv_outliers_cuda_packkernel(
-    const int out_features, const torch::Tensor& input,
+    const int64_t out_features, const torch::Tensor& input,
     const torch::Tensor& q_indice, const torch::Tensor& centroids,
     const c10::optional<torch::Tensor>& q_indice_residual,
     const c10::optional<torch::Tensor>& residual_centroids,
@@ -42,8 +44,8 @@ torch::Tensor dequant(const torch::Tensor& q_indice,
                       const c10::optional<torch::Tensor>& outliers_centroids,
                       const c10::optional<torch::Tensor>& invperm,
                       const torch::Tensor& weight_scale,
-                      const torch::Tensor& weight_bias, int groupsize,
-                      int in_features, int out_features) {
+                      const torch::Tensor& weight_bias, int64_t groupsize,
+                      int64_t in_features, int64_t out_features) {
   auto dev_index = q_indice.device().index();
 
   CHECK_INPUT(q_indice);
@@ -85,7 +87,7 @@ torch::Tensor dequant(const torch::Tensor& q_indice,
 
   at::cuda::OptionalCUDAGuard guard(q_indice.device());
   torch::Tensor output;
-  const int out_f_x_in_f[2] = {out_features, in_features};
+  const int64_t out_f_x_in_f[2] = {out_features, in_features};
 
   output = launch_deqantize_outliers_cuda_packkernel(
       out_f_x_in_f, q_indice, centroids, q_indice_residual, residual_centroids,
@@ -106,8 +108,9 @@ torch::Tensor wqA16Gemm(const torch::Tensor& input,
                         const c10::optional<torch::Tensor>& invperm,
                         const torch::Tensor& weight_scale,
                         const torch::Tensor& weight_bias,
-                        const c10::optional<torch::Tensor>& bias, int groupsize,
-                        int in_features, int out_features) {
+                        const c10::optional<torch::Tensor>& bias,
+                        int64_t groupsize, int64_t in_features,
+                        int64_t out_features) {
   CHECK_INPUT(q_indice);
   CHECK_INPUT(input);
   if (q_indice_residual.has_value()) {
@@ -155,22 +158,40 @@ torch::Tensor wqA16Gemm(const torch::Tensor& input,
   return output;
 }
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("dequant", &dequant,
-        R"DOC(Dequantize matrix weights to fp16.
-function type:
-const torch::Tensor& qweight,
-const torch::Tensor& scales,
-const torch::Tensor& qzeros,
-Tensor g_idx, int groupsize, int bits, int in_features
-)DOC");
+TORCH_LIBRARY_IMPL(vptq, CUDA, m) {
+  m.impl("dequant", dequant);
+  m.impl("gemm", wqA16Gemm);
+}
 
-  m.def("gemm", &wqA16Gemm,
-        R"DOC(Compute the gemm output, usually gemv.
-function type:
-const torch::Tensor& qweight,
-const torch::Tensor& scales,
-const torch::Tensor& qzeros,
-tensor g_idx, int groupsize, int bits, int in_features
+TORCH_LIBRARY(vptq, m) {
+  m.def(
+      R"DOC(dequant(Tensor q_indice,
+      Tensor centroids,
+      Tensor? q_indice_residual,
+      Tensor? residual_centroids,
+      Tensor? q_indice_outliers,
+      Tensor? outliers_centroids,
+      Tensor? invperm,
+      Tensor weight_scale,
+      Tensor weight_bias,
+      int groupsize,
+      int in_features,
+      int out_features) -> Tensor
+)DOC");
+  m.def(
+      R"DOC(gemm(Tensor input,
+      Tensor q_indice,
+      Tensor centroids,
+      Tensor? q_indice_residual,
+      Tensor? residual_centroids,
+      Tensor? q_indice_outliers,
+      Tensor? outliers_centroids,
+      Tensor? invperm,
+      Tensor weight_scale,
+      Tensor weight_bias,
+      Tensor? bias,
+      int groupsize,
+      int in_features,
+      int out_features) -> Tensor
 )DOC");
 }
