@@ -9,4 +9,7 @@ from vptq.layers import AutoModelForCausalLM, VQuantLinear
 
 __version__ = importlib.metadata.version("vptq")
 
-__all__ = ["AutoModelForCausalLM", "VQuantLinear"]
+__all__ = [
+    "AutoModelForCausalLM",
+    "VQuantLinear",
+]

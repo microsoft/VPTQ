@@ -325,7 +325,7 @@ __global__ void DequantizeWithOutliers_PackIndice(
 // @param weight_bias
 // @return torch::Tensor
 torch::Tensor launch_deqantize_outliers_cuda_packkernel(
-    const int* outf_x_inf, const torch::Tensor& q_indice,
+    const int64_t* outf_x_inf, const torch::Tensor& q_indice,
     const torch::Tensor& centroids,
     const c10::optional<torch::Tensor>& q_indice_residual,
     const c10::optional<torch::Tensor>& residual_centroids,
@@ -534,7 +534,7 @@ torch::Tensor launch_deqantize_outliers_cuda_packkernel(
 // @param bias
 // @return torch::Tensor
 torch::Tensor launch_gemv_outliers_cuda_packkernel(
-    const int out_features, const torch::Tensor& input,
+    const int64_t out_features, const torch::Tensor& input,
     const torch::Tensor& q_indice, const torch::Tensor& centroids,
     const c10::optional<torch::Tensor>& q_indice_residual,
     const c10::optional<torch::Tensor>& residual_centroids,
@@ -544,7 +544,7 @@ torch::Tensor launch_gemv_outliers_cuda_packkernel(
     const torch::Tensor& weight_bias,
     const c10::optional<torch::Tensor>& bias) {
   OptionalCUDAGuard cudaguard(input.device().index());
-  const int base_groupsize = centroids.size(-1);
+  const int64_t base_groupsize = centroids.size(-1);
   int index_bits = log2(centroids.size(1));
   int res_index_bits = residual_centroids.has_value()
                            ? log2(residual_centroids.value().size(1))

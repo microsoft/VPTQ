@@ -5,4 +5,7 @@
 
 from vptq.layers.model_base import AutoModelForCausalLM, VQuantLinear
 
-__all__ = ["AutoModelForCausalLM", "VQuantLinear"]
+__all__ = [
+    "AutoModelForCausalLM",
+    "VQuantLinear",
+]
