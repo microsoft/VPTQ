@@ -248,12 +248,6 @@ class NPVectorQuantizer:
 
                 vector_weights = vector_weights.mean(dim=1) if vector_weights is not None else None
 
-                # rotate
-                if self.enable_rotate:
-                    # self.logger.info(f"rotate sub_vectors shape: {sub_vectors.shape}")
-                    sub_vectors = hadamard_transform(sub_vectors)
-                    # self.logger.info(f"after rotate sub_vectors shape: {sub_vectors.shape}")
-
                 # convert to numpy and float32 to avoid error
                 sub_vectors = sub_vectors.to(torch.float32).cpu().numpy()
                 _kmeans.fit(sub_vectors, sample_weight=vector_weights)
@@ -263,12 +257,6 @@ class NPVectorQuantizer:
                 self.centroids[idx] = torch.from_numpy(_kmeans.cluster_centers_).to(device=data.device)
 
                 quant_data = self.centroids[idx][_kmeans.labels_]
-
-                # rotate
-                if self.enable_rotate:
-                    # self.logger.info(f"rotate quant_data shape: {quant_data.shape}")
-                    quant_data = hadamard_transform(quant_data, scale=1.0/vector_len)
-                    # self.logger.info(f"after rotate quant_data shape: {quant_data.shape}")
 
                 self.logger.info(f'idx: {idx}, quant_data shape: {quant_data.shape}')
 
@@ -281,6 +269,7 @@ class NPVectorQuantizer:
 
         quantized_data = torch.hstack(quantized_data)
         self.logger.info(f'quantized_data shape: {quantized_data.shape}')
+        
         return quantized_data
 
     def quantize_vector(self, data, index):
@@ -313,22 +302,10 @@ class NPVectorQuantizer:
             padded_shape = data.shape
             data = data.reshape(-1, vector_len)
 
-            # rotate
-            if self.enable_rotate:
-                # self.logger.info(f"rotate data shape: {data.shape}")
-                data = hadamard_transform(data)
-                # self.logger.info(f"after rotate data shape: {data.shape}")
-
             dist = torch.cdist(data.float(), self.centroids[cidx].float())
 
             indices = dist.argmin(dim=-1)
             quantized_data = self.centroids[cidx][indices]
-
-            # rotate
-            if self.enable_rotate:
-                # self.logger.info(f"rotate back data shape: {quantized_data.shape}")
-                quantized_data = hadamard_transform(quantized_data, scale=1.0/vector_len)
-                # self.logger.info(f"after rotate back data shape: {quantized_data.shape}")
 
             # save indices to self.indices
             # indices [out_feature / vector_len], 4096 / 8 = 512
@@ -373,24 +350,12 @@ class NPVectorQuantizer:
 
                 self.logger.info(f'kmeans_mode: {self.kmeans_mode}, cuml kmeans, {num_centroids} clusters')
                 
-                # self.logger.info(sub_vectors.shape)
-                if self.enable_rotate:
-                    # self.logger.info(f"rotate sub_vectors shape: {sub_vectors.shape}")
-                    sub_vectors = hadamard_transform(sub_vectors)
-                    # self.logger.info(f"after rotate sub_vectors shape: {sub_vectors.shape}")
-                
                 sub_vectors = sub_vectors.to(torch.float32).cpu().numpy()
                 _kmeans.fit(sub_vectors, sample_weight=vector_weights)
                 self.logger.info(f'cuml kmeans {_kmeans.n_iter_} iterations, error {_kmeans.inertia_}')
 
                 self.res_centroids[idx] = torch.from_numpy(_kmeans.cluster_centers_).to(device=data.device)
                 quant_data = self.res_centroids[idx][_kmeans.labels_]
-
-                # rotate
-                if self.enable_rotate:
-                    # self.logger.info(f"rotate back quant_data shape: {quant_data.shape}")
-                    quant_data = hadamard_transform(quant_data, scale=1.0/vector_len)
-                    # self.logger.info(f"after rotate back quant_data shape: {quant_data.shape}")
 
                 quant_data = self.res_reshaper[idx].remove_padding(quant_data.reshape(padded_shape))
 
@@ -431,11 +396,6 @@ class NPVectorQuantizer:
 
             shape = data.shape
             data = data.reshape(-1, vector_len)
-            
-            if self.enable_rotate:
-                # self.logger.info(f"rotate data shape: {data.shape}")
-                data = hadamard_transform(data)
-                # self.logger.info(f"after rotate data shape: {data.shape}")
 
             # original centroid quantization
             dist = torch.cdist(data.float(), self.centroids[cidx].float())
@@ -450,11 +410,6 @@ class NPVectorQuantizer:
             # self.logger.info(f'self.indices[cidx]: {self.indices[cidx].shape}')
 
             quantized_data = self.centroids[cidx][indices]
-
-            if self.enable_rotate:
-                # self.logger.info(f"rotate back quantized_data shape: {quantized_data.shape}")
-                quantized_data = hadamard_transform(quantized_data, scale=1.0/vector_len)
-                # self.logger.info(f"after rotate back quantized_data shape: {quantized_data.shape}")
 
             # residual quantization
             if self.res_centroids[cidx] is not None:

@@ -468,8 +468,8 @@ class VQuantLinear(nn.Module):
         #     self.num_codebooks, -1, self.in_features - len(self.outlier_idices), self.vector_len)
         selected_centroids = selected_centroids.view(self.num_codebooks, -1, self.group_size, self.vector_len)
         
-        if self.enable_rotate:
-            selected_centroids = hadamard_transform(selected_centroids, scale=1.0/self.vector_len)
+        # if self.enable_rotate:
+        #     selected_centroids = hadamard_transform(selected_centroids, scale=1.0/self.vector_len)
         
         # print(f'3 selected_centroids: {selected_centroids.shape}')
         # print(f'4 selected_centroids: {selected_centroids}')
@@ -497,8 +497,8 @@ class VQuantLinear(nn.Module):
                 self.num_codebooks, -1, self.group_size, self.vector_len
             )
 
-            if self.enable_rotate:
-                selected_res_centroids = hadamard_transform(selected_res_centroids, scale=1.0/self.vector_len)
+            # if self.enable_rotate:
+            #     selected_res_centroids = hadamard_transform(selected_res_centroids, scale=1.0/self.vector_len)
             
             selected_res_centroids = selected_res_centroids.permute(0, 1, 3, 2)
 
@@ -554,6 +554,11 @@ class VQuantLinear(nn.Module):
         if self.enable_norm:
             qweight = qweight * self.weight_scale
             qweight = qweight + self.weight_bias
+
+        if self.enable_rotate:
+            qweight = qweight.transpose(1, 0)
+            qweight = hadamard_transform(qweight, scale=1.0 / qweight.shape[1])
+            qweight = qweight.transpose(1, 0)
 
         return qweight
 
