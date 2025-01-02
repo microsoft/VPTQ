@@ -556,9 +556,7 @@ class VQuantLinear(nn.Module):
             qweight = qweight + self.weight_bias
 
         if self.enable_rotate:
-            qweight = qweight.transpose(1, 0)
             qweight = hadamard_transform(qweight, scale=1.0 / qweight.shape[1])
-            qweight = qweight.transpose(1, 0)
 
         return qweight
 
@@ -568,6 +566,9 @@ class VQuantLinear(nn.Module):
         qweight = self.fast_dequant()
         if qweight is None:
             qweight = self.dequant()
+        
+        x = hadamard_transform(x, scale=1.0 / x.shape[1])        
+    
         return F.linear(x, qweight, self.bias)
 
     # proxy error

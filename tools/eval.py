@@ -7,7 +7,7 @@ import vptq
 
 set_seed(0)
 
-model_path = "/home/aiscuser/yangwang/VPTQ.dev.rotate/outputs/Meta-Llama-3.1-8B-Instruct-rotate/2024-12-25-04-57-02/packed_model" 
+model_path = "/home/aiscuser/yangwang/VPTQ.dev.rotate/outputs/Meta-Llama-3.1-8B-Instruct-test-in/2025-01-01-19-05-38/packed_model"
 model = vptq.AutoModelForCausalLM.from_pretrained(model_path, device_map="auto").cpu()
 model.eval()
 
