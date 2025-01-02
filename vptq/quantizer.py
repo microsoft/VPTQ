@@ -7,11 +7,14 @@ import math
 from dataclasses import dataclass, field
 from typing import List, Tuple
 
+from babel.src.babel.azure.ml.babel.dependencies.fairseq.optim import adamax
 import cuml
 import numpy as np
 import torch
 
 from vptq.utils.reshape import reshape
+from vptq.utils.sign import pack_sign, unpack_sign
+
 
 @dataclass
 class QuantizationArguments:
@@ -29,12 +32,44 @@ class QuantizationArguments:
     enable_norm: bool = field(default=False)
     norm_dim: int = field(default=0, metadata={"help": "0: norm out feature, , 1: norm in feature"})
     enable_perm: bool = field(default=False)
-
+    enable_abs: bool = field(default=False)
+    enable_scale: bool = field(default=False)
+    # config_scale: Literal['minmax', 'np.nanstd',adamaxax'] = field(
+    #     default='minmax',
+    #     metadata={
+    #         "help": "Scaling method for quantization: "
+    #                "minmax (min-max scaling), "
+    #                "meanstd (mean-std normalization), "
+    #                "absmax (absolute max scaling)"
+    #     }
+    # )
+    # centroid_dtype: str = field(
+    #     default='int8',
+    #     metadata={
+    #         "help": "Data type for centroids. Options: fp16, bf16, fp8, int8",
+    #         "dtype_mapping": {
+    #             "fp16": torch.float16, 
+    #             "bf16": torch.bfloat16,
+    #             "fp8": torch.float8_e4m3fn,
+    #             "int8": torch.int8,
+    #         }
+    #     }
+    # )
+    # scale_dtype: str = field(
+    #     default='fp16',
+    #     metadata={
+    #         "help": "Data type for scale. Options: fp16, bf16, fp8",
+    #         "dtype_mapping": {
+    #             "fp16": torch.float16, 
+    #             "bf16": torch.bfloat16,
+    #             "fp8": torch.float8_e4m3fn,
+    #         }
+    #     }
+    # )
 
 # N-percent outlier Vector Quantizator
 # Partition data into N% outliers and (100-N)%.
 class NPVectorQuantizer:
-
     def __init__(
         self,
         layer_name,
@@ -55,12 +90,16 @@ class NPVectorQuantizer:
         # norm
         enable_norm: bool = False,
         norm_dim: int = 0,
+        enable_abs: bool = False,
         enable_perm: bool = False,
         debug: bool = False,
         # loaded_weights: dict = None,
     ):
 
         assert isinstance(num_centroids, (list, tuple))
+        if enable_abs and num_res_centroids[1] > -1:
+            raise ValueError("Cannot enable both absolute value quantization (enable_abs=True) "
+                            "and residual quantization (num_res_centroids[1] > -1) simultaneously")
 
         # self.enable_transpose = enable_transpose
         self.enable_transpose = True
@@ -97,10 +136,14 @@ class NPVectorQuantizer:
         self.enable_norm = enable_norm
         self.norm_dim = norm_dim
 
+        self.enable_abs = enable_abs
+        
         # centroids and indices
         self.centroids, self.indices = {}, {}
+        self.indices_sign = {}
         # residual centroids and indices
         self.res_centroids, self.res_indices = {}, {}
+        self.res_indices_sign = {}
         self.vector_norm = None
 
         # load checkpoint
@@ -230,6 +273,8 @@ class NPVectorQuantizer:
             if num_centroids == -1:  # Do not quantize, keep original data
                 self.centroids[idx] = None
                 self.indices[idx] = None
+                if self.enable_abs:
+                    self.indices_sign[idx] = None
                 self.logger.info(f'idx: {idx}, num_centroids: {num_centroids}, skip')
             else:
                 self.reshaper[idx] = reshape(vector_len=vector_len, enable_transpose=self.enable_transpose)
@@ -244,6 +289,13 @@ class NPVectorQuantizer:
 
                 vector_weights = vector_weights.mean(dim=1) if vector_weights is not None else None
 
+                # abs for k-means
+                if self.enable_abs:
+                    self.logger.info(f'sub_vectors shape: {sub_vectors.shape}')
+                    sub_vectors_sign = pack_sign(sub_vectors)
+                    sub_vectors = torch.abs(sub_vectors)
+                    self.logger.info(f'sub_vectors_sign shape: {sub_vectors_sign.shape}')
+
                 # convert to numpy and float32 to avoid error
                 sub_vectors = sub_vectors.to(torch.float32).cpu().numpy()
                 _kmeans.fit(sub_vectors, sample_weight=vector_weights)
@@ -253,6 +305,13 @@ class NPVectorQuantizer:
                 self.centroids[idx] = torch.from_numpy(_kmeans.cluster_centers_).to(device=data.device)
 
                 quant_data = self.centroids[idx][_kmeans.labels_]
+
+                if self.enable_abs:
+                    self.logger.info(f'quant_data shape: {quant_data.shape}, sub_vectors_sign shape: {sub_vectors_sign.shape}')
+                    unpacked_signs = unpack_sign(sub_vectors_sign, vector_len)
+                    unpacked_signs = unpacked_signs.reshape(quant_data.shape)
+                    self.logger.info(f'unpacked_signs shape: {unpacked_signs.shape}')
+                    quant_data = quant_data * unpacked_signs
 
                 self.logger.info(f'idx: {idx}, quant_data shape: {quant_data.shape}')
 
@@ -274,6 +333,7 @@ class NPVectorQuantizer:
         index: The index of the first column of the input data in the entire weight matrix
         '''
         # Input check
+        # self.logger.info(f'quantize_vector data shape: {data.shape}')
         if self.enable_transpose:
             assert data.shape[1] == 1, 'only support quantize one column each time'
             data = data.T
@@ -284,6 +344,8 @@ class NPVectorQuantizer:
             # keep original data for further quantization
             quantized_data = data
             self.indices[cidx] = None
+            if self.enable_abs:
+                self.indices_sign[cidx] = None
         else:
             # matrix to vectors
             data, is_padded, pad_cols = self.reshaper[cidx].add_padding(data)
@@ -298,10 +360,23 @@ class NPVectorQuantizer:
             padded_shape = data.shape
             data = data.reshape(-1, vector_len)
 
+            if self.enable_abs:
+                data_sign = pack_sign(data)
+                data = torch.abs(data)
+                # self.logger.info(f'data shape: {data.shape}, data_sign shape: {data_sign.shape}') 
+
             dist = torch.cdist(data.float(), self.centroids[cidx].float())
 
             indices = dist.argmin(dim=-1)
-            quantized_data = self.centroids[cidx][indices]
+            
+            if self.enable_abs:
+                quantized_data = self.centroids[cidx][indices]
+                unpacked_signs = unpack_sign(data_sign, vector_len)
+                unpacked_signs = unpacked_signs.reshape(quantized_data.shape)
+                # self.logger.info(f'indices shape: {indices.shape}, unpacked_signs shape: {unpacked_signs.shape}')
+                quantized_data = quantized_data * unpacked_signs
+            else:
+                quantized_data = self.centroids[cidx][indices]
 
             # save indices to self.indices
             # indices [out_feature / vector_len], 4096 / 8 = 512
@@ -311,6 +386,14 @@ class NPVectorQuantizer:
             else:
                 self.indices[cidx] = torch.hstack([self.indices[cidx], indices.unsqueeze(1).to(device=data.device)])
             # self.logger.info(f'self.indices[cidx]: {self.indices[cidx].shape}')
+
+            if self.enable_abs:
+                # self.logger.info(f'quantized_data shape: {quantized_data.shape}')
+                if cidx not in self.indices_sign or self.indices_sign[cidx] is None:
+                    self.indices_sign[cidx] = data_sign.unsqueeze(1).to(device=data.device)
+                else:
+                    self.indices_sign[cidx] = torch.hstack([self.indices_sign[cidx], data_sign.unsqueeze(1).to(device=data.device)])
+                    # self.logger.info(f'indices_sign[{cidx}] shape: {self.indices_sign[cidx].shape}, data_sign shape: {data_sign.shape}')
 
             # Reshape and remove padding if necessary
             quantized_data = quantized_data.reshape(padded_shape)
@@ -332,12 +415,19 @@ class NPVectorQuantizer:
             if num_centroids == -1:
                 self.res_centroids[idx] = None
                 self.res_indices[idx] = None
+                if self.enable_abs:
+                    self.res_indices_sign[idx] = None
                 self.logger.info(f'idx: {idx}, num_centroids: {num_centroids}, skip')
             else:
                 self.res_reshaper[idx] = reshape(vector_len=vector_len, enable_transpose=self.enable_transpose)
 
                 sub_vectors, padded_shape = self.res_reshaper[idx].matrix2vectors(train_data)
                 vector_weights, _ = self.res_reshaper[idx].matrix2vectors(train_weights)
+
+                if self.enable_abs:
+                    sub_vectors_sign = pack_sign(sub_vectors)
+                    sub_vectors = torch.abs(sub_vectors)
+                    self.logger.info(f'res sub_vectors_sign shape: {sub_vectors_sign.shape}')
 
                 # kmean
                 _kmeans = cuml.cluster.KMeans(
@@ -353,6 +443,12 @@ class NPVectorQuantizer:
                 self.res_centroids[idx] = torch.from_numpy(_kmeans.cluster_centers_).to(device=data.device)
                 quant_data = self.res_centroids[idx][_kmeans.labels_]
 
+                if self.enable_abs:
+                    unpacked_signs = unpack_sign(sub_vectors_sign, vector_len)
+                    unpacked_signs = unpacked_signs.reshape(quant_data.shape)
+                    self.logger.info(f'unpacked_signs shape: {unpacked_signs.shape}')
+                    quant_data = quant_data * unpacked_signs
+
                 quant_data = self.res_reshaper[idx].remove_padding(quant_data.reshape(padded_shape))
 
                 self.logger.info(f'idx: {idx}, res quant_data shape: {quant_data.shape}')
@@ -365,6 +461,7 @@ class NPVectorQuantizer:
         return quant_data
 
     # residual quantize
+    # quantize vector with residual to index
     def quantize_residual_vector(self, data, index):
         '''
         input data shape: if not transposed [-1,vector_len] else [nrows,1]

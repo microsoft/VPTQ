@@ -11,6 +11,9 @@ import torch.nn as nn
 from torch.nn import functional as F
 from torch.nn.parameter import Parameter
 
+
+from vptq.utils.sign import unpack_sign
+
 class VQuantLinear(nn.Module):
 
     def __init__(
@@ -31,6 +34,8 @@ class VQuantLinear(nn.Module):
         enable_norm: bool = False,
         norm_dim: int = 0,
         enable_perm: bool = False,
+        enable_abs: bool = False,
+        norm_dim: int = 0,
         is_indice_packed: bool = False,
         # configuration
         bias: bool = False,
@@ -56,6 +61,8 @@ class VQuantLinear(nn.Module):
             "enable_norm": enable_norm,
             "norm_dim": norm_dim,
             "enable_perm": enable_perm,
+            "enable_abs": enable_abs,
+            "norm_dim": norm_dim,
             "bias": bias,
             "is_indice_packed": is_indice_packed,
         }
@@ -98,6 +105,7 @@ class VQuantLinear(nn.Module):
             self.transpose = True
 
         self.num_indices = (self.out_features + self.padding) // self.vector_len
+        self.enable_abs = enable_abs
 
         # set outliers
         if vector_lens[0] > 1 and num_centroids[0] > 0:
@@ -120,6 +128,12 @@ class VQuantLinear(nn.Module):
                 torch.empty((1, self.ouliter_num_indices, self.outlier_size), dtype=torch.int16, device=device),
                 requires_grad=False,
             )
+
+            if self.enable_abs:
+                self.outlier_indices_sign = Parameter(
+                    torch.empty((1, self.ouliter_num_indices, self.outlier_size), dtype=torch.int16, device=device),
+                    requires_grad=False,
+                )
 
         else:
             self.enable_outlier = False
@@ -182,14 +196,22 @@ class VQuantLinear(nn.Module):
                                 device=device),
                     requires_grad=False,
                 )
+                # TODO: FIX IT FOR ABS SIGN
+                assert self.enable_abs is False, "Not implemented"
             else:
-
                 self.indices = Parameter(
                     torch.empty((self.num_codebooks, self.num_indices, self.group_size),
                                 dtype=torch.int16,
                                 device=device),
                     requires_grad=False,
                 )
+                if self.enable_abs:
+                    self.indices_sign = Parameter(
+                        torch.empty((self.num_codebooks, self.num_indices, self.group_size),
+                                    dtype=torch.int16,
+                                    device=device),
+                        requires_grad=False,
+                    )
 
         # set residual centroids and indices
         if self.enable_residual:
@@ -204,9 +226,19 @@ class VQuantLinear(nn.Module):
                                 device=device),
                     requires_grad=False,
                 )
+                if self.enable_abs:
+                    self.res_indices_sign = Parameter(
+                        torch.empty((self.num_codebooks, self.num_indices, self.group_size),
+                                    dtype=torch.int16,
+                                    device=device),
+                        requires_grad=False,
+                    )
+ 
         else:
             self.res_centroids = self.register_parameter("res_centroids", None)
             self.res_indices = self.register_parameter("res_indices", None)
+            if self.enable_abs:
+                self.res_indices_abs = self.register_parameter("res_indices_abs", None)
 
     # initialize parameters
     def init_parameters(
@@ -217,7 +249,8 @@ class VQuantLinear(nn.Module):
         res_indices=None,
         weight_scale=None,
         weight_bias=None,
-        weight=None,
+        indices_sign=None,
+        res_indices_sign=None,
         bias=None,
         perm=None,
         dtype=None,
@@ -241,6 +274,13 @@ class VQuantLinear(nn.Module):
                 outlier_indices = outlier_indices.unsqueeze(0)
             self.outlier_indices.data = outlier_indices
 
+            if self.enable_abs:
+                outlier_indices_sign = indices_sign[0]
+                outlier_indices_sign = (
+                    outlier_indices_sign.clone().detach().to(self.outlier_centroids.weight.device)
+                )
+                self.outlier_indices_sign.data = outlier_indices_sign
+            
         # step 2, handle main centroids and indices
         _centroids = []
         keys = sorted(centroids.keys())
@@ -261,6 +301,15 @@ class VQuantLinear(nn.Module):
         _indices = _indices.reshape(self.num_codebooks, self.num_indices, self.group_size)
 
         self.indices.data = _indices.to(torch.uint16).view(torch.int16).to(self.centroids.weight.device)
+        if self.enable_abs:
+            _indices_sign = []
+            keys = sorted(indices_sign.keys())
+            for cidx in keys[1:]:
+                _indices_sign.append(indices_sign[cidx])
+            _indices_sign = torch.stack(_indices_sign, dim=0)
+            _indices_sign = _indices_sign.reshape(self.num_codebooks, self.num_indices, self.group_size)
+            self.indices_sign.data = _indices_sign.to(self.centroids.weight.device)
+
 
         # step 3: handle residual
         if self.enable_residual:
@@ -284,6 +333,13 @@ class VQuantLinear(nn.Module):
             self.res_indices.data = (
                 _res_indices.to(torch.uint16).view(torch.int16).to(self.res_centroids.weight.device)
             )
+            if self.enable_abs:
+                keys = sorted(res_indices_sign.keys())
+                for cidx in keys[1:]:
+                    _res_indices_sign.append(res_indices_sign[cidx])
+                _res_indices_sign = torch.stack(_res_indices_sign, dim=0)
+                _res_indices_sign = _res_indices_sign.reshape(self.num_codebooks, self.num_indices, self.vector_len, self.group_size)
+                self.res_indices_sign.data = _res_indices_sign.to(self.res_centroids.weight.device)
 
         if self.enable_norm:
             self.weight_scale.data = weight_scale.to(self.centroids.weight.device)
@@ -433,21 +489,19 @@ class VQuantLinear(nn.Module):
         if self.is_indice_packed:
             index_bits = math.ceil(math.log2(self.num_centroids))
             index_res_bits = math.ceil(math.log2(self.num_res_centroids)) if self.enable_residual else 0
-
-            # print(f'self.indices shape: {self.indices.shape}')
-            indices, res_indices = self.unpack_index_tensor(
-                pack_tensor=self.indices,
-                index_bits=index_bits,
-                num_elements=self.group_size,
-                res_bits=index_res_bits,
-                num_res_elements=self.group_size,
-                index_dtype=torch.uint16,
-            )
-
-            # print(f'indices: {indices.shape}')
-            # if self.enable_residual:
-            #     print(f'res_indices: {res_indices.shape}')
-
+            
+            if self.enable_abs is False:
+                # print(f'self.indices shape: {self.indices.shape}')
+                indices, res_indices = self.unpack_index_tensor(
+                    pack_tensor=self.indices,
+                    index_bits=index_bits,
+                    num_elements=self.group_size,
+                    res_bits=index_res_bits,
+                    num_res_elements=self.group_size,
+                    index_dtype=torch.uint16,
+                )
+            else:
+                assert True, "Not implemented"
         else:
             indices = self.indices.view(torch.uint16).to(torch.int64)
             if self.enable_residual:
@@ -457,6 +511,16 @@ class VQuantLinear(nn.Module):
 
         # print(f'2 indices: {indices.shape}')
         indices = indices.reshape(self.num_codebooks, -1, self.vector_len)
+        
+        if self.enable_abs:
+            indices_sign = self.indices_sign
+            # print(f'indices_sign: {indices_sign.shape}') 
+            # TODO: check?
+            indices_sign = unpack_sign(indices_sign, self.vector_len)
+            # print(f'unpacked indices_sign: {indices_sign.shape}')
+            # num_codebooks, num_indices, group_size, vector_len
+            # indices_sign = indices_sign.reshape(self.num_codebooks, -1, self.group_size, self.vector_len)
+             
         # print(f'3 indices: {indices.shape}')
         # print(f'4 indices: {indices}')
 
@@ -466,6 +530,10 @@ class VQuantLinear(nn.Module):
         # selected_centroids = selected_centroids.view(
         #     self.num_codebooks, -1, self.in_features - len(self.outlier_idices), self.vector_len)
         selected_centroids = selected_centroids.view(self.num_codebooks, -1, self.group_size, self.vector_len)
+        
+        if self.enable_abs:
+            # TODO: check?
+            selected_centroids = selected_centroids * indices_sign
         
         # print(f'3 selected_centroids: {selected_centroids.shape}')
         # print(f'4 selected_centroids: {selected_centroids}')
@@ -484,14 +552,23 @@ class VQuantLinear(nn.Module):
             res_centroids = self.res_centroids.weight.view(self.num_codebooks, self.num_res_centroids, self.vector_len)
 
             res_indices = res_indices.unsqueeze(-1).expand(-1, -1, -1, self.vector_len)
-
             res_indices = res_indices.reshape(self.num_codebooks, -1, self.vector_len)
+
+            if self.enable_abs:
+                res_indices_sign = self.res_indices_sign
+                res_indices_sign = unpack_sign(res_indices_sign)
+                # TODO: check?
+                res_indices_sign = res_indices_sign.view(self.num_codebooks, -1, self.group_size, self.vector_len)
 
             selected_res_centroids = torch.gather(res_centroids, 1, res_indices)
 
             selected_res_centroids = selected_res_centroids.reshape(
                 self.num_codebooks, -1, self.group_size, self.vector_len
             )
+
+            if self.enable_abs:
+                # TODO: check?
+                selected_res_centroids = selected_res_centroids * res_indices_sign
 
             selected_res_centroids = selected_res_centroids.permute(0, 1, 3, 2)
 
@@ -522,6 +599,14 @@ class VQuantLinear(nn.Module):
             selected_outlier_centroids = selected_outlier_centroids.reshape(
                 1, -1, self.outlier_size, self.outlier_vector_len
             )
+
+            if self.enable_abs:
+                # TODO: check?
+                outlier_indices_sign = self.outlier_indices_sign
+                outlier_indices_sign = unpack_sign(outlier_indices_sign)
+                # outlier_indices_sign = outlier_indices_sign.view(1, -1, self.outlier_vector_len, self.outlier_size)
+                selected_outlier_centroids = selected_outlier_centroids * outlier_indices_sign
+
             selected_outlier_centroids = selected_outlier_centroids.permute(0, 1, 3, 2)
 
             qweight_outlier = selected_outlier_centroids.reshape(-1, self.outlier_size)
@@ -551,7 +636,6 @@ class VQuantLinear(nn.Module):
             else:
                 qweight = qweight * self.weight_scale.unsqueeze(self.norm_dim)
                 qweight = qweight + self.weight_bias.unsqueeze(self.norm_dim)
-
         return qweight
 
     def forward(self, x):

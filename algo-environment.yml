@@ -1,4 +1,4 @@
-name: vptq-algo-rotate
+name: vptq-algo-lattice
 channels:
   - conda-forge
   - nvidia
