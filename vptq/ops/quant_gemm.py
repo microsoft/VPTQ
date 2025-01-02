@@ -6,9 +6,11 @@
 __all__ = [
     "dequant",
     "quant_gemm",
+    "quant_gemm_v2",
 ]
 
 import math
+from typing import Optional
 
 import torch
 from torch.nn import functional as F
@@ -154,13 +156,13 @@ def dequant(
 
 def quant_gemm(
     x: torch.Tensor,
-    bias: torch.Tensor,
+    bias: Optional[torch.Tensor],
     indices: torch.Tensor,
     centroids: torch.Tensor,
-    outlier_indices: torch.Tensor,
-    outlier_centroids: torch.Tensor,
-    residual_indices: torch.Tensor,
-    residual_centroids: torch.Tensor,
+    outlier_indices: Optional[torch.Tensor],
+    outlier_centroids: Optional[torch.Tensor],
+    residual_indices: Optional[torch.Tensor],
+    residual_centroids: Optional[torch.Tensor],
     perm: torch.Tensor,
     weight_scale: torch.Tensor,
     weight_bias: torch.Tensor,
@@ -179,7 +181,7 @@ def quant_gemm(
     outlier_padding: int,
     vector_quant_dim: str = "out"
 ) -> torch.Tensor:
-    r"""Dequantize the input tensor and perform GEMM operation.
+    """Dequantize the input tensor and perform GEMM operation.
     """
     centroids_ = centroids.view(num_codebooks, num_centroids, vector_len)
 
@@ -206,6 +208,7 @@ def quant_gemm(
         invert_perm = invert_perm.to(torch.uint16).view(torch.int16)
 
     if (x.numel() // x.shape[-1] < 3) and __cuda_ops_installed:
+
         out = vptq_ops.gemm(
             x,
             indices,
@@ -218,7 +221,6 @@ def quant_gemm(
             weight_scale,
             weight_bias,
             bias,
-            vector_len,
             in_features,
             out_features,
         )
@@ -268,6 +270,73 @@ def quant_gemm(
                 outlier_padding=outlier_padding,
                 vector_quant_dim=vector_quant_dim
             )
-
         out = F.linear(x, weight, bias)
         return out
+
+
+def quant_gemm_v2(
+    x: torch.Tensor,
+    bias: Optional[torch.Tensor],
+    indices: torch.Tensor,
+    centroids: torch.Tensor,
+    residual_centroids: Optional[torch.Tensor],
+    scale_weights: Optional[torch.Tensor],
+    scale_bias: Optional[torch.Tensor],
+    vector_len: int,
+    num_codebooks: int,
+    num_centroids: int,
+    num_residual_centroids: int,
+    in_features: int,
+    out_features: int,
+) -> torch.Tensor:
+    """ Dequantize the input tensor and perform GEMM operation.
+    
+    Args:
+        x: Tensor[fp16|bf16], has a shape of (batch_size, sequence_length, 
+           in_features). NOTE that `batch_size` here represents the number of 
+           sequences, not tokens.
+        bias: (optional) Tensor[fp16|bf16], has a shape of (1, out_features)
+        indices: Tensor[int16], the original input tensor is flattened into a
+                 vector with a shape of (1, numel). Then, internally, it will be
+                 reshaped into a 3D tensor with a shape of
+                 (num_codebooks, num_indices, packed_groupsize).
+                 NOTE: If the residual quantization component is enabled,
+                 indices for the main quantization component and the residual
+                 quantization component are packed together into this single
+                 input tensor.
+        centroids: Tensor[fp16|bf16], the original input tensor is flatten into
+                   a vector that has a shape of (1, numel), and then be
+                   reshaped internally into a 3-D tensor with a shape of
+                   (num_codebooks, num_centroids, vector_len).
+        residual_centroids: (optional) Tensor[fp16|bf16], has a shape of
+                            (num_codebooks, num_residual_centroids, vector_len).
+        scale_weights: (optional) Tensor[fp16|bf16], the scale factor for the
+                      quantized weight.
+        scale_bias: (optional) Tensor[fp16|bf16], the bias factor for the
+                    quantized weight.
+        vector_len: int, the length of the vector in vector quantization.
+        num_codebooks: int, the number of codebooks.
+        num_centroids: int, the number of centroids.
+        num_residual_centroids: int, the number of residual centroids.
+        in_features: int, the number of input features.
+        out_features: int, the number of output features.
+    """
+    centroids_ = centroids.view(num_codebooks, num_centroids, vector_len)
+
+    residual_centroids_ = None
+    if residual_centroids is not None:
+        shape = (num_codebooks, num_residual_centroids, vector_len)
+        residual_centroids_ = residual_centroids.view(shape)
+
+    out = vptq_ops.quant_gemm(
+        x,
+        bias,
+        indices,
+        centroids_,
+        residual_centroids_,
+        scale_weights,
+        scale_bias,
+        in_features,
+        out_features,
+    )
+    return out

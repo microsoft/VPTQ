@@ -7,7 +7,6 @@
 
 #include <torch/extension.h>
 
-namespace vptq {
 #define CHECK_CUDA(x) \
   TORCH_CHECK(x.device().is_cuda(), #x " must be a CUDA tensor")
 #define CHECK_CONTIGUOUS(x) \
@@ -16,6 +15,7 @@ namespace vptq {
   CHECK_CUDA(x);       \
   CHECK_CONTIGUOUS(x)
 
+namespace vptq {
 torch::Tensor launch_deqantize_outliers_cuda_packkernel(
     const int64_t* outf_x_inf, const torch::Tensor& q_indice,
     const torch::Tensor& centroids,
@@ -98,19 +98,17 @@ torch::Tensor dequant(const torch::Tensor& q_indice,
   return output;
 }
 
-torch::Tensor wqA16Gemm(const torch::Tensor& input,
-                        const torch::Tensor& q_indice,
-                        const torch::Tensor& centroids,
-                        const c10::optional<torch::Tensor>& q_indice_residual,
-                        const c10::optional<torch::Tensor>& residual_centroids,
-                        const c10::optional<torch::Tensor>& q_indice_outliers,
-                        const c10::optional<torch::Tensor>& outliers_centroids,
-                        const c10::optional<torch::Tensor>& invperm,
-                        const torch::Tensor& weight_scale,
-                        const torch::Tensor& weight_bias,
-                        const c10::optional<torch::Tensor>& bias,
-                        int64_t groupsize, int64_t in_features,
-                        int64_t out_features) {
+torch::Tensor wquant_act16_gemv(
+    const torch::Tensor& input, const torch::Tensor& q_indice,
+    const torch::Tensor& centroids,
+    const c10::optional<torch::Tensor>& q_indice_residual,
+    const c10::optional<torch::Tensor>& residual_centroids,
+    const c10::optional<torch::Tensor>& q_indice_outliers,
+    const c10::optional<torch::Tensor>& outliers_centroids,
+    const c10::optional<torch::Tensor>& invperm,
+    const torch::Tensor& weight_scale, const torch::Tensor& weight_bias,
+    const c10::optional<torch::Tensor>& bias, int64_t in_features,
+    int64_t out_features) {
   CHECK_INPUT(q_indice);
   CHECK_INPUT(input);
   if (q_indice_residual.has_value()) {
@@ -128,8 +126,6 @@ torch::Tensor wqA16Gemm(const torch::Tensor& input,
     CHECK_INPUT(invperm.value());
     inv_perm_device_index = invperm.value().device().index();
   }
-
-  TORCH_CHECK_GE(groupsize, 2) << "groupsize must be >= 2.";
 
   if (q_indice_residual.has_value()) {
     TORCH_CHECK_EQ(centroids.sizes(), residual_centroids.value().sizes())
@@ -154,6 +150,18 @@ torch::Tensor wqA16Gemm(const torch::Tensor& input,
       weight_scale, weight_bias, bias);
 
   gpuErrchk(cudaPeekAtLastError());
+  return output;
+}
+
+torch::Tensor quant_gemm(const torch::Tensor& activations,
+                         const c10::optional<torch::Tensor>& bias,
+                         const torch::Tensor& indices,
+                         const torch::Tensor& centroids,
+                         const c10::optional<torch::Tensor>& residual_centroids,
+                         const c10::optional<torch::Tensor>& scale_weights,
+                         const c10::optional<torch::Tensor>& scale_bias,
+                         int64_t in_features, int64_t out_features) {
+  torch::Tensor output;
 
   return output;
 }
@@ -165,5 +173,6 @@ PYBIND11_MODULE(libvptq, m) {
   m.doc() = "VPTQ customized kernels.";
 
   m.def("dequant", &vptq::dequant, "vptq customized dequantization kernel.");
-  m.def("gemm", &vptq::wqA16Gemm, "vptq customized dequantized gemv kernel.");
+  m.def("gemm", &vptq::wquant_act16_gemv,
+        "vptq customized dequantized gemv kernel.");
 }

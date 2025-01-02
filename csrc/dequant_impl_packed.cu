@@ -65,7 +65,6 @@ __global__ void WqA16WithOutliers_PackIndice(
       Do_Reduce ? min((bidz + 1) * cuda::kBlockSize * Do_Reduce, in_features)
                 : in_features;
   for (int col = tidx; col < col_end; col += cuda::kBlockSize) {
-    // const scalar_t scale = shared_w_scales[col];
     const int w_col = Do_Reduce ? (invert_perm ? invert_perm[col] : col) : 0;
     const scalar_t input_col_v = input_data[w_col];
     const scalar_t bias = input_col_v * weight_bias[w_col];
@@ -112,7 +111,7 @@ __global__ void WqA16WithOutliers_PackIndice(
       const scalar_t* centroids_cb = centroids;
       const scalar_t* residual_centroids_cb = residual_centroids;
       const uint32_t* q_indice_cb = (const uint32_t*)q_indice;
-      if (group_nums > 1) {  // has multi-ple codebooks
+      if (group_nums > 1) {  // has multiple codebooks
         mappped_inx_in_a_codebook =
             mapped_inliers_inx % inliers_infeatures_in_group;
         const int code_books_id =
@@ -145,7 +144,6 @@ __global__ void WqA16WithOutliers_PackIndice(
 #pragma unroll
         for (int i = 0; i < GROUPSIZE / 2; i++) {
           hres[i] = ADD2(*(((VecType*)base) + i), *(((VecType*)residual) + i));
-          // hres[i] = FMA2(hres[i], scale2, bias2);
         }
       } else {
         hres_ptr = (VecType*)base;
@@ -160,8 +158,7 @@ __global__ void WqA16WithOutliers_PackIndice(
     }
   }
 
-  // warp_size = WARP_SIZE
-  int warpid = threadIdx.x / WARP_SIZE;  // at most 8 warp= 256/WARP_SIZE
+  int warpid = threadIdx.x / WARP_SIZE;  // at most 8 warp = 256 / WARP_SIZE
   int landid = threadIdx.x % WARP_SIZE;
 #pragma unroll
   for (int gi = 0; gi < GROUPSIZE; gi++) {
@@ -233,8 +230,6 @@ __global__ void DequantizeWithOutliers_PackIndice(
       if (in_y * n_outlisers_groups_in_normalgroup + i >=
           out_features / OL_GroupSize)
         return;
-      // const uint16_t outliers_ind =
-      // q_indice_outliers[(in_y*n_outlisers_groups_in_normalgroup+i)*outliers_infeatures+mapped_index_x];
       const uint16_t outliers_ind = q_indice_outliers[(i)*outliers_infeatures];
       const scalar_t* outliers_centroids_start =
           outliers_centroids + outliers_ind * OL_GroupSize;
@@ -259,7 +254,7 @@ __global__ void DequantizeWithOutliers_PackIndice(
   const int mappped_inx_in_a_codebook =
       mapped_inliers_inx % inliers_infeatures_in_group;
 
-  if (group_nums > 1) {  // has multi-ple codebooks
+  if (group_nums > 1) {  // has multiple codebooks
     q_indice += code_books_id * index_stride_0;
     centroids += code_books_id * centroids_stride_0;
     residual_centroids += code_books_id * centroids_stride_0;
