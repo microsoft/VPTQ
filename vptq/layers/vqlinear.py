@@ -11,6 +11,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 from torch.nn.parameter import Parameter
 
+
 from vptq.utils.sign import unpack_sign
 
 class VQuantLinear(nn.Module):
@@ -31,6 +32,7 @@ class VQuantLinear(nn.Module):
         group_size: int,
         outlier_size: int,
         enable_norm: bool = False,
+        norm_dim: int = 0,
         enable_perm: bool = False,
         enable_abs: bool = False,
         norm_dim: int = 0,
@@ -57,6 +59,7 @@ class VQuantLinear(nn.Module):
             "group_size": group_size,
             "outlier_size": outlier_size,
             "enable_norm": enable_norm,
+            "norm_dim": norm_dim,
             "enable_perm": enable_perm,
             "enable_abs": enable_abs,
             "norm_dim": norm_dim,
@@ -145,11 +148,18 @@ class VQuantLinear(nn.Module):
 
         # process norm
         self.enable_norm = enable_norm
+        self.norm_dim = norm_dim
+        
         if self.enable_norm:
-            self.norm_dim = norm_dim
-            features = self.in_features if norm_dim == 0 else self.out_features
-            self.weight_scale = Parameter(torch.empty(features, **factory_kwargs), requires_grad=True)
-            self.weight_bias = Parameter(torch.empty(features, **factory_kwargs), requires_grad=True)
+            if self.vector_quant_dim == "in":
+                assert True, "Not implemented"
+            else:
+                if self.norm_dim == 0:
+                    self.weight_scale = Parameter(torch.empty(self.in_features, **factory_kwargs), requires_grad=True)
+                    self.weight_bias = Parameter(torch.empty(self.in_features, **factory_kwargs), requires_grad=True)
+                else:
+                    self.weight_scale = Parameter(torch.empty(self.out_features, **factory_kwargs), requires_grad=True)
+                    self.weight_bias = Parameter(torch.empty(self.out_features, **factory_kwargs), requires_grad=True)
 
         # process permutation
         self.enable_perm = enable_perm
@@ -624,8 +634,8 @@ class VQuantLinear(nn.Module):
                 qweight = qweight * self.weight_scale
                 qweight = qweight + self.weight_bias
             else:
-                qweight = qweight * self.weight_scale.unsqueeze(-1)
-                qweight = qweight + self.weight_bias.unsqueeze(-1)
+                qweight = qweight * self.weight_scale.unsqueeze(self.norm_dim)
+                qweight = qweight + self.weight_bias.unsqueeze(self.norm_dim)
         return qweight
 
     def forward(self, x):
@@ -634,6 +644,7 @@ class VQuantLinear(nn.Module):
         qweight = self.fast_dequant()
         if qweight is None:
             qweight = self.dequant()
+        
         return F.linear(x, qweight, self.bias)
 
     # proxy error

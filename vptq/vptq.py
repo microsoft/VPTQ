@@ -5,6 +5,7 @@
 
 import time
 
+from numpy import int_
 import torch
 import torch.nn as nn
 import transformers
@@ -31,7 +32,7 @@ class VPTQ:
         percdamp=.01,
         group_size=-1,
         group_num=-1,
-        enable_perm=None,
+        enable_perm=False,
         enable_norm=False,
         norm_dim=0,
         enable_abs=False,
@@ -176,10 +177,7 @@ class VPTQ:
             )
 
         # permute weight and hessian
-        if self.quantizer.enable_perm is not None:
-            # if self.quantizer.enable_perm == 'hessian':
-            #     self.quantizer.perm = torch.argsort(torch.diag(hessian), descending=True)
-            # init perm in quantizer
+        if self.quantizer.enable_perm:
             self.quantizer.init_perm(hessian, self.perm)
             # reorder weight and H
             weight = weight[:, self.quantizer.perm]
@@ -192,6 +190,10 @@ class VPTQ:
             else:
                 kmeans_weight = None
         else:
+            # reverse perm hesisan
+            if self.perm is not None:
+                inv_perm = torch.argsort(self.perm)
+                inv_hessian = inv_hessian[inv_perm][:, inv_perm]
             self.quantizer.perm = torch.arange(weight.shape[1])
 
         # save gpu memory
@@ -205,11 +207,12 @@ class VPTQ:
             # clone weight and hessian, vptq will modify them in-place
             _weight = weight.clone().to(self.dev)
             _hessian = hessian.clone().to(self.dev)
+            
             tick = time.time() if self.debug else None
 
             # run k-means, init centroids and get quantized data by k-means
             qweight_init = self.quantizer.init_centroids_indices(data=_weight, weights=kmeans_weight)
-
+            
             if self.debug:
                 self.logger.info(f'{self.layer_name} 1st kmeans time: {time.time() - tick}')
                 self.logger.info(

@@ -78,6 +78,8 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 kmeans_mode='hessian',
                 iter=quant_args.kiter,
                 tol=quant_args.ktol,
+                enable_norm=quant_args.enable_norm,
+                norm_dim=quant_args.norm_dim,
                 debug=True,
                 norm_dim=quant_args.norm_dim,
                 enable_abs=quant_args.enable_abs,
@@ -97,7 +99,7 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 logger=logger,
                 collect_act=False,
                 layer_name=layer_name,
-                enable_perm='hessian',
+                enable_perm=quant_args.enable_perm,
                 enable_norm=quant_args.enable_norm,
                 norm_dim=quant_args.norm_dim,
                 enable_abs=quant_args.enable_abs,
@@ -148,7 +150,8 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 outlier_size=quantizer.outlier_size,
                 bias=True if linear.bias is not None else False,
                 enable_norm=quant_args.enable_norm,
-                enable_perm=True if _vptq.quantizer.enable_perm is not None else False,
+                norm_dim=quant_args.norm_dim,
+                enable_perm=quant_args.enable_perm,
                 norm_dim=quant_args.norm_dim,
                 enable_abs=quant_args.enable_abs,
                 # enable_residual=True,
@@ -174,7 +177,7 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 res_indices_sign=res_indices_sign,
                 bias=linear.bias,
                 perm=perm,
-                dtype=dtype
+                dtype=dtype,
             )
 
             qlayer.to(dev)

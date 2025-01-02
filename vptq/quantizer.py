@@ -15,6 +15,7 @@ import torch
 from vptq.utils.reshape import reshape
 from vptq.utils.sign import pack_sign, unpack_sign
 
+
 @dataclass
 class QuantizationArguments:
     vector_lens: List[int] = field(default_factory=lambda: [-1, 1])
@@ -29,7 +30,7 @@ class QuantizationArguments:
     kmeans_mode: str = field(default=None)
     kmeans_alpha: float = field(default=0)
     enable_norm: bool = field(default=False)
-    norm_dim: int = field(default=0)
+    norm_dim: int = field(default=0, metadata={"help": "0: norm out feature, , 1: norm in feature"})
     enable_perm: bool = field(default=False)
     enable_abs: bool = field(default=False)
     enable_scale: bool = field(default=False)
@@ -164,9 +165,14 @@ class NPVectorQuantizer:
         self.prefix_layer_name = 'model.layers.'
 
     def init_norm(self, weight):
-        self.weight_scale = torch.std(weight, dim=self.norm_dim)
-        self.weight_bias = torch.mean(weight, dim=self.norm_dim)
-
+        # self.weight_scale = torch.std(weight, dim=self.norm_dim)
+        # self.weight_bias = torch.mean(weight, dim=self.norm_dim)
+        weight_min = torch.min(weight, dim=self.norm_dim).values
+        weight_max = torch.max(weight, dim=self.norm_dim).values
+        weight_scale = weight_max - weight_min
+        self.weight_scale = weight_scale
+        self.weight_bias = weight_min
+        
         if self.debug:
             self.logger.info(
                 f'enabling norm dim {self.norm_dim}, '
@@ -318,6 +324,7 @@ class NPVectorQuantizer:
 
         quantized_data = torch.hstack(quantized_data)
         self.logger.info(f'quantized_data shape: {quantized_data.shape}')
+        
         return quantized_data
 
     def quantize_vector(self, data, index):
@@ -428,7 +435,7 @@ class NPVectorQuantizer:
                 )
 
                 self.logger.info(f'kmeans_mode: {self.kmeans_mode}, cuml kmeans, {num_centroids} clusters')
-                # self.logger.info(sub_vectors.shape)
+                
                 sub_vectors = sub_vectors.to(torch.float32).cpu().numpy()
                 _kmeans.fit(sub_vectors, sample_weight=vector_weights)
                 self.logger.info(f'cuml kmeans {_kmeans.n_iter_} iterations, error {_kmeans.inertia_}')

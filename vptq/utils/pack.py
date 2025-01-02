@@ -183,11 +183,12 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
                     sub_mod.outlier_indices.data = dtype_convert(
                         sub_mod.outlier_indices.data, from_dtype, to_dtype, as_type
                     )
-
-            if sub_mod.perm.dtype == torch.int64:
-                sub_mod.perm.data = dtype_convert(sub_mod.perm.data, sub_mod.perm.data.dtype, to_dtype, as_type)
-            else:
-                sub_mod.perm.data = dtype_convert(sub_mod.perm.data, from_dtype, to_dtype, as_type)
+            # if sub_mod has perm
+            if hasattr(sub_mod, 'perm'):
+                if sub_mod.perm.dtype == torch.int64:
+                    sub_mod.perm.data = dtype_convert(sub_mod.perm.data, sub_mod.perm.data.dtype, to_dtype, as_type)
+                else:
+                    sub_mod.perm.data = dtype_convert(sub_mod.perm.data, from_dtype, to_dtype, as_type)
 
             sub_mod.indices.data = pack_index(
                 indice=sub_mod.indices,
