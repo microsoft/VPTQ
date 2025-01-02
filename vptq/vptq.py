@@ -223,7 +223,7 @@ class VPTQ:
                 _weight = hadamard_transform(_weight)
                 _hessian = hadamard_transform(_hessian)
                 _hessian = _hessian.transpose(1, 0)
-                _hessian = hadamard_transform(_hessian, scale=1.0 / _hessian.shape[1])
+                _hessian = hadamard_transform(_hessian)
                 _hessian = _hessian.transpose(1, 0)
 
             tick = time.time() if self.debug else None
@@ -257,7 +257,7 @@ class VPTQ:
             _weight = hadamard_transform(_weight)
             _hessian = hadamard_transform(_hessian)
             _hessian = _hessian.transpose(1, 0)
-            _hessian = hadamard_transform(_hessian, scale=1.0 / _hessian.shape[1])
+            _hessian = hadamard_transform(_hessian)
             _hessian = _hessian.transpose(1, 0)
         # first round vptq
         qweight, qerror = self.vptq(_weight, _hessian, inv_hessian=_inv_hessian)
@@ -309,7 +309,7 @@ class VPTQ:
                 _weight = hadamard_transform(_weight)
                 _hessian = hadamard_transform(_hessian)
                 _hessian = _hessian.transpose(1, 0)
-                _hessian = hadamard_transform(_hessian, scale=1.0 / _hessian.shape[1])
+                _hessian = hadamard_transform(_hessian)
                 _hessian = _hessian.transpose(1, 0)
 
             # step 3.2: VPTQ with initialzed residual centroids

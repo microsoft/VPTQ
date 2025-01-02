@@ -567,7 +567,8 @@ class VQuantLinear(nn.Module):
         if qweight is None:
             qweight = self.dequant()
         
-        x = hadamard_transform(x, scale=1.0 / x.shape[1])        
+        if self.enable_rotate:
+            x = hadamard_transform(x)        
     
         return F.linear(x, qweight, self.bias)
 
