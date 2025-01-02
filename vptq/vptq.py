@@ -179,9 +179,6 @@ class VPTQ:
 
         # permute weight and hessian
         if self.quantizer.enable_perm:
-            # if self.quantizer.enable_perm == 'hessian':
-            #     self.quantizer.perm = torch.argsort(torch.diag(hessian), descending=True)
-            # init perm in quantizer
             self.quantizer.init_perm(hessian, self.perm)
             # reorder weight and H
             weight = weight[:, self.quantizer.perm]

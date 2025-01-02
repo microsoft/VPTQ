@@ -146,7 +146,7 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 bias=True if linear.bias is not None else False,
                 enable_norm=quant_args.enable_norm,
                 norm_dim=quant_args.norm_dim,
-                enable_perm=True if _vptq.quantizer.enable_perm is not None else False,
+                enable_perm=quant_args.enable_perm,
                 # enable_residual=True,
                 vector_quant_dim='out',
                 device=dev,
