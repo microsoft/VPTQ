@@ -35,7 +35,6 @@ class VQuantLinear(nn.Module):
         norm_dim: int = 0,
         enable_perm: bool = False,
         enable_abs: bool = False,
-        norm_dim: int = 0,
         is_indice_packed: bool = False,
         # configuration
         bias: bool = False,

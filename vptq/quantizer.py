@@ -7,7 +7,6 @@ import math
 from dataclasses import dataclass, field
 from typing import List, Tuple
 
-from babel.src.babel.azure.ml.babel.dependencies.fairseq.optim import adamax
 import cuml
 import numpy as np
 import torch
