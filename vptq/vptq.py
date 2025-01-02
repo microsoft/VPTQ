@@ -35,7 +35,6 @@ class VPTQ:
         enable_perm=False,
         enable_norm=False,
         norm_dim=0,
-        rotate_dim=0,
         debug=False
     ):
         # set layer

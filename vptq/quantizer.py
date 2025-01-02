@@ -27,9 +27,8 @@ class QuantizationArguments:
     kmeans_mode: str = field(default=None)
     kmeans_alpha: float = field(default=0)
     enable_norm: bool = field(default=False)
-    norm_dim: int = field(default=0)
+    norm_dim: int = field(default=0, metadata={"help": "0: norm out feature, , 1: norm in feature"})
     enable_perm: bool = field(default=False)
-    rotate_dim: int = field(default=0)
 
 
 # N-percent outlier Vector Quantizator
@@ -57,7 +56,6 @@ class NPVectorQuantizer:
         enable_norm: bool = False,
         norm_dim: int = 0,
         enable_perm: bool = False,
-        rotate_dim: int = 0,
         debug: bool = False,
         # loaded_weights: dict = None,
     ):
@@ -98,9 +96,6 @@ class NPVectorQuantizer:
 
         self.enable_norm = enable_norm
         self.norm_dim = norm_dim
-
-        # rotate
-        self.rotate_dim = rotate_dim
 
         # centroids and indices
         self.centroids, self.indices = {}, {}
