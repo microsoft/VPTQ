@@ -32,10 +32,11 @@ class TestQuantGemv(unittest.TestCase):
 
         torch.manual_seed(1234)
 
-        # input tensor
+        # the activation tensor
         shape = (batch_size, length, self.in_features)
         self.x = torch.randn(*shape, device=device, dtype=dtype)
 
+        # the quantized weight tensor
         shape = (self.num_codebooks, num_vecs, self.in_features)
         self.indices = torch.randn(*shape, device=device, dtype=dtype)
 
@@ -48,12 +49,14 @@ class TestQuantGemv(unittest.TestCase):
         shape = (1, self.out_features)
         self.bias = torch.randn(*shape, device=device, dtype=dtype)
 
+        # the scaling and bias tensors. NOTE, the scale weights and bias are
+        # applied to the in_features in this test
         shape = (1, self.in_features)
         self.scale_weights = torch.randn(*shape, device=device, dtype=dtype)
         self.scale_bias = torch.randn(*shape, device=device, dtype=dtype)
 
     def test(self):
-        out = vptq.ops.quant_gemm_v2(
+        out = vptq.ops.quant_gemv_v2(
             self.x,
             bias=self.bias,
             indices=self.indices,

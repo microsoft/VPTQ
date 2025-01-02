@@ -6,7 +6,7 @@
 __all__ = [
     "dequant",
     "quant_gemm",
-    "quant_gemm_v2",
+    "quant_gemv_v2",
 ]
 
 import math
@@ -208,8 +208,7 @@ def quant_gemm(
         invert_perm = invert_perm.to(torch.uint16).view(torch.int16)
 
     if (x.numel() // x.shape[-1] < 3) and __cuda_ops_installed:
-
-        out = vptq_ops.gemm(
+        out = vptq_ops.quant_gemv(
             x,
             indices,
             centroids_,
@@ -227,7 +226,6 @@ def quant_gemm(
         return out
     else:
         if __cuda_ops_installed:
-
             weight = vptq_ops.dequant(
                 indices,
                 centroids_,
@@ -274,7 +272,7 @@ def quant_gemm(
         return out
 
 
-def quant_gemm_v2(
+def quant_gemv_v2(
     x: torch.Tensor,
     bias: Optional[torch.Tensor],
     indices: torch.Tensor,
@@ -289,7 +287,7 @@ def quant_gemm_v2(
     in_features: int,
     out_features: int,
 ) -> torch.Tensor:
-    """ Dequantize the input tensor and perform GEMM operation.
+    """ Dequantize the input tensor and perform GEMV operation.
     
     Args:
         x: Tensor[fp16|bf16], has a shape of (batch_size, sequence_length, 
@@ -310,10 +308,11 @@ def quant_gemm_v2(
                    (num_codebooks, num_centroids, vector_len).
         residual_centroids: (optional) Tensor[fp16|bf16], has a shape of
                             (num_codebooks, num_residual_centroids, vector_len).
-        scale_weights: (optional) Tensor[fp16|bf16], the scale factor for the
-                      quantized weight.
-        scale_bias: (optional) Tensor[fp16|bf16], the bias factor for the
-                    quantized weight.
+        scale_weights: (optional) Tensor[fp16|bf16], has a shape of 
+                       (in_feature, 1), the scale factor for the quantized 
+                       weight.
+        scale_bias: (optional) Tensor[fp16|bf16], has a shape of 
+                    (in_feature, 1), the bias factor for the quantized weight.
         vector_len: int, the length of the vector in vector quantization.
         num_codebooks: int, the number of codebooks.
         num_centroids: int, the number of centroids.
@@ -328,7 +327,7 @@ def quant_gemm_v2(
         shape = (num_codebooks, num_residual_centroids, vector_len)
         residual_centroids_ = residual_centroids.view(shape)
 
-    out = vptq_ops.quant_gemm(
+    out = vptq_ops.quant_gemv_v2(
         x,
         bias,
         indices,
