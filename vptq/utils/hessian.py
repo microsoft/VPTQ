@@ -13,7 +13,7 @@ def load_hessian(hessian_path, logger=None):
         print(f'load Hessian from {hessian_path}')
     else:
         logger.info(f'load Hessian from {hessian_path}')
-    H_data = torch.load(f'{hessian_path}')
+    H_data = torch.load(f'{hessian_path}', weights_only=False)
 
     # convert H to sym matrix
     def flat_to_sym(V, N):
@@ -49,7 +49,7 @@ def load_inv_hessian(inv_hessian_path, logger=None):
         print(f'load inv Hessian from {inv_hessian_path}')
     else:
         logger.info(f'load inv Hessian from {inv_hessian_path}')
-    H_data = torch.load(f'{inv_hessian_path}')
+    H_data = torch.load(f'{inv_hessian_path}', weights_only=False)
 
     inv_hessian = H_data['invH']
     perm = H_data['perm']

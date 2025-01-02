@@ -9,7 +9,6 @@ from numpy import int_
 import torch
 import torch.nn as nn
 import transformers
-from fast_hadamard_transform import hadamard_transform
 
 torch.backends.cuda.matmul.allow_tf32 = False
 torch.backends.cudnn.allow_tf32 = False

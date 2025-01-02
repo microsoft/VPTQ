@@ -158,14 +158,14 @@ def quant_llama(model, args, quant_args, dev='cuda'):
             for layer_idx in range(len(layers)):
                 # load to cpu
                 layer_state_dicts[layer_idx] = torch.load(
-                    f'{args.output_dir}/qlinear_layer_state_{layer_idx}.pt', map_location='cpu'
+                    f'{args.output_dir}/qlinear_layer_state_{layer_idx}.pt', map_location='cpu', weights_only=False
                 )
                 # bypass KeyError: torch.uint16
                 for key, value in layer_state_dicts[layer_idx].items():
                     if "indices" in key:
                         layer_state_dicts[layer_idx][key] = value.view(torch.uint16)
                 layer_qlinear_args[layer_idx] = torch.load(
-                    f'{args.output_dir}/qlinear_args_{layer_idx}.pt', map_location='cpu'
+                    f'{args.output_dir}/qlinear_args_{layer_idx}.pt', map_location='cpu', weights_only=False
                 )
         else:
             while not output_queues.empty():

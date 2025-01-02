@@ -10,7 +10,6 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from torch.nn.parameter import Parameter
-from fast_hadamard_transform import hadamard_transform
 
 class VQuantLinear(nn.Module):
 

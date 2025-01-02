@@ -12,7 +12,6 @@ import numpy as np
 import torch
 
 from vptq.utils.reshape import reshape
-from fast_hadamard_transform import hadamard_transform
 
 @dataclass
 class QuantizationArguments:
