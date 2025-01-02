@@ -79,7 +79,6 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 iter=quant_args.kiter,
                 tol=quant_args.ktol,
                 debug=True,
-                enable_rotate=quant_args.enable_rotate,
                 rotate_dim=quant_args.rotate_dim,
                 # enable_load_checkpoint=args.enable_load_checkpoint,
                 # enable_load_checkpoint=args.enable_load_checkpoint,
@@ -100,7 +99,6 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 enable_perm=quant_args.enable_perm,
                 enable_norm=quant_args.enable_norm,
                 norm_dim=0,
-                enable_rotate=quant_args.enable_rotate,
                 rotate_dim=quant_args.rotate_dim,
                 debug=True
             )

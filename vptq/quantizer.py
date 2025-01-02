@@ -30,7 +30,6 @@ class QuantizationArguments:
     enable_norm: bool = field(default=False)
     norm_dim: int = field(default=0)
     enable_perm: bool = field(default=False)
-    enable_rotate: bool = field(default=False)
     rotate_dim: int = field(default=0)
 
 
@@ -59,7 +58,6 @@ class NPVectorQuantizer:
         enable_norm: bool = False,
         norm_dim: int = 0,
         enable_perm: bool = False,
-        enable_rotate: bool = False,
         rotate_dim: int = 0,
         debug: bool = False,
         # loaded_weights: dict = None,
@@ -103,7 +101,6 @@ class NPVectorQuantizer:
         self.norm_dim = norm_dim
 
         # rotate
-        self.enable_rotate = enable_rotate
         self.rotate_dim = rotate_dim
 
         # centroids and indices
@@ -131,9 +128,14 @@ class NPVectorQuantizer:
         self.prefix_layer_name = 'model.layers.'
 
     def init_norm(self, weight):
-        self.weight_scale = torch.std(weight, dim=self.norm_dim)
-        self.weight_bias = torch.mean(weight, dim=self.norm_dim)
-
+        # self.weight_scale = torch.std(weight, dim=self.norm_dim)
+        # self.weight_bias = torch.mean(weight, dim=self.norm_dim)
+        weight_min = torch.min(weight, dim=self.norm_dim).values
+        weight_max = torch.max(weight, dim=self.norm_dim).values
+        weight_scale = weight_max - weight_min
+        self.weight_scale = weight_scale
+        self.weight_bias = weight_min
+        
         if self.debug:
             self.logger.info(
                 f'enabling norm dim {self.norm_dim}, '

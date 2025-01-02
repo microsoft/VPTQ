@@ -31,7 +31,6 @@ class VQuantLinear(nn.Module):
         outlier_size: int,
         enable_norm: bool = False,
         enable_perm: bool = False,
-        enable_rotate: bool = False,
         rotate_dim: int = 0,
         is_indice_packed: bool = False,
         # configuration
@@ -57,7 +56,6 @@ class VQuantLinear(nn.Module):
             "outlier_size": outlier_size,
             "enable_norm": enable_norm,
             "enable_perm": enable_perm,
-            "enable_rotate": enable_rotate,
             "rotate_dim": rotate_dim,
             "bias": bias,
             "is_indice_packed": is_indice_packed,
@@ -74,10 +72,6 @@ class VQuantLinear(nn.Module):
 
         # set configuration
         self.debug = debug
-
-        # rotate
-        self.enable_rotate = enable_rotate
-        self.rotate_dim = rotate_dim
 
         # to reduce index size and bypass nccl check
         self.is_indice_packed = is_indice_packed
@@ -468,9 +462,6 @@ class VQuantLinear(nn.Module):
         #     self.num_codebooks, -1, self.in_features - len(self.outlier_idices), self.vector_len)
         selected_centroids = selected_centroids.view(self.num_codebooks, -1, self.group_size, self.vector_len)
         
-        # if self.enable_rotate:
-        #     selected_centroids = hadamard_transform(selected_centroids, scale=1.0/self.vector_len)
-        
         # print(f'3 selected_centroids: {selected_centroids.shape}')
         # print(f'4 selected_centroids: {selected_centroids}')
         selected_centroids = selected_centroids.permute(0, 1, 3, 2)
@@ -497,9 +488,6 @@ class VQuantLinear(nn.Module):
                 self.num_codebooks, -1, self.group_size, self.vector_len
             )
 
-            # if self.enable_rotate:
-            #     selected_res_centroids = hadamard_transform(selected_res_centroids, scale=1.0/self.vector_len)
-            
             selected_res_centroids = selected_res_centroids.permute(0, 1, 3, 2)
 
             qweight = qweight + (
@@ -555,9 +543,6 @@ class VQuantLinear(nn.Module):
             qweight = qweight * self.weight_scale
             qweight = qweight + self.weight_bias
 
-        if self.enable_rotate:
-            qweight = hadamard_transform(qweight, scale=1.0 / qweight.shape[1])
-
         return qweight
 
     def forward(self, x):
@@ -567,9 +552,6 @@ class VQuantLinear(nn.Module):
         if qweight is None:
             qweight = self.dequant()
         
-        if self.enable_rotate:
-            x = hadamard_transform(x)        
-    
         return F.linear(x, qweight, self.bias)
 
     # proxy error

@@ -36,7 +36,6 @@ class VPTQ:
         enable_perm=False,
         enable_norm=False,
         norm_dim=0,
-        enable_rotate=False,
         rotate_dim=0,
         debug=False
     ):
@@ -114,10 +113,6 @@ class VPTQ:
         # self.quantizer.weight_scale = None
         # self.quantizer.weight_bias = None
 
-        # rotate 
-        self.enable_rotate = enable_rotate
-        self.rotate_dim = rotate_dim
-        
         # debug flag
         self.debug = debug
         self.logger = logger
@@ -219,21 +214,11 @@ class VPTQ:
             _weight = weight.clone().to(self.dev)
             _hessian = hessian.clone().to(self.dev)
             
-            if self.enable_rotate:
-                _weight = hadamard_transform(_weight)
-                _hessian = hadamard_transform(_hessian)
-                _hessian = _hessian.transpose(1, 0)
-                _hessian = hadamard_transform(_hessian)
-                _hessian = _hessian.transpose(1, 0)
-
             tick = time.time() if self.debug else None
 
             # run k-means, init centroids and get quantized data by k-means
             qweight_init = self.quantizer.init_centroids_indices(data=_weight, weights=kmeans_weight)
             
-            if self.enable_rotate:
-                qweight_init = hadamard_transform(qweight_init, scale=1.0 / qweight_init.shape[0])
-
             if self.debug:
                 self.logger.info(f'{self.layer_name} 1st kmeans time: {time.time() - tick}')
                 self.logger.info(
@@ -253,18 +238,8 @@ class VPTQ:
         _inv_hessian = inv_hessian.clone().to(self.dev)
         tick = time.time() if self.debug else None
 
-        if self.enable_rotate:
-            _weight = hadamard_transform(_weight)
-            _hessian = hadamard_transform(_hessian)
-            _hessian = _hessian.transpose(1, 0)
-            _hessian = hadamard_transform(_hessian)
-            _hessian = _hessian.transpose(1, 0)
         # first round vptq
         qweight, qerror = self.vptq(_weight, _hessian, inv_hessian=_inv_hessian)
-
-        if self.enable_rotate:
-            qweight = hadamard_transform(qweight, scale=1.0 / qweight.shape[0])
-            qerror = hadamard_transform(qerror, scale=1.0 / qerror.shape[0])
 
         torch.cuda.synchronize()
         del _weight
@@ -287,14 +262,8 @@ class VPTQ:
                 # quant residual
                 tick = time.time() if self.debug else None
 
-                if self.enable_rotate:
-                    qerror = hadamard_transform(qerror)
-
                 # step 3.1: init residual quantization centroids
                 qweight_residual = self.quantizer.init_res_centroids_indices(qerror, kmeans_weight)
-
-                if self.enable_rotate:
-                    qweight_residual = hadamard_transform(qweight_residual, scale=1.0 / qweight_residual.shape[0])
 
                 # torch.save(Q_residual, f'Q_residual_{self.layer_name}.pt')
 
@@ -305,21 +274,10 @@ class VPTQ:
             _hessian = hessian.clone().to(self.dev)
             _inv_hessian = inv_hessian.clone().to(self.dev)
 
-            if self.enable_rotate:
-                _weight = hadamard_transform(_weight)
-                _hessian = hadamard_transform(_hessian)
-                _hessian = _hessian.transpose(1, 0)
-                _hessian = hadamard_transform(_hessian)
-                _hessian = _hessian.transpose(1, 0)
-
             # step 3.2: VPTQ with initialzed residual centroids
             self.quantizer.clear_indices()
             tick = time.time()
             qweight, qerror = self.vptq(_weight, _hessian, enable_residual=True, inv_hessian=_inv_hessian)
-
-            if self.enable_rotate:
-                qweight = hadamard_transform(qweight, scale=1.0 / qweight.shape[0])
-                qerror = hadamard_transform(qerror, scale=1.0 / qerror.shape[0])
 
             if self.debug:
                 self.logger.info(f'{self.layer_name} 2ed gptq time: {time.time() - tick}')
