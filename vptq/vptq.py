@@ -384,13 +384,15 @@ class VPTQ:
                 # self.logger.info(f'block_qweight[:, k:k+self.step]: {block_qweight[:, k:k+self.step].shape}')
 
                 # update quantized block qweight
+                # norm_block_qweight = block_qweight * S + B
                 block_qweight[:, k:k + self.step] = tile_qweight
 
                 # (drow,step)*(step,step)=(drow,step)
+                # [(norm_tile_weight - norm_tile_qweight) * S + B] * H^-1
                 tile_error = (tile_weight - tile_qweight).matmul(tile_inv_hessian)
 
                 # Losses1[:,i:i+step] =  err1.matmul((w-q).T())
-
+                # [(norm_tile_weight - norm_tile_qweight) * S + B] * H^-1 * H^-1 * (w-q).T()
                 block_weight[:, k + self.step:] -= tile_error.matmul(block_inv_hessian[k:k + self.step, k + self.step:])
                 block_error[:, k:k + self.step] = tile_error
 
