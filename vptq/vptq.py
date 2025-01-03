@@ -35,6 +35,7 @@ class VPTQ:
         enable_perm=False,
         enable_norm=False,
         norm_dim=0,
+        enable_abs=False,
         debug=False
     ):
         # set layer
@@ -108,6 +109,8 @@ class VPTQ:
         # weight norm
         self.enable_norm = enable_norm
         self.norm_dim = norm_dim
+        
+        self.enable_abs = enable_abs
         # self.quantizer.weight_scale = None
         # self.quantizer.weight_bias = None
 
@@ -138,13 +141,9 @@ class VPTQ:
             #         f'bias:{self.quantizer.weight_bias.shape}')
             self.quantizer.init_norm(weight)
 
-            if self.norm_dim == 0:
-                weight = (weight - self.quantizer.weight_bias) / \
-                    self.quantizer.weight_scale
-            else:
-                weight = (weight - self.quantizer.weight_bias.unsqueeze(self.norm_dim)) / \
-                    self.quantizer.weight_scale.unsqueeze(self.norm_dim)
-
+            weight = (weight - self.quantizer.weight_bias.unsqueeze(self.norm_dim)) / \
+                self.quantizer.weight_scale.unsqueeze(self.norm_dim)
+                    
         if isinstance(self.layer, nn.Conv2d):
             weight = weight.flatten(1)
         if isinstance(self.layer, transformers.Conv1D):
@@ -249,7 +248,9 @@ class VPTQ:
                 f'{self.layer_name} proxy error after VPTQ: {error_sum.item()}, '
                 f'{sum.item()}, {norm_error.item()}'
             )
+            # debug 
             # self.logger.info(f'qerror^2: {torch.mean(qerror ** 2).item()}')
+            # torch.save(qweight, f'{self.layer_name}_qweight.pt')
 
         # step 3: residual quantization
         if self.quantizer.num_res_centroids[1] > 1:  # (100-N)%
@@ -306,12 +307,8 @@ class VPTQ:
         qweight = qweight.reshape(self.layer.weight.shape).to(self.layer.weight.data.dtype)
 
         if self.enable_norm:
-            if self.norm_dim == 0:
-                qweight = qweight * self.quantizer.weight_scale + self.quantizer.weight_bias
-            elif self.norm_dim == 1:
-                qweight = qweight * \
-                    self.quantizer.weight_scale.unsqueeze(self.norm_dim) \
-                    + self.quantizer.weight_bias.unsqueeze(self.norm_dim)
+            qweight = qweight * self.quantizer.weight_scale.unsqueeze(self.norm_dim) + \
+                self.quantizer.weight_bias.unsqueeze(self.norm_dim)
 
         self.qweight = qweight
 

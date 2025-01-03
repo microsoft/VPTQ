@@ -81,6 +81,8 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 enable_norm=quant_args.enable_norm,
                 norm_dim=quant_args.norm_dim,
                 debug=True,
+                norm_dim=quant_args.norm_dim,
+                enable_abs=quant_args.enable_abs,
                 # enable_load_checkpoint=args.enable_load_checkpoint,
                 # enable_load_checkpoint=args.enable_load_checkpoint,
                 # load_checkpoint_path=args.load_checkpoint_path,
@@ -100,6 +102,7 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 enable_perm=quant_args.enable_perm,
                 enable_norm=quant_args.enable_norm,
                 norm_dim=quant_args.norm_dim,
+                enable_abs=quant_args.enable_abs,
                 debug=True
             )
 
@@ -117,13 +120,15 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
             # num_centroids = quantizer.num_centroids[1]
             centroids = quantizer.centroids
             indices = quantizer.indices
-
+            indices_sign = quantizer.indices_sign
+            
             # res centroid
             # num_res_centroids = quantizer.num_res_centroids
             res_centroids = quantizer.res_centroids
             # res_centroids = quantizer.res_centroids[1]
             res_indices = quantizer.res_indices
             # res_indices = quantizer.res_indices[1]
+            res_indices_sign = quantizer.res_indices_sign
 
             in_features = weight.size(1)
             out_features = weight.size(0)
@@ -147,6 +152,8 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 enable_norm=quant_args.enable_norm,
                 norm_dim=quant_args.norm_dim,
                 enable_perm=quant_args.enable_perm,
+                norm_dim=quant_args.norm_dim,
+                enable_abs=quant_args.enable_abs,
                 # enable_residual=True,
                 vector_quant_dim='out',
                 device=dev,
@@ -166,6 +173,8 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 res_indices=res_indices,
                 weight_scale=weight_scale,
                 weight_bias=weight_bias,
+                indices_sign=indices_sign,
+                res_indices_sign=res_indices_sign,
                 bias=linear.bias,
                 perm=perm,
                 dtype=dtype,

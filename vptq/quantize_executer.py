@@ -12,7 +12,7 @@ import torch
 from vptq.layer_quantizer import layer_quantizer
 
 
-def setup_logging(log_path, task_id, debug=False):
+def setup_logging(log_path, task_id, debug=True):
     # create log directory
     if not os.path.exists(log_path):
         os.makedirs(log_path)
