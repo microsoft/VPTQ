@@ -166,14 +166,17 @@ class NPVectorQuantizer:
     def init_norm(self, weight):
         # self.weight_scale = torch.std(weight, dim=self.norm_dim)
         # self.weight_bias = torch.mean(weight, dim=self.norm_dim)
-        # weight_min = torch.min(weight, dim=self.norm_dim).values
-        # weight_max = torch.max(weight, dim=self.norm_dim).values
-        weight_min = torch.quantile(weight, 0.01, dim=self.norm_dim)
-        weight_max = torch.quantile(weight, 0.99, dim=self.norm_dim)
+        weight_min = torch.min(weight, dim=self.norm_dim).values
+        weight_max = torch.max(weight, dim=self.norm_dim).values
         
+        # weight_min = torch.quantile(weight, 0.01, dim=self.norm_dim)
+        # weight_max = torch.quantile(weight, 0.99, dim=self.norm_dim)
         weight_scale = weight_max - weight_min
         self.weight_scale = weight_scale
-        self.weight_bias = weight_min
+        # symmetric bias
+        # self.weight_bias = (weight_max + weight_min) / 2
+        self.weight_bias = torch.zeros_like(weight_min)
+        # self.weight_bias = weight_min
         
         if self.debug:
             self.logger.info(

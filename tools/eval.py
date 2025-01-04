@@ -7,8 +7,10 @@ import vptq
 
 set_seed(0)
 
-model_path = "/home/aiscuser/yangwang/VPTQ.dev.rotate/outputs/Meta-Llama-3.1-8B-Instruct-test-in/2025-01-01-19-05-38/packed_model"
-model = vptq.AutoModelForCausalLM.from_pretrained(model_path, device_map="auto").cpu()
+model_path = "/home/aiscuser/yangwang/VPTQ.dev/outputs/Meta-Llama-3.1-8B-Instruct-abs/2025-01-03-02-13-26/model.pt"
+model = torch.load(model_path)
+model_name = "meta-llama/Llama-3.1-8B-Instruct"
+# model = vptq.AutoModelForCausalLM.from_pretrained(model_path, device_map="auto").cpu() 
 model.eval()
 
 datasets = ['wikitext2', 'c4-new']
@@ -21,7 +23,7 @@ for seqlen in seqlens:
         dataloader, testloader = get_data_loader(
             dataset, 
             seed=0, 
-            model=model_path,
+            model=model_name,
             seqlen=model.seqlen
         )
         

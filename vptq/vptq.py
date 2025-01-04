@@ -409,7 +409,8 @@ class VPTQ:
             # self.layer.weight.data[:, j:] = weight[:, j:]
         # self.logger.info(f'{self.layer_name} error: {i1}:{i2} {torch.sum((self.layer(self.inp1) - self.out1).double() ** 2).item()}')
         return qweight, qerror
-
+    
+    @torch.no_grad()
     def get_error(self, weight, qweight, hessian):
 
         def _matrix_multiply_with_blocks(A, B, hessian, block_size=64, dev='cuda'):
@@ -433,13 +434,19 @@ class VPTQ:
         # weight_mean = torch.mean(weight.T @ weight * hessian)
         # error_mean = torch.mean(error.T @ error * hessian)
         weight = weight.to(qweight.device)
+        scaled_weight = weight * self.quantizer.weight_scale.unsqueeze(self.norm_dim) + \
+            self.quantizer.weight_bias.unsqueeze(self.norm_dim)
+        
         hessian = hessian.to(qweight.device)
-        wTw_hessian = _matrix_multiply_with_blocks(weight.T, weight, hessian, block_size=512, dev=qweight.device)
+        wTw_hessian = _matrix_multiply_with_blocks(scaled_weight.T, scaled_weight, hessian, block_size=512, dev=qweight.device)
         weight_mean = torch.mean(wTw_hessian.to(qweight.device))
         # weight_mean = torch.mean(wTw * hessian)
         del wTw_hessian
         torch.cuda.empty_cache()
-        error = qweight - weight
+        scaled_qweight = qweight * self.quantizer.weight_scale.unsqueeze(self.norm_dim) + \
+            self.quantizer.weight_bias.unsqueeze(self.norm_dim)
+        
+        error = scaled_qweight - scaled_weight
         eTe_hessian = _matrix_multiply_with_blocks(error.T, error, hessian, block_size=512, dev=qweight.device)
         error_mean = torch.mean(eTe_hessian.to(qweight.device))
         del eTe_hessian
