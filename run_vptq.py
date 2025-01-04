@@ -120,14 +120,14 @@ if __name__ == "__main__":
 
     model.eval()
     if args.eval:
-        datasets = ['wikitext2', 'c4']
-        # datasets = ['wikitext2']
+        # datasets = ['wikitext2', 'c4']
+        datasets = ['wikitext2']
     if args.new_eval:
-        datasets = ['wikitext2', 'c4-new']
-        # datasets = ['wikitext2']
+        # datasets = ['wikitext2', 'c4-new']
+        datasets = ['wikitext2']
 
-    seqlens = [2048, 4096, 8192]
-    # seqlens = [2048]
+    # seqlens = [2048, 4096, 8192]
+    seqlens = [2048]
 
     # store results
     results = {}

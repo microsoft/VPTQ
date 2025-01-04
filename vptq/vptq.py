@@ -386,12 +386,31 @@ class VPTQ:
 
                 # (drow,step)*(step,step)=(drow,step)
                 # [(norm_tile_weight - norm_tile_qweight) * S + B] * H^-1
-                tile_error = (tile_weight - tile_qweight).matmul(tile_inv_hessian)
-
+                tile_error = (tile_weight - tile_qweight)
+                
+                # if self.enable_norm:
+                if False:
+                    tile_error = tile_error * self.quantizer.weight_scale.unsqueeze(self.norm_dim) + \
+                        self.quantizer.weight_bias.unsqueeze(self.norm_dim)
+                
+                tile_error = tile_error.matmul(tile_inv_hessian)
                 # Losses1[:,i:i+step] =  err1.matmul((w-q).T())
                 # [(norm_tile_weight - norm_tile_qweight) * S + B] * H^-1 * H^-1 * (w-q).T()
-                block_weight[:, k + self.step:] -= tile_error.matmul(block_inv_hessian[k:k + self.step, k + self.step:])
+
+                inv_tile_error = tile_error.matmul(block_inv_hessian[k:k + self.step, k + self.step:])
+                
+                # if self.enable_norm:
+                if False:
+                    inv_tile_error = (inv_tile_error - self.quantizer.weight_bias.unsqueeze(self.norm_dim)) / \
+                        self.quantizer.weight_scale.unsqueeze(self.norm_dim)
+                    tile_error = (tile_error - self.quantizer.weight_bias.unsqueeze(self.norm_dim)) / \
+                        self.quantizer.weight_scale.unsqueeze(self.norm_dim)
+                
+                block_weight[:, k + self.step:] -= inv_tile_error 
                 block_error[:, k:k + self.step] = tile_error
+
+                # block_weight[:, k + self.step:] -= tile_error.matmul(block_inv_hessian[k:k + self.step, k + self.step:])
+                # block_error[:, k:k + self.step] = tile_error
 
             qweight[:, i:j] = block_qweight
             # Losses[:, i1:i2] = Losses1 / 2
