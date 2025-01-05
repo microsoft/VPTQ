@@ -35,6 +35,7 @@ class VQuantLinear(nn.Module):
         norm_dim: int = 0,
         enable_perm: bool = False,
         enable_abs: bool = False,
+        enable_sphere: bool = False,
         is_indice_packed: bool = False,
         # configuration
         bias: bool = False,
@@ -62,6 +63,7 @@ class VQuantLinear(nn.Module):
             "enable_perm": enable_perm,
             "enable_abs": enable_abs,
             "norm_dim": norm_dim,
+            "enable_sphere": enable_sphere,
             "bias": bias,
             "is_indice_packed": is_indice_packed,
         }
@@ -105,7 +107,8 @@ class VQuantLinear(nn.Module):
 
         self.num_indices = (self.out_features + self.padding) // self.vector_len
         self.enable_abs = enable_abs
-
+        self.enable_sphere = enable_sphere
+        
         # set outliers
         if vector_lens[0] > 1 and num_centroids[0] > 0:
             self.enable_outlier = True
@@ -211,6 +214,13 @@ class VQuantLinear(nn.Module):
                                     device=device),
                         requires_grad=False,
                     )
+                elif self.enable_sphere:
+                    self.indices_scale = Parameter(
+                        torch.empty((self.num_codebooks, self.num_indices, self.group_size),
+                                    **factory_kwargs),
+                        requires_grad=False,
+                    )
+
 
         # set residual centroids and indices
         if self.enable_residual:
@@ -249,6 +259,7 @@ class VQuantLinear(nn.Module):
         weight_scale=None,
         weight_bias=None,
         indices_sign=None,
+        indices_scale=None,
         res_indices_sign=None,
         bias=None,
         perm=None,
@@ -308,7 +319,15 @@ class VQuantLinear(nn.Module):
             _indices_sign = torch.stack(_indices_sign, dim=0)
             _indices_sign = _indices_sign.reshape(self.num_codebooks, self.num_indices, self.group_size)
             self.indices_sign.data = _indices_sign.to(self.centroids.weight.device)
-
+            
+        elif self.enable_sphere:
+            _indices_scale = []
+            keys = sorted(indices_scale.keys())
+            for cidx in keys[1:]:
+                _indices_scale.append(indices_scale[cidx])
+            _indices_scale = torch.stack(_indices_scale, dim=0)
+            _indices_scale = _indices_scale.reshape(self.num_codebooks, self.num_indices, self.group_size)
+            self.indices_scale.data = _indices_scale.to(self.centroids.weight.device)
 
         # step 3: handle residual
         if self.enable_residual:
@@ -519,7 +538,7 @@ class VQuantLinear(nn.Module):
             # print(f'unpacked indices_sign: {indices_sign.shape}')
             # num_codebooks, num_indices, group_size, vector_len
             # indices_sign = indices_sign.reshape(self.num_codebooks, -1, self.group_size, self.vector_len)
-             
+         
         # print(f'3 indices: {indices.shape}')
         # print(f'4 indices: {indices}')
 
@@ -533,6 +552,8 @@ class VQuantLinear(nn.Module):
         if self.enable_abs:
             # TODO: check?
             selected_centroids = selected_centroids * indices_sign
+        elif self.enable_sphere:
+            selected_centroids = selected_centroids * self.indices_scale.unsqueeze(-1)
         
         # print(f'3 selected_centroids: {selected_centroids.shape}')
         # print(f'4 selected_centroids: {selected_centroids}')
@@ -542,6 +563,7 @@ class VQuantLinear(nn.Module):
 
         # print(self.num_codebooks, self.group_size)
         qweight = selected_centroids.reshape(self.num_codebooks, -1, self.group_size)
+        
         qweight = qweight.permute(1, 0, 2)
         qweight = qweight.reshape(-1, self.num_codebooks * self.group_size)
 

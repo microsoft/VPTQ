@@ -80,6 +80,7 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 tol=quant_args.ktol,
                 enable_norm=quant_args.enable_norm,
                 norm_dim=quant_args.norm_dim,
+                enable_sphere=quant_args.enable_sphere,
                 debug=True,
                 enable_abs=quant_args.enable_abs,
                 # enable_load_checkpoint=args.enable_load_checkpoint,
@@ -102,6 +103,7 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 enable_norm=quant_args.enable_norm,
                 norm_dim=quant_args.norm_dim,
                 enable_abs=quant_args.enable_abs,
+                enable_sphere=quant_args.enable_sphere,
                 debug=True
             )
 
@@ -120,6 +122,7 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
             centroids = quantizer.centroids
             indices = quantizer.indices
             indices_sign = quantizer.indices_sign
+            indices_scale = quantizer.indices_scale
             
             # res centroid
             # num_res_centroids = quantizer.num_res_centroids
@@ -152,6 +155,7 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 norm_dim=quant_args.norm_dim,
                 enable_perm=quant_args.enable_perm,
                 enable_abs=quant_args.enable_abs,
+                enable_sphere=quant_args.enable_sphere,
                 # enable_residual=True,
                 vector_quant_dim='out',
                 device=dev,
@@ -172,6 +176,7 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
                 weight_scale=weight_scale,
                 weight_bias=weight_bias,
                 indices_sign=indices_sign,
+                indices_scale=indices_scale,
                 res_indices_sign=res_indices_sign,
                 bias=linear.bias,
                 perm=perm,

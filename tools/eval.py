@@ -7,7 +7,7 @@ import vptq
 
 set_seed(0)
 
-model_path = "/home/aiscuser/yangwang/VPTQ.dev/outputs/Meta-Llama-3.1-8B-Instruct-abs/2025-01-03-02-13-26/model.pt"
+model_path = "/home/aiscuser/yangwang/VPTQ.dev/outputs/Meta-Llama-3.1-8B-Instruct-rotate-debug/2025-01-05-03-35-02/model.pt"
 model = torch.load(model_path)
 model_name = "meta-llama/Llama-3.1-8B-Instruct"
 # model = vptq.AutoModelForCausalLM.from_pretrained(model_path, device_map="auto").cpu() 
