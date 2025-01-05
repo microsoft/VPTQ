@@ -393,9 +393,9 @@ class VPTQ:
                 # [(norm_tile_weight - norm_tile_qweight) * S + B] * H^-1
                 tile_error = (tile_weight - tile_qweight)
                 
-                if self.enable_norm:
-                    tile_error = tile_error * self.quantizer.weight_scale.unsqueeze(self.norm_dim) + \
-                        self.quantizer.weight_bias.unsqueeze(self.norm_dim)
+                # if self.enable_norm:
+                #     tile_error = tile_error * self.quantizer.weight_scale.unsqueeze(self.norm_dim) + \
+                #         self.quantizer.weight_bias.unsqueeze(self.norm_dim)
                 
                 tile_error = tile_error.matmul(tile_inv_hessian)
                 # Losses1[:,i:i+step] =  err1.matmul((w-q).T())
@@ -403,11 +403,11 @@ class VPTQ:
 
                 inv_tile_error = tile_error.matmul(block_inv_hessian[k:k + self.step, k + self.step:])
                 
-                if self.enable_norm:
-                    inv_tile_error = (inv_tile_error - self.quantizer.weight_bias.unsqueeze(self.norm_dim)) / \
-                        self.quantizer.weight_scale.unsqueeze(self.norm_dim)
-                    tile_error = (tile_error - self.quantizer.weight_bias.unsqueeze(self.norm_dim)) / \
-                        self.quantizer.weight_scale.unsqueeze(self.norm_dim)
+                # if self.enable_norm:
+                #     inv_tile_error = (inv_tile_error - self.quantizer.weight_bias.unsqueeze(self.norm_dim)) / \
+                #         self.quantizer.weight_scale.unsqueeze(self.norm_dim)
+                #     tile_error = (tile_error - self.quantizer.weight_bias.unsqueeze(self.norm_dim)) / \
+                #         self.quantizer.weight_scale.unsqueeze(self.norm_dim)
                 
                 block_weight[:, k + self.step:] -= inv_tile_error 
                 block_error[:, k:k + self.step] = tile_error
@@ -476,12 +476,6 @@ class VPTQ:
             scaled_qweight = qweight
         
         error = scaled_qweight - scaled_weight
-        
-        if self.enable_norm:
-            error = error * self.quantizer.weight_scale.unsqueeze(self.norm_dim) + \
-                self.quantizer.weight_bias.unsqueeze(self.norm_dim)
-        else:
-            error = error
         
         eTe_hessian = _matrix_multiply_with_blocks(error.T, error, hessian, block_size=512, dev=qweight.device)
         error_mean = torch.mean(eTe_hessian.to(qweight.device))
