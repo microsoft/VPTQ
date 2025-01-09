@@ -40,6 +40,7 @@ class VQuantLinear(nn.Module):
         debug=False,
         # deprecated
         indices_as_float=None,
+        enable_proxy_error=False,
     ):
         super().__init__()
 

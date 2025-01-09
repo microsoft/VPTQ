@@ -20,7 +20,7 @@ from vptq.models.nvembed import get_nvembed, quant_nvembed
 from vptq.models.qwen import eval_qwen, get_qwen, quant_qwen
 from vptq.quantizer import QuantizationArguments
 from vptq.utils.data import get_data_loader
-from vptq.utils.pack import pack_model
+from vptq.utils.pack import absorb_perm, pack_model
 
 
 @dataclass
@@ -42,6 +42,7 @@ class VPTQArguments:
     num_gpus: int = field(default=1)
     eval_nsamples: int = field(default=128)
     save_qlinear: bool = field(default=False)
+    absorb_perm: bool = field(default=False)
 
 
 if __name__ == "__main__":
@@ -100,6 +101,8 @@ if __name__ == "__main__":
     if args.save_packed_model:
         model_path = osp.join(args.output_dir, "packed_model/")
         model = pack_model(model, from_type=torch.uint16, to_type=torch.uint16, as_type=torch.int16)
+        if args.absorb_perm:
+            model = absorb_perm(model)
         model.save_pretrained(model_path, safe_serialization=True)
         print(f"save packed model to {model_path}")
         tokenizer = AutoTokenizer.from_pretrained(f"{args.model_name}", legacy=False)

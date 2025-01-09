@@ -3,20 +3,14 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-# import time
 import math
 from typing import Dict
 
 import torch
 from sentence_transformers.SentenceTransformer import SentenceTransformer
 
-# from vptq.models.config import Config
-# from vptq.models.llama import llama_eval
-# from vptq.models.qwen import qwen_eval
-# from vptq.models.data import get_loaders
-# from vptq.models.config import Config
-# from safetensors import safe_open
-# from transformers import AutoTokenizer
+# import time
+import vptq
 
 
 def pack_index(
@@ -148,10 +142,6 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
         # print(f'mod_name: {mod_name}, sub_mod: {sub_mod}')
         if "VQuantLinear" in str(type(sub_mod)):
             sub_mod.cuda()
-            # print(
-            #     f'---debug---'
-            #     f'index shape: {sub_mod.indices.shape}, '
-            #     f'dtype: {sub_mod.indices.dtype}')
 
             if sub_mod.indices.dtype == torch.int64:
                 sub_mod.indices.data = dtype_convert(
@@ -193,9 +183,6 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
 
             sub_mod.res_indices = None
 
-            # print(f'sub_mod.indices: {sub_mod.indices.shape}')
-
-            # assert (sub_mod.fast_dequant() - sub_mod.dequant()).max().item() < 0.001
             sub_mod.cpu()
             quantization_config["config_for_layers"][mod_name] = sub_mod.init_args
             quantization_config["config_for_layers"][mod_name]["is_indice_packed"] = True
@@ -239,4 +226,109 @@ def pack_model(qmodel, from_type, to_type, as_type):
         return st_model
     model = convert_idx_dtype(qmodel, from_type, to_type, as_type)
     model = fix_tensor_in_config(model)
+    return model
+
+
+def absorb_perm_layer(layer):
+    if not hasattr(layer, 'enable_perm') or not layer.enable_perm:
+        return False
+
+    if layer.group_num > 1:
+        print(f'{layer.name} has {layer.group_num} groups, skipping perm absorption')
+        return False
+
+    print(f'layer.enable_perm: {layer.enable_perm}, perm dtype: {layer.perm.dtype}')
+    # Get inverse permutation
+    if layer.is_indice_packed:
+        invert_perm = torch.argsort(layer.perm.view(torch.uint16).to(torch.int64))
+    else:
+        invert_perm = torch.argsort(layer.perm)
+
+    # Rotate indices based on permutation
+    if layer.is_indice_packed:
+        index_bits = int(math.log2(layer.num_centroids))
+        index_res_bits = int(math.log2(layer.num_res_centroids)) if layer.enable_residual else 0
+        print(f'index_bits: {index_bits}, index_res_bits: {index_res_bits}')
+        print(f'packed layer.indices shape: {layer.indices.shape}')
+        print(f'layer.group_size: {layer.group_size}')
+
+        # Unpack indices
+        indices, res_indices = layer.unpack_index_tensor(
+            pack_tensor=layer.indices,
+            index_bits=index_bits,
+            num_elements=layer.group_size,
+            res_bits=index_res_bits,
+            num_res_elements=layer.group_size,
+            index_dtype=torch.uint16,
+        )
+
+        print(f'unpack indices shape: {indices.shape}, dtype: {indices.dtype}')
+        print(f'unpack res_indices shape: {res_indices.shape}, dtype: {res_indices.dtype}')
+
+        # Apply permutation
+        indices = indices[..., invert_perm]
+        if layer.enable_residual:
+            res_indices = res_indices[..., invert_perm]
+
+        indices = dtype_convert(indices, torch.int64, torch.uint16, torch.uint16)
+        if layer.enable_residual:
+            res_indices = dtype_convert(res_indices, torch.int64, torch.uint16, torch.uint16)
+
+        print(f'perm indices shape: {indices.shape}')
+        print(f'perm res_indices shape: {res_indices.shape}')
+
+        # Pack indices back
+        packed_indices = pack_index(
+            indice=indices,
+            index_bits=index_bits,
+            res_indice=res_indices if layer.enable_residual else None,
+            res_bits=index_res_bits if layer.enable_residual else 0,
+            index_dtype=torch.uint16
+        )
+
+        # work around for packed indices shape
+        print(f'packed_indices shape: {packed_indices.shape}')
+
+        # Ensure packed shape matches original
+        if packed_indices.shape != layer.indices.shape:
+            raise ValueError(f"Packed shape {packed_indices.shape} doesn't match original shape {layer.indices.shape}")
+
+        layer.indices.data = packed_indices
+        print(f'repacked layer.indices shape: {layer.indices.shape}')
+        print('-------')
+    else:
+        indices = layer.indices
+        # indices = indices[..., invert_perm]
+        layer.indices.data = indices
+
+        if layer.enable_residual:
+            res_indices = layer.res_indices
+            # res_indices = res_indices[..., invert_perm]
+            layer.res_indices.data = res_indices
+
+    # Handle weight scale and bias if enable_norm is True
+    if layer.enable_norm:
+        if hasattr(layer, 'norm_dim') is False:
+            layer.norm_dim = 0
+
+    # # Disable permutation
+    layer.enable_perm = False
+    layer.perm = None
+
+    return True
+
+
+def absorb_perm(model):
+    absorbed_perm = False
+    # Process all VQuantLinear layers
+    for name, module in model.named_modules():
+        if isinstance(module, vptq.layers.vqlinear.VQuantLinear):
+            absorbed_perm = absorb_perm_layer(module)
+
+    # update config
+    if absorbed_perm:
+        for operator in model.config.quantization_config['config_for_layers'].keys():
+            if model.config.quantization_config['config_for_layers'][operator]['enable_perm']:
+                model.config.quantization_config['config_for_layers'][operator]['enable_perm'] = False
+
     return model
