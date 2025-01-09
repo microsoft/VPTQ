@@ -121,7 +121,8 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             accelerate.init_empty_weights()
         ]):
             make_quant_linear(
-                model, config_for_layers, shared_layer_config, target_layer=target_layer
+                model, config_for_layers, shared_layer_config,
+                target_layer=target_layer
             )
 
         no_split_module_classes = [
