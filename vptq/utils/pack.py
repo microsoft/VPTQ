@@ -7,9 +7,8 @@
 import math
 from typing import Dict
 
-from sentence_transformers.SentenceTransformer import SentenceTransformer
 import torch
-
+from sentence_transformers.SentenceTransformer import SentenceTransformer
 
 # from vptq.models.config import Config
 # from vptq.models.llama import llama_eval
@@ -34,9 +33,8 @@ def pack_index(
 
     # upcast the indice to uint64 to avoid overflow on signed bit
     if res_indice is not None:
-        merged_indice = (res_indice.view(index_dtype).to(torch.uint64).view(torch.int64) << index_bits) | indice.view(
-            index_dtype
-        ).to(torch.uint64).view(torch.int64)
+        merged_indice = (res_indice.view(index_dtype).to(torch.uint64).view(torch.int64) <<
+                         index_bits) | indice.view(index_dtype).to(torch.uint64).view(torch.int64)
     else:
         merged_indice = indice.view(index_dtype).to(torch.uint64).view(torch.int64)
 
@@ -139,12 +137,13 @@ def dtype_convert(data, from_dtype, to_dtype, as_type):
 
 
 def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
-    print(f"converting model indices from {from_dtype} " f"to {to_dtype} as {as_type}")
+    print(f"converting model indices from {from_dtype} "
+          f"to {to_dtype} as {as_type}")
 
     quantization_config = {}
     quantization_config["quant_method"] = "vptq"
     quantization_config["config_for_layers"] = {}
-    
+
     for mod_name, sub_mod in model.named_modules():
         # print(f'mod_name: {mod_name}, sub_mod: {sub_mod}')
         if "VQuantLinear" in str(type(sub_mod)):

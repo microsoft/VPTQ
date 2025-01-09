@@ -10,9 +10,9 @@ from pathlib import Path
 import accelerate
 import huggingface_hub
 import safetensors
-from sentence_transformers import SentenceTransformer
 import torch
 import transformers
+from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
 from vptq.layers.vqlinear import VQuantLinear
@@ -106,6 +106,7 @@ def attach_execution_device_hook(
 
 
 class AutoModelForCausalLM(transformers.AutoModel):
+
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, auto_conf=None, *args, **kwargs):
         init_contexts = [
@@ -222,6 +223,7 @@ class AutoModelForCausalLM(transformers.AutoModel):
 
 
 class AutoModelForSentenceEmbeddings(SentenceTransformer):
+
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, *args, **kwargs):
         model_kwargs = {
