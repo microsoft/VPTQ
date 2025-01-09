@@ -30,15 +30,19 @@ def set_op_by_name(layer, name, new_module):
         setattr(layer, name, new_module)
 
 
-def make_quant_linear(module, quant_conf, target_layer=None):
+def make_quant_linear(
+    module, config_for_layers, shared_layer_config, target_layer=None
+):
     for module_name, sub_module in tqdm(
         module.named_modules(),
         total=len(list(module.named_modules())),
         desc="Replacing linear layers..."
     ):
-        if module_name in quant_conf:
-            layer_conf = quant_conf[module_name]
-
+        tail_name = module_name.split('.')[-1]
+        layer_conf = config_for_layers.get(module_name, None)
+        if layer_conf is None and tail_name in shared_layer_config:
+            layer_conf = shared_layer_config[tail_name]
+        if layer_conf is not None:
             new_module = target_layer(
                 **layer_conf,
                 enable_proxy_error=False,
@@ -107,14 +111,17 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
 
         target_layer = VQuantLinear
         quantization_config = auto_conf.quantization_config
-        config_for_layers = quantization_config['config_for_layers']
+        config_for_layers = quantization_config.get('config_for_layers', {})
+        shared_layer_config = quantization_config.get(
+            "shared_layer_config", {}
+        )
 
         # replace linear layers with quantized linear layers
         with transformers.utils.generic.ContextManagers([
             accelerate.init_empty_weights()
         ]):
             make_quant_linear(
-                model, config_for_layers, target_layer=target_layer
+                model, config_for_layers, shared_layer_config, target_layer=target_layer
             )
 
         no_split_module_classes = [
