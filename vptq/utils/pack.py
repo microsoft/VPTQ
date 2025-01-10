@@ -189,6 +189,11 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
             else:
                 sub_mod.perm.data = dtype_convert(sub_mod.perm.data, from_dtype, to_dtype, as_type)
 
+            if sub_mod.res_indices is not None:
+                sub_mod.res_indices = sub_mod.res_indices[..., sub_mod.perm]
+            sub_mod.indices = sub_mod.indices[..., sub_mod.perm]
+            sub_mod.perm = None
+
             sub_mod.indices.data = pack_index(
                 indice=sub_mod.indices,
                 index_bits=int(math.log2(sub_mod.num_centroids)),
