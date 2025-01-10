@@ -6,15 +6,18 @@
 
 import os
 import time
+
 import torch
 import torch.multiprocessing as mp
 from sentence_transformers import SentenceTransformer
-from vptq.quantize_executer import quantize_executer
+
 from vptq.layers.vqlinear import VQuantLinear
+from vptq.quantize_executer import quantize_executer
 from vptq.utils.layer_utils import find_layers, replace_layer
 
 
 def get_nvembed(model_name, seqlen=None):
+
     def skip(*args, **kwargs):
         pass
 

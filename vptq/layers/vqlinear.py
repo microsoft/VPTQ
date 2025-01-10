@@ -40,6 +40,7 @@ class VQuantLinear(nn.Module):
         debug=False,
         # deprecated
         indices_as_float=None,
+        enable_proxy_error=False,
     ):
         super().__init__()
 
@@ -57,6 +58,8 @@ class VQuantLinear(nn.Module):
             "enable_perm": enable_perm,
             "bias": bias,
             "is_indice_packed": is_indice_packed,
+            "indices_as_float": indices_as_float,
+            "enable_proxy_error": enable_proxy_error,
         }
 
         factory_kwargs = {"device": device, "dtype": dtype}

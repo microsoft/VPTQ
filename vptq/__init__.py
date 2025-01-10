@@ -3,6 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-__version__ = "0.0.3"
-from vptq.layers import AutoModelForCausalLM as AutoModelForCausalLM
-from vptq.layers import AutoModelForSentenceEmbeddings as AutoModelForSentenceEmbeddings
+import importlib.metadata
+
+from vptq.layers import AutoModelForCausalLM, VQuantLinear
+
+__version__ = importlib.metadata.version("vptq")
+
+__all__ = ["AutoModelForCausalLM", "VQuantLinear"]

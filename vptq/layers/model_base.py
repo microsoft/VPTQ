@@ -10,9 +10,9 @@ from pathlib import Path
 import accelerate
 import huggingface_hub
 import safetensors
-from sentence_transformers import SentenceTransformer
 import torch
 import transformers
+from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
 from vptq.layers.vqlinear import VQuantLinear
@@ -105,7 +105,8 @@ def attach_execution_device_hook(
         )
 
 
-class AutoModelForCausalLM(transformers.AutoModel):
+class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
+
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, auto_conf=None, *args, **kwargs):
         init_contexts = [
@@ -123,13 +124,13 @@ class AutoModelForCausalLM(transformers.AutoModel):
 
         target_layer = VQuantLinear
         if hasattr(auto_conf, "text_config"):
-            quant_config = auto_conf.text_config.quant_config
+            config_for_layers = auto_conf.text_config.quantization_config
         else:
-            quant_config = auto_conf.quant_config
+            config_for_layers = auto_conf.quantization_config['config_for_layers']
 
         # replace linear layers with quantized linear layers
         with transformers.utils.generic.ContextManagers([accelerate.init_empty_weights()]):
-            make_quant_linear(model, quant_config, target_layer=target_layer)
+            make_quant_linear(model, config_for_layers, target_layer=target_layer)
 
         no_split_module_classes = [i[1].__class__.__name__ for i in model.named_modules() if i[0].endswith(".0")]
 
@@ -222,6 +223,7 @@ class AutoModelForCausalLM(transformers.AutoModel):
 
 
 class AutoModelForSentenceEmbeddings(SentenceTransformer):
+
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, *args, **kwargs):
         model_kwargs = {
