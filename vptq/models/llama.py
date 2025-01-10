@@ -258,6 +258,8 @@ def eval_llama(model, testenc, dev):
             cache['i'] += 1
             cache['attention_mask'] = kwargs['attention_mask']
             cache['position_ids'] = kwargs['position_ids']
+            if hasattr(model.model, 'rotary_emb'):
+                cache['rotary_emb'] = model.model.rotary_emb(x=inp, position_ids=kwargs['position_ids'])
             raise ValueError
 
     layers[0] = Catcher(layers[0])
@@ -278,11 +280,22 @@ def eval_llama(model, testenc, dev):
     position_ids = cache['position_ids']
 
     for i in tqdm(range(len(layers))):
-        # print(i)
         layer = layers[i].to(dev)
 
         for j in range(nsamples):
-            outs[j] = layer(inps[j].unsqueeze(0).to(dev), attention_mask=attention_mask, position_ids=position_ids)[0]
+            if 'rotary_emb' in cache:
+                outs[j] = layer(
+                    inps[j].unsqueeze(0).to(dev), 
+                    attention_mask=attention_mask, 
+                    position_ids=position_ids,
+                    position_embeddings=cache['rotary_emb']
+                )[0]
+            else:
+                outs[j] = layer(
+                    inps[j].unsqueeze(0).to(dev), 
+                    attention_mask=attention_mask, 
+                    position_ids=position_ids
+                )[0]
 
         layers[i] = layer.cpu()
         del layer
