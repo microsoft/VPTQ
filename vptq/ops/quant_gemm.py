@@ -237,7 +237,7 @@ def quant_gemm(
 
     enable_perm = perm is not None
     enable_norm = weight_scale is not None and weight_bias is not None
-    
+
     invert_perm = None
     if enable_perm:
         invert_perm = torch.argsort(perm.view(torch.uint16).to(torch.int64))
