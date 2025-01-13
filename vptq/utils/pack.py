@@ -377,7 +377,7 @@ def absorb_perm_layer(layer):
 def absorb_perm(model):
     absorbed_perm = False
     # Process all VQuantLinear layers
-    pbar = tqdm(model.named_modules())
+    pbar = tqdm.tqdm(model.named_modules())
 
     for name, module in pbar:
         if isinstance(module, vptq.layers.vqlinear.VQuantLinear):
