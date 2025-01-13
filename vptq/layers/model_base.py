@@ -160,7 +160,7 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
         if Path(pretrained_model_name_or_path).exists():
             checkpoint = pretrained_model_name_or_path
         else:  # remote
-            token_arg = {"token": kwargs.get("token", None)}
+            token_arg = {"token": kwargs.get("token")}
             checkpoint = huggingface_hub.snapshot_download(
                 repo_id=pretrained_model_name_or_path,
                 ignore_patterns=["*.bin"],
