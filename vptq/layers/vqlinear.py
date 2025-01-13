@@ -358,7 +358,7 @@ class VQuantLinear(nn.Module):
             outlier_centroids=outlier_centroids,
             residual_indices=self.res_indices,
             residual_centroids=res_centroids,
-            perm=self.perm,
+            perm=getattr(self, "perm", None),
             weight_scale=self.weight_scale,
             weight_bias=self.weight_bias,
             vector_len=self.vector_len,

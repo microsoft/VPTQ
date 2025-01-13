@@ -235,11 +235,13 @@ def quant_gemm(
         shape = (1, num_outlier_centroids, outlier_vector_len)
         outlier_centroids_ = outlier_centroids.view(shape)
 
-    invert_perm = torch.argsort(perm.view(torch.uint16).to(torch.int64))
-    invert_perm = invert_perm.to(torch.uint16).view(torch.int16)
-
     enable_perm = perm is not None
     enable_norm = weight_scale is not None and weight_bias is not None
+
+    invert_perm = None
+    if enable_perm:
+        invert_perm = torch.argsort(perm.view(torch.uint16).to(torch.int64))
+        invert_perm = invert_perm.to(torch.uint16).view(torch.int16)
 
     if (x.numel() // x.shape[-1] < 3) and __cuda_ops_installed:
         out = torch.ops.vptq.gemm(
