@@ -259,6 +259,8 @@ def eval_llama(model, testenc, dev):
             cache['i'] += 1
             cache['attention_mask'] = kwargs['attention_mask']
             cache['position_ids'] = kwargs['position_ids']
+            if hasattr(model.model, 'rotary_emb'):
+                cache['rotary_emb'] = model.model.rotary_emb(x=inp, position_ids=kwargs['position_ids'])
             raise ValueError
 
     layers[0] = Catcher(layers[0])
