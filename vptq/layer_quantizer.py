@@ -14,7 +14,7 @@ from vptq.utils.layer_utils import find_layers, replace_layer
 from vptq.vptq import VPTQ
 
 
-def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
+def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype, name2hessian=None):
 
     qlinear_args = {}
     operators = find_layers(layer)
@@ -29,15 +29,16 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype):
 
         for name in subset:
             # load Hessian
-            name2hessian = {
-                'self_attn.v_proj': 'qkv',
-                'self_attn.q_proj': 'qkv',
-                'self_attn.k_proj': 'qkv',
-                'self_attn.o_proj': 'o',
-                'mlp.up_proj': 'up',
-                'mlp.gate_proj': 'up',
-                'mlp.down_proj': 'down'
-            }
+            if name2hessian is None:
+                name2hessian = {
+                    'self_attn.v_proj': 'qkv',
+                    'self_attn.q_proj': 'qkv',
+                    'self_attn.k_proj': 'qkv',
+                    'self_attn.o_proj': 'o',
+                    'mlp.up_proj': 'up',
+                    'mlp.gate_proj': 'up',
+                    'mlp.down_proj': 'down'
+                }
 
             layer_name = f'{layer_idx}_{name2hessian[name]}.pt'
             hessian_path = f'{args.hessian_path}/{layer_name}'

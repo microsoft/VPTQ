@@ -18,6 +18,7 @@ from vptq.models.llama import eval_llama, get_llama, quant_llama
 from vptq.models.mistral import get_mistral
 from vptq.models.nvembed import get_nvembed, quant_nvembed
 from vptq.models.qwen import eval_qwen, get_qwen, quant_qwen
+from vptq.models.phi import eval_phi, get_phi, quant_phi
 from vptq.quantizer import QuantizationArguments
 from vptq.utils.data import get_data_loader
 from vptq.utils.pack import absorb_perm, pack_model
@@ -64,6 +65,8 @@ if __name__ == "__main__":
         model = get_mistral(args.model_name)
     elif "nv-embed" in args.model_name.lower():
         model = get_nvembed(args.model_name)
+    elif "phi" in args.model_name.lower():
+        model = get_phi(args.model_name)
     else:
         raise ValueError(f"Unsupported model: {args.model_name}")
 
@@ -85,6 +88,8 @@ if __name__ == "__main__":
         model, quantizers = quant_qwen(model, args, quant_args)
     elif "nv-embed" in args.model_name.lower():
         model, quantizers = quant_nvembed(model, args, quant_args)
+    elif "phi" in args.model_name.lower():
+        model, quantizers = quant_phi(model, args, quant_args)
     else:
         raise ValueError(f"Unsupported model: {args.model_name}")
 
@@ -155,6 +160,8 @@ if __name__ == "__main__":
                 ppl = eval_llama(model, testloader, "cuda")
             elif "qwen" in args.model_name.lower():
                 ppl = eval_qwen(model, testloader, "cuda")
+            elif "phi" in args.model_name.lower():
+                ppl = eval_phi(model, testloader, "cuda")
             else:
                 raise ValueError(f"Unsupported model: {args.model_name}")
 

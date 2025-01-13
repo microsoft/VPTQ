@@ -18,8 +18,15 @@ from vptq.quantize_executer import quantize_executer
 from vptq.utils.layer_utils import find_layers, replace_layer
 
 
+name2hessian = {
+    "self_attn.qkv_proj": "qkv",
+    "self_attn.o_proj": "o",
+    "mlp.gate_up_proj": "up",
+    "mlp.down_proj": "down",
+}
+
 # get llama model
-def get_qwen(model_name, seqlen=None):
+def get_phi(model_name, seqlen=None):
 
     def skip(*args, **kwargs):
         pass
@@ -27,8 +34,8 @@ def get_qwen(model_name, seqlen=None):
     torch.nn.init.kaiming_uniform_ = skip
     torch.nn.init.uniform_ = skip
     torch.nn.init.normal_ = skip
-    from transformers import Qwen2ForCausalLM
-    model = Qwen2ForCausalLM.from_pretrained(
+    from transformers import AutoModelForCausalLM
+    model = AutoModelForCausalLM.from_pretrained(
         model_name, attn_implementation="flash_attention_2", torch_dtype=torch.bfloat16
     )
 
@@ -37,8 +44,8 @@ def get_qwen(model_name, seqlen=None):
     return model
 
 
-# quant qwen model
-def quant_qwen(model, args, quant_args, dev='cuda'):
+# quant phi model
+def quant_phi(model, args, quant_args, dev='cuda'):
     # model.model.required_grad = False
     print('Starting VPTQ...')
 
@@ -68,7 +75,7 @@ def quant_qwen(model, args, quant_args, dev='cuda'):
     torch.cuda.empty_cache()
 
     model.model.embed_tokens = model.model.embed_tokens.to('cpu')
-
+    # fix for llama-3.1
     if hasattr(model.model, 'rotary_emb'):
         model.model.rotary_emb = model.model.rotary_emb.to('cpu')
     model.model.norm = model.model.norm.to('cpu')
@@ -82,16 +89,30 @@ def quant_qwen(model, args, quant_args, dev='cuda'):
     print(f'----quantization start ...---- {time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())}')
 
     # calculate task allocation
-    num_tasks_per_gpu = (len(layers) + args.num_gpus - 1) // args.num_gpus
-    tasks = []
+    total_layers = len(layers)
+    num_gpus = min(args.num_gpus, total_layers)
 
-    # allocate tasks to each gpu
-    for gpu_idx in range(args.num_gpus):
-        task = []
-        for layer_idx in range(gpu_idx * num_tasks_per_gpu, (gpu_idx + 1) * num_tasks_per_gpu):
-            if layer_idx < len(layers):
-                task.append((layer_idx, layers[layer_idx]))
-        tasks.append(task)
+    base_layers_per_gpu = total_layers // num_gpus
+    remaining_layers = total_layers % num_gpus
+
+    tasks = []
+    current_layer_idx = 0
+
+    # Distribute tasks to GPUs
+    for gpu_idx in range(num_gpus):
+        current_gpu_tasks = []
+
+        # Calculate how many layers this GPU should handle
+        layers_for_this_gpu = base_layers_per_gpu
+        if gpu_idx < remaining_layers:
+            layers_for_this_gpu += 1
+
+        # Assign layers to this GPU
+        for _ in range(layers_for_this_gpu):
+            current_gpu_tasks.append((current_layer_idx, layers[current_layer_idx]))
+            current_layer_idx += 1
+
+        tasks.append(current_gpu_tasks)
 
     # print task allocation
     for gpu_idx in range(len(tasks)):
@@ -120,6 +141,7 @@ def quant_qwen(model, args, quant_args, dev='cuda'):
                     quant_args,
                     input_queues,
                     output_queues,
+                    name2hessian
                 )
             )
 
@@ -133,7 +155,7 @@ def quant_qwen(model, args, quant_args, dev='cuda'):
 
     # init quantized model
     model_name = model.model.config._name_or_path
-    # qmodel = init_quantized_qwen(model_name, args, quant_args).cpu()
+    # qmodel = init_quantized_llama(model_name, args, quant_args).cpu()
 
     if args.num_gpus > 1:
         layer_state_dicts = {}
@@ -167,8 +189,7 @@ def quant_qwen(model, args, quant_args, dev='cuda'):
         print('Error: not all layers are quantized')
         exit(1)
 
-    # eval_quant = True, evalutes qlinear layers in qwen
-    qmodel = get_quantized_qwen(model_name, args.seq_len, layer_state_dicts, layer_qlinear_args)
+    qmodel = get_quantized_llama(model_name, args.seq_len, layer_state_dicts, layer_qlinear_args)
 
     model = qmodel
 
@@ -178,10 +199,10 @@ def quant_qwen(model, args, quant_args, dev='cuda'):
     return model, quantizers
 
 
-def get_quantized_qwen(model_name, seqlen, layer_state_dicts, layer_qlinear_args):
+def get_quantized_llama(model_name, seqlen, layer_state_dicts, layer_qlinear_args):
 
     # print(f'layer_state_dicts: {layer_state_dicts.keys()}')
-    model = get_qwen(model_name, seqlen=seqlen)
+    model = get_phi(model_name, seqlen=seqlen)
     dtype = next(iter(model.parameters())).dtype
     layers = model.model.layers
 
@@ -215,9 +236,9 @@ def get_quantized_qwen(model_name, seqlen, layer_state_dicts, layer_qlinear_args
 
 
 @torch.no_grad()
-def eval_qwen(model, testenc, dev):
+def eval_phi(model, testenc, dev):
     current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-    print(f'----Evaluating qwen ...---- {current_time}')
+    print(f'----Evaluating llama ...---- {current_time}')
 
     testenc = testenc.input_ids
     nsamples = testenc.numel() // model.seqlen
@@ -227,7 +248,7 @@ def eval_qwen(model, testenc, dev):
     layers = model.model.layers
 
     model.model.embed_tokens = model.model.embed_tokens.to(dev)
-    # fix for qwen
+    # fix for llama-3.1
     if hasattr(model.model, 'rotary_emb'):
         model.model.rotary_emb = model.model.rotary_emb.to(dev)
     layers[0] = layers[0].to(dev)
@@ -237,7 +258,6 @@ def eval_qwen(model, testenc, dev):
     cache = {'i': 0, 'attention_mask': None}
 
     class Catcher(nn.Module):
-
         def __init__(self, module):
             super().__init__()
             self.module = module
@@ -265,18 +285,18 @@ def eval_qwen(model, testenc, dev):
     outs = torch.zeros_like(inps)
     attention_mask = cache['attention_mask']
     position_ids = cache['position_ids']
-    # get position embeddings from the model's rotary embeddings
+    # get position embeddings from the model's rotary embeddings 
     # for the latest huggingface transformers
-    position_embeddings = model.model.rotary_emb(outs, position_ids)
+    position_embeddings = model.model.rotary_emb(outs, position_ids) 
 
     for i in tqdm(range(len(layers))):
         layer = layers[i].to(dev)
 
         for j in range(nsamples):
             outs[j] = layer(inps[j].unsqueeze(0).to(dev), 
-                          attention_mask=attention_mask, 
-                          position_ids=position_ids,
-                          position_embeddings=position_embeddings)[0]
+                            attention_mask=attention_mask, 
+                            position_ids=position_ids,
+                            position_embeddings=position_embeddings)[0]
 
         layers[i] = layer.cpu()
         del layer
