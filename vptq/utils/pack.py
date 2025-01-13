@@ -70,8 +70,6 @@ def pack_index(
         indice.shape[-1],
         res_bits,
         res_indice.shape[-1] if res_indice is not None else 0,
-        index_dtype=index_dtype,
-        as_dtype=as_dtype,
     )
     assert torch.allclose(
         indice.view(index_dtype).to(torch.int64),
@@ -86,8 +84,6 @@ def pack_index(
             indice.shape[-1],
             res_bits,
             res_indice.shape[-1] if res_indice is not None else 0,
-            index_dtype=index_dtype,
-            as_dtype=as_dtype,
         )[0],
     )
     if res_indice is not None:
@@ -99,50 +95,43 @@ def pack_index(
                 indice.shape[-1],
                 res_bits,
                 res_indice.shape[-1] if res_indice is not None else 0,
-                index_dtype=index_dtype,
-                as_dtype=as_dtype,
             )[1],
         )
     return out
 
 
 def unpack_index_tensor(
-    pack_tensor: torch.Tensor,
+    packed_tensor: torch.Tensor,
     index_bits: int,
     num_elements: int,
     res_bits: int = 0,
     num_res_elements: int = 0,
-    index_dtype: torch.dtype = torch.uint16,
-    as_dtype: torch.dtype = torch.int32,
 ) -> torch.Tensor:
     total_bits = index_bits + res_bits
-    wf = torch.arange(0, 32, 1).to(pack_tensor.device).view(1, 1, 1, -1)
-    out = torch.bitwise_right_shift(torch.unsqueeze(pack_tensor, -1), wf)
+    wf = torch.arange(0, 32, 1).to(packed_tensor.device).view(1, 1, 1, -1)
+    out = torch.bitwise_right_shift(torch.unsqueeze(packed_tensor, -1), wf)
     torch.bitwise_and(out, 1, out=out)
-    pad_size = (pack_tensor.shape[-1] *
+    pad_size = (packed_tensor.shape[-1] *
                 32) % (index_bits * num_elements + res_bits * num_res_elements)
-    out = out.reshape(*pack_tensor.shape[:-1], -1)
+    out = out.reshape(*packed_tensor.shape[:-1], -1)
     if pad_size > 0:
         out = out[..., :-pad_size]
-    out = out.reshape(*pack_tensor.shape[:-1], -1, total_bits)
-    wf1 = torch.arange(0, total_bits,
-                       1).to(pack_tensor.device).view(1, 1, 1, -1)
+    out = out.reshape(*packed_tensor.shape[:-1], -1, total_bits)
+    wf1 = (
+        torch.arange(0, total_bits,
+                     1).to(packed_tensor.device).view(1, 1, 1, -1)
+    )
     out = torch.bitwise_left_shift(out, wf1).sum(dim=-1)
 
-    unpack_indice = out.to(torch.uint64).view(torch.int64)
+    unpacked_indices = out.to(torch.uint64).view(torch.int64)
 
-    indices = (unpack_indice & ((1 << index_bits) - 1)).view(torch.uint64
-                                                            ).to(torch.int64)
-    indices = indices.squeeze()
+    indices = unpacked_indices & ((1 << index_bits) - 1)
+    indices = indices.view(torch.uint64).to(torch.int64)
 
+    res_indices = None
     if res_bits > 0:
-        res_indices = ((unpack_indice >> index_bits) &
-                       ((1 << res_bits) - 1)).view(torch.uint64
-                                                  ).to(torch.int64)
-        res_indices = res_indices.squeeze()
-    else:
-        res_indices = None
-
+        res_indices = (unpacked_indices >> index_bits) & ((1 << index_bits) - 1)
+        res_indices = res_indices.view(torch.uint64).to(torch.int64)
     return indices, res_indices
 
 
@@ -310,13 +299,12 @@ def absorb_perm_layer(layer):
         logger.debug(f'layer.group_size: {layer.group_size}')
 
         # Unpack indices
-        indices, res_indices = layer.unpack_index_tensor(
-            pack_tensor=layer.indices,
+        indices, res_indices = unpack_index_tensor(
+            packed_tensor=layer.indices,
             index_bits=index_bits,
             num_elements=layer.group_size,
             res_bits=index_res_bits,
             num_res_elements=layer.group_size,
-            index_dtype=torch.uint16,
         )
 
         logger.debug(

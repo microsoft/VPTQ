@@ -14,6 +14,8 @@ import os
 import torch
 from torch.nn import functional as F
 
+from vptq.utils.pack import unpack_index_tensor
+
 
 def _load_library(filename: str) -> bool:
     """Load a shared library from the given filename."""
@@ -36,40 +38,6 @@ def _load_library(filename: str) -> bool:
 
 
 __cuda_ops_installed: bool = _load_library("libvptq.so")
-
-
-def unpack_index_tensor(
-    packed_tensor: torch.Tensor,
-    index_bits: int,
-    num_elements: int,
-    res_bits: int = 0,
-    num_res_elements: int = 0
-) -> torch.Tensor:
-    total_bits = index_bits + res_bits
-    wf = torch.arange(0, 32, 1).to(packed_tensor.device).view(1, 1, 1, -1)
-    out = torch.bitwise_right_shift(torch.unsqueeze(packed_tensor, -1), wf)
-    torch.bitwise_and(out, 1, out=out)
-    pad_size = (packed_tensor.shape[-1] *
-                32) % (index_bits * num_elements + res_bits * num_res_elements)
-    out = out.reshape(*packed_tensor.shape[:-1], -1)
-    if pad_size > 0:
-        out = out[..., :-pad_size]
-    out = out.reshape(*packed_tensor.shape[:-1], -1, total_bits)
-    wf1 = torch.arange(0, total_bits,
-                       1).to(packed_tensor.device).view(1, 1, 1, -1)
-    out = torch.bitwise_left_shift(out, wf1).sum(dim=-1)
-
-    unpacked_indices = out.to(torch.uint64).view(torch.int64)
-
-    indices = (unpacked_indices & ((1 << index_bits) - 1))
-    indices = indices.view(torch.uint64).to(torch.int64)
-
-    res_indices = None
-    if res_bits > 0:
-        res_indices = ((unpacked_indices >> index_bits) &
-                       ((1 << index_bits) - 1))
-        res_indices = res_indices.view(torch.uint64).to(torch.int64)
-    return indices, res_indices
 
 
 def dequant(
