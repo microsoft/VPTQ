@@ -144,14 +144,16 @@ def quant_qwen(model, args, quant_args, dev='cuda'):
             for layer_idx in range(len(layers)):
                 # load to cpu
                 layer_state_dicts[layer_idx] = torch.load(
-                    f'{args.output_dir}/qlinear_layer_state_{layer_idx}.pt', map_location='cpu'
+                    f'{args.output_dir}/qlinear_layer_state_{layer_idx}.pt', map_location='cpu',
+                    weights_only=True
                 )
                 # bypass KeyError: torch.uint16
                 for key, value in layer_state_dicts[layer_idx].items():
                     if "indices" in key:
                         layer_state_dicts[layer_idx][key] = value.view(torch.uint16)
                 layer_qlinear_args[layer_idx] = torch.load(
-                    f'{args.output_dir}/qlinear_args_{layer_idx}.pt', map_location='cpu'
+                    f'{args.output_dir}/qlinear_args_{layer_idx}.pt', map_location='cpu',
+                    weights_only=True
                 )
         else:
             while not output_queues.empty():
@@ -263,13 +265,18 @@ def eval_qwen(model, testenc, dev):
     outs = torch.zeros_like(inps)
     attention_mask = cache['attention_mask']
     position_ids = cache['position_ids']
+    # get position embeddings from the model's rotary embeddings
+    # for the latest huggingface transformers
+    position_embeddings = model.model.rotary_emb(outs, position_ids)
 
     for i in tqdm(range(len(layers))):
-        # print(i)
         layer = layers[i].to(dev)
 
         for j in range(nsamples):
-            outs[j] = layer(inps[j].unsqueeze(0).to(dev), attention_mask=attention_mask, position_ids=position_ids)[0]
+            outs[j] = layer(inps[j].unsqueeze(0).to(dev), 
+                          attention_mask=attention_mask, 
+                          position_ids=position_ids,
+                          position_embeddings=position_embeddings)[0]
 
         layers[i] = layer.cpu()
         del layer

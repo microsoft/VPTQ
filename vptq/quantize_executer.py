@@ -41,7 +41,7 @@ def setup_logging(log_path, task_id, debug=False):
 
 
 # quantize executer
-def quantize_executer(task_id, tasks, args, quant_args, input_queues, output_queues):
+def quantize_executer(task_id, tasks, args, quant_args, input_queues, output_queues, name2hessian=None):
     # TODO: we have to set the device in os environment
     # cuml 23.12 only runs on the CUDA:0
     dev = 'cuda:0'
@@ -73,6 +73,7 @@ def quantize_executer(task_id, tasks, args, quant_args, input_queues, output_que
             logger,
             dev,
             dtype,
+            name2hessian=name2hessian
         )
 
         # send quantized layer to output queue
