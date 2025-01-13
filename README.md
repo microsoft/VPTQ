@@ -47,6 +47,7 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 
 
 ## News
+- **[2025-01-13]** VPTQ is formly support by Transformers in its wheel package release since v4.48.0.
 - **[2024-12-20]** 🚀 **VPTQ ❤️ Huggingface Transformers** VPTQ support has been merged into Huggingface Transformers main branch! Check out the [commit](https://github.com/huggingface/transformers/commit/4e27a4009d3f9d4e44e9be742e8cd742daf074f4#diff-4a073e7151b3f6675fce936a7802eeb6da4ac45d545ad6198be92780f493112bR20) and our Colab example: <a target="_blank" href="https://colab.research.google.com/github/microsoft/VPTQ/blob/main/notebooks/vptq_hf_example.ipynb"> <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="VPTQ in Colab"/> </a>
 - [2024-12-15] 🌐 Open source community contributes [**Meta Llama 3.3 70B @ 1-4 bits** models](https://huggingface.co/collections/VPTQ-community/vptq-llama-33-70b-instruct-without-finetune-675ef82388de8c1c1bef75ab)
 - [2024-11-01] 📦 VPTQ is now available on [PyPI](https://pypi.org/project/vptq/)! You can install it easily using the command: `pip install vptq`.
