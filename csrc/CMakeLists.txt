@@ -19,6 +19,10 @@ set_target_properties(
              CUDA_RESOLVE_DEVICE_SYMBOLS ON
              CUDA_SEPARABLE_COMPILATION ON)
 
+# Refer to this issue for more context:
+# https://github.com/pytorch/pytorch/issues/13541
+target_compile_definitions(${TARGET} PUBLIC _GLIBCXX_USE_CXX11_ABI=0)
+
 target_compile_options(
   ${TARGET}
   PUBLIC $<$<COMPILE_LANGUAGE:CUDA>:
