@@ -40,25 +40,6 @@ class CMakeExtension(Extension):
 class CMakeBuildExt(build_ext):
     """launches the CMake build."""
 
-    def get_ext_filename(self, name):
-        return f"lib{name}.so"
-
-    def copy_extensions_to_source(self) -> None:
-        build_py = self.get_finalized_command("build_py")
-        for ext in self.extensions:
-            source_path = os.path.join(
-                self.build_lib, self.get_ext_filename(ext.name)
-            )
-            inplace_file, _ = self._get_inplace_equivalent(build_py, ext)
-
-            target_path = os.path.join(build_py.build_lib, "vptq", inplace_file)
-
-            # Always copy, even if source is older than destination, to ensure
-            # that the right extensions for the current Python/platform are
-            # used.
-            if os.path.exists(source_path) or not ext.optional:
-                self.copy_file(source_path, target_path, level=self.verbose)
-
     def build_extension(self, ext: CMakeExtension) -> None:
         # Ensure that CMake is present and working
         try:
@@ -81,6 +62,7 @@ class CMakeBuildExt(build_ext):
             extdir = os.path.abspath(
                 os.path.dirname(self.get_ext_fullpath(ext.name))
             )
+            extdir = os.path.join(extdir, "vptq")
 
             cmake_args = [
                 "-DCMAKE_BUILD_TYPE=%s" % cfg,
@@ -121,8 +103,6 @@ class CMakeBuildExt(build_ext):
             # Build
             subprocess.check_call(["cmake", "--build", "."] + build_args,
                                   cwd=self.build_temp)
-            print()
-            self.copy_extensions_to_source()
 
 
 class Clean(Command):
