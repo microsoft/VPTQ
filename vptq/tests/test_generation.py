@@ -38,6 +38,7 @@ class TestGeneration(unittest.TestCase):
         gc.collect()
 
     def test_generation(self):
+        # TODO(ying): Add more meaningful unit tests.
         inputs = self.tokenizer(self.test_case, return_tensors="pt").to("cuda")
         out = self.model.generate(
             **inputs,

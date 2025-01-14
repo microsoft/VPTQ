@@ -9,6 +9,7 @@ from pathlib import Path
 
 from setuptools import Command, Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
+from setuptools.command.develop import develop
 
 cur_path = Path(__file__).parent
 
@@ -39,6 +40,9 @@ class CMakeExtension(Extension):
 
 class CMakeBuildExt(build_ext):
     """launches the CMake build."""
+
+    def copy_extensions_to_source(self) -> None:
+        pass
 
     def build_extension(self, ext: CMakeExtension) -> None:
         # Ensure that CMake is present and working
@@ -105,6 +109,28 @@ class CMakeBuildExt(build_ext):
                                   cwd=self.build_temp)
 
 
+class Develop(develop):
+    """Post-installation for development mode."""
+
+    def post_build_copy(self) -> None:
+        build_py = self.get_finalized_command("build_py")
+        source_root = Path(os.path.abspath(build_py.build_lib)).parents[1]
+
+        target = "libvptq.so"
+
+        source_path = os.path.join(build_py.build_lib, "vptq", target)
+        target_path = os.path.join(source_root, "vptq", target)
+
+        if os.path.exists(source_path):
+            self.copy_file(source_path, target_path, level=self.verbose)
+        else:
+            raise FileNotFoundError(f"Cannot find built library: {source_path}")
+
+    def run(self):
+        develop.run(self)
+        self.post_build_copy()
+
+
 class Clean(Command):
     user_options = []
 
@@ -158,5 +184,6 @@ setup(
     cmdclass={
         "build_ext": CMakeBuildExt,
         "clean": Clean,
+        "develop": Develop,
     },
 )
