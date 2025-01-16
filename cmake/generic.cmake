@@ -18,6 +18,10 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 # Set host compiler flags. Enable all warnings and treat them as errors
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall")
 
+set(USER_CUDA_ARCH_LIST
+    ""
+    CACHE STRING "User-specified CUDA Architectures")
+
 find_package(CUDAToolkit QUIET REQUIRED)
 enable_language(CUDA)
 set(CMAKE_CUDA on)
@@ -39,10 +43,20 @@ find_package(Torch REQUIRED)
 message(STATUS "Torch include include_directories: " ${TORCH_INCLUDE_DIRS})
 include_directories(${TORCH_INCLUDE_DIRS})
 
-# let cmake automatically detect the current CUDA architecture to avoid
-# generating device codes for all possible architectures
-set(CMAKE_CUDA_ARCHITECTURES OFF)
+if(USER_CUDA_ARCH_LIST)
+  message(STATUS "User specified CUDA architectures: ${USER_CUDA_ARCH_LIST}")
+  cuda_select_nvcc_arch_flags(ARCH_LIST ${USER_CUDA_ARCH_LIST})
+  # Alawyas append the user-specified CUDA architectures to NVCC flags
+  list(APPEND CUDA_NVCC_FLAGS ${ARCH_LIST})
+else()
+  # let cmake automatically detect the current CUDA architecture to avoid
+  # generating device codes for all possible architectures
+  message(STATUS "No user specified CUDA architectures, cmake will detect the "
+                 "local CUDA architecture.")
+endif()
+
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  --Werror all-warnings")
+
 # Set the CUDA_PROPAGATE_HOST_FLAGS to OFF to avoid passing host compiler flags
 # to the device compiler
 set(CUDA_PROPAGATE_HOST_FLAGS OFF)
@@ -64,10 +78,16 @@ set(CUDA_NVCC_FLAGS
     -U__CUDA_NO_BFLOAT162_CONVERSIONS__)
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} --use_fast_math)
 
-if(${CUDA_VERSION_MAJOR} VERSION_GREATER_EQUAL "11")
-  add_definitions("-DENABLE_BF16")
-  message("CUDA_VERSION ${CUDA_VERSION_MAJOR}.${CUDA_VERSION_MINOR} "
-          "is greater or equal than 11.0, enable -DENABLE_BF16 flag.")
+if(DEFINED NVCC_THREADS AND (NOT CUDA_VERSION VERSION_LESS 11.3))
+  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "--threads ${NVCC_THREADS}")
+endif()
+
+message(STATUS "NVCC FLAGS = ${CUDA_NVCC_FLAGS}")
+
+if(${CUDA_VERSION_MAJOR} VERSION_LESS "11")
+  message(
+    FATAL_ERROR "CUDA_VERSION ${CUDA_VERSION_MAJOR}.${CUDA_VERSION_MINOR} "
+                "should be greater or equal than 11.0 to enable bf16 support.")
 endif()
 
 message(STATUS "CUDA detected: " ${CUDA_VERSION})
