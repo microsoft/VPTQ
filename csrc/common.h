@@ -5,6 +5,7 @@
 #include <ATen/cuda/CUDAContext.h>
 #include <torch/extension.h>
 
+namespace vptq {
 class OptionalCUDAGuard {
   int set_device_ = -1;
   int current_device_ = -1;
@@ -40,3 +41,4 @@ inline void gpuAssert(cudaError_t code, const char* file, int line) {
     TORCH_CHECK(false, cudaGetErrorString(code));
   }
 }
+}  // namespace vptq

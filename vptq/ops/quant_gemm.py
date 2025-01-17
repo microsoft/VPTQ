@@ -9,35 +9,29 @@ __all__ = [
 ]
 
 import math
-import os
 
 import torch
 from torch.nn import functional as F
 
 from vptq.utils.pack import unpack_index_tensor
 
+__cuda_ops_installed = False
 
-def _load_library(filename: str) -> bool:
-    """Load a shared library from the given filename."""
-    try:
-        libdir = os.path.dirname(os.path.dirname(__file__))
-        torch.ops.load_library(os.path.join(libdir, filename))
-        print(f"Successfully loaded: '{filename}'")
-        return True
-    except Exception as error:
-        print((
-            f"{error}\n"
-            "!!! Warning !!!: CUDA kernels are not found, "
-            "please check CUDA and VPTQ installation."
-        ))
-        print((
-            "!!! Warning !!!: Running on Torch implementations, "
-            "which is extremely slow."
-        ))
-        return False
+try:
+    import vptq.libvptq as vptq_ops
 
-
-__cuda_ops_installed: bool = _load_library("libvptq.so")
+    print(f"Successfully loaded VPTQ CUDA kernels.")
+    __cuda_ops_installed = True
+except Exception as error:
+    print((
+        f"{error}\n"
+        "!!! Warning !!!: CUDA kernels are not found, "
+        "please check CUDA and VPTQ installation."
+    ))
+    print((
+        "!!! Warning !!!: Running on Torch implementations, "
+        "which is extremely slow."
+    ))
 
 
 def dequant(
@@ -212,7 +206,7 @@ def quant_gemm(
         invert_perm = invert_perm.to(torch.uint16).view(torch.int16)
 
     if (x.numel() // x.shape[-1] < 3) and __cuda_ops_installed:
-        out = torch.ops.vptq.gemm(
+        out = vptq_ops.gemm(
             x,
             indices,
             centroids_,
@@ -231,7 +225,8 @@ def quant_gemm(
         return out
     else:
         if __cuda_ops_installed:
-            weight = torch.ops.vptq.dequant(
+
+            weight = vptq_ops.dequant(
                 indices,
                 centroids_,
                 residual_indices,

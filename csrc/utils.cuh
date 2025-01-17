@@ -22,6 +22,7 @@ typedef __nv_bfloat162 __bfloat162;
 typedef __nv_bfloat16 __bfloat16;
 #endif
 
+namespace vptq {
 namespace cuda {
 
 constexpr int kBlockSize = 256;
@@ -93,20 +94,8 @@ __device__ __forceinline__ void ldg_vec_x(
   const int2* src = (const int2*)src_u32;
   if constexpr (GROUPSIZE == 2) {
     *dst_u32 = VPTQ_LDG(src_u32);
-    // uint32_t* dec = (uint32_t*)dst;
-    // asm volatile (
-    //       "ld.cg.global.v2.u32 {%0, %1}, [%2];"
-    //       : "=r"(dec[0]), "=r"(dec[1])
-    //       : "l"((const void*)src)
-    //     );
   } else if constexpr (GROUPSIZE == 4) {
     *dst = VPTQ_LDG(src);
-    // uint32_t* dec = (uint32_t*)dst;
-    // asm volatile (
-    //       "ld.cg.global.v2.u32 {%0, %1}, [%2];"
-    //       : "=r"(dec[0]), "=r"(dec[1])
-    //       : "l"((const void*)src)
-    //     );
   } else if constexpr (GROUPSIZE == 6) {
     dst_u32[0] = VPTQ_LDG(src_u32);
     dst_u32[1] = VPTQ_LDG(src_u32 + 1);
@@ -116,12 +105,6 @@ __device__ __forceinline__ void ldg_vec_x(
   } else if constexpr (GROUPSIZE == 16) {
     *(int4*)dst = VPTQ_LDG((const int4*)src);
     *(int4*)(dst + 2) = VPTQ_LDG((const int4*)(src + 2));
-    // asm volatile("ld.cg.global.v4.u32 {%0, %1, %2, %3}, [%4];"
-    //              : "=r"(dst_u32[0]), "=r"(dst_u32[1]), "=r"(dst_u32[2]),
-    //              "=r"(dst_u32[3]) : "l"((const void*)src_u32));
-    // asm volatile("ld.cg.global.v4.u32 {%0, %1, %2, %3}, [%4];"
-    //              : "=r"(dst_u32[4]), "=r"(dst_u32[5]), "=r"(dst_u32[6]),
-    //              "=r"(dst_u32[7]) : "l"((const void*)(src_u32 + 4)));
   } else if constexpr (GROUPSIZE == 12) {
     if (uint64_t(src) % 16) {
       dst[0] = VPTQ_LDG(src);
@@ -132,38 +115,11 @@ __device__ __forceinline__ void ldg_vec_x(
       *(int4*)dst = VPTQ_LDG((int4*)(src));
       dst[2] = VPTQ_LDG((src + 2));
     }
-    // dst[0] = VPTQ_LDG(src);
-    // dst[1] = VPTQ_LDG((src+1));
-    // dst[2] = VPTQ_LDG((src+2));
-
-    // uint32_t* dec = (uint32_t*)dst;
-    // asm volatile (
-    //         "ld.cg.global.v4.u32 {%0, %1, %2, %3}, [%4];"
-    //         : "=r"(dec[0]), "=r"(dec[1]), "=r"(dec[2]), "=r"(dec[3])
-    //         : "l"((const void*)src)
-    //       );
-    // asm volatile (
-    //       "ld.cg.global.v2.u32 {%0, %1}, [%2];"
-    //       : "=r"(dec[4]), "=r"(dec[5])
-    //       : "l"((const void*)src)
-    //     );
   } else if constexpr (GROUPSIZE == 24) {
     *((int4*)(dst)) = VPTQ_LDG((const int4*)(src));
     *(((int4*)(dst)) + 1) = VPTQ_LDG(((const int4*)(src)) + 1);
     *(((int4*)(dst)) + 2) = VPTQ_LDG(((const int4*)(src)) + 2);
   } else if constexpr (GROUPSIZE == 32) {
-    // asm volatile("ld.cg.global.v4.u32 {%0, %1, %2, %3}, [%4];"
-    //              : "=r"(dst_u32[0]), "=r"(dst_u32[1]), "=r"(dst_u32[2]),
-    //              "=r"(dst_u32[3]) : "l"((const void*)src_u32));
-    // asm volatile("ld.cg.global.v4.u32 {%0, %1, %2, %3}, [%4];"
-    //              : "=r"(dst_u32[4]), "=r"(dst_u32[5]), "=r"(dst_u32[6]),
-    //              "=r"(dst_u32[7]) : "l"((const void*)(src_u32 + 4)));
-    // asm volatile("ld.cg.global.v4.u32 {%0, %1, %2, %3}, [%4];"
-    //              : "=r"(dst_u32[8]), "=r"(dst_u32[9]), "=r"(dst_u32[10]),
-    //              "=r"(dst_u32[11]) : "l"((const void*)(src_u32 + 8)));
-    // asm volatile("ld.cg.global.v4.u32 {%0, %1, %2, %3}, [%4];"
-    //              : "=r"(dst_u32[12]), "=r"(dst_u32[13]), "=r"(dst_u32[14]),
-    //              "=r"(dst_u32[15]) : "l"((const void*)(src_u32 + 12)));
     *((int4*)(dst)) = VPTQ_LDG((const int4*)(src));
     *(((int4*)(dst)) + 1) = VPTQ_LDG(((const int4*)(src)) + 1);
     *(((int4*)(dst)) + 2) = VPTQ_LDG(((const int4*)(src)) + 2);
@@ -203,7 +159,6 @@ template <typename T>
 __forceinline__ T ceil_div(T a, T b) {
   return (a + b - 1) / b;
 }
-
 }  // namespace cuda
 
 template <typename T>
@@ -288,3 +243,4 @@ __device__ __half operator*(const __half& a, const __half& b) {
   return __hmul(a, b);
 }
 #endif
+}  // namespace vptq
