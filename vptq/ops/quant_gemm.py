@@ -20,7 +20,7 @@ __cuda_ops_installed = False
 try:
     import vptq.libvptq as vptq_ops
 
-    print(f"Successfully loaded VPTQ CUDA kernels.")
+    print("Successfully loaded VPTQ CUDA kernels.")
     __cuda_ops_installed = True
 except Exception as error:
     print((
