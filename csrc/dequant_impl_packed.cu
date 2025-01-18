@@ -7,6 +7,7 @@
 #include "common.h"
 #include "utils.cuh"
 
+namespace vptq {
 template <typename T>
 struct C10ToNvType {
   typedef __bfloat16 type;
@@ -734,3 +735,4 @@ torch::Tensor launch_gemv_outliers_cuda_packkernel(
   }
   return output;
 }
+}  // namespace vptq

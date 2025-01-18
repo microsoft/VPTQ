@@ -23,6 +23,10 @@ set_target_properties(
 # https://github.com/pytorch/pytorch/issues/13541
 target_compile_definitions(${TARGET} PUBLIC _GLIBCXX_USE_CXX11_ABI=0)
 
+# The find_package(Torch) command does not expose PyTorch's Python bindings.
+# However, when using Pybind11, we need to link against these bindings.
+list(APPEND TORCH_LIBRARIES "${TORCH_INSTALL_PREFIX}/lib/libtorch_python.so")
+
 target_compile_options(
   ${TARGET}
   PUBLIC $<$<COMPILE_LANGUAGE:CUDA>:

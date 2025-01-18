@@ -6,8 +6,8 @@
 #include <c10/cuda/CUDAGuard.h>
 
 #include <torch/extension.h>
-#include <torch/library.h>
 
+namespace vptq {
 #define CHECK_CUDA(x) \
   TORCH_CHECK(x.device().is_cuda(), #x " must be a CUDA tensor")
 #define CHECK_CONTIGUOUS(x) \
@@ -157,41 +157,13 @@ torch::Tensor wqA16Gemm(const torch::Tensor& input,
 
   return output;
 }
+}  // namespace vptq
 
-TORCH_LIBRARY_IMPL(vptq, CUDA, m) {
-  m.impl("dequant", dequant);
-  m.impl("gemm", wqA16Gemm);
-}
+// NOTE: DO NOT change the module name "libvptq" here. It must match how
+// the module is loaded in the Python codes.
+PYBIND11_MODULE(libvptq, m) {
+  m.doc() = "VPTQ customized kernels.";
 
-TORCH_LIBRARY(vptq, m) {
-  m.def(
-      R"DOC(dequant(Tensor q_indice,
-      Tensor centroids,
-      Tensor? q_indice_residual,
-      Tensor? residual_centroids,
-      Tensor? q_indice_outliers,
-      Tensor? outliers_centroids,
-      Tensor? invperm,
-      Tensor weight_scale,
-      Tensor weight_bias,
-      int groupsize,
-      int in_features,
-      int out_features) -> Tensor
-)DOC");
-  m.def(
-      R"DOC(gemm(Tensor input,
-      Tensor q_indice,
-      Tensor centroids,
-      Tensor? q_indice_residual,
-      Tensor? residual_centroids,
-      Tensor? q_indice_outliers,
-      Tensor? outliers_centroids,
-      Tensor? invperm,
-      Tensor weight_scale,
-      Tensor weight_bias,
-      Tensor? bias,
-      int groupsize,
-      int in_features,
-      int out_features) -> Tensor
-)DOC");
+  m.def("dequant", &vptq::dequant, "vptq customized dequantization kernel.");
+  m.def("gemm", &vptq::wqA16Gemm, "vptq customized dequantized gemv kernel.");
 }

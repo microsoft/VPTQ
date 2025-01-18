@@ -20,7 +20,7 @@ classifiers = [
  # `pyproject.toml`'s `dependencies` field.
  # Make sure to keep this field in sync with what is in `requirements.txt`.
 dependencies = [
-    "torch",
+    "torch>=2.3.0",
     "datasets",
     "transformers>=4.45",
     "safetensors",
@@ -29,6 +29,8 @@ dependencies = [
     "gradio",
     "plotly==5.9.0",
     "pynvml",
+    "tqdm",
+    "sentence_transformers",
 ]
 
 [project.urls]

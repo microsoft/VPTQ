@@ -12,7 +12,6 @@ import torch
 import tqdm
 from sentence_transformers.SentenceTransformer import SentenceTransformer
 
-# import time
 import vptq
 
 logging.basicConfig(
