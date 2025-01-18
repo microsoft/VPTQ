@@ -47,8 +47,9 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 
 
 ## News
-- **[2025-01-13]** VPTQ is formly support by Transformers in its wheel package release since v4.48.0.
-- **[2024-12-20]** 🚀 **VPTQ ❤️ Huggingface Transformers** VPTQ support has been merged into Huggingface Transformers main branch! Check out the [commit](https://github.com/huggingface/transformers/commit/4e27a4009d3f9d4e44e9be742e8cd742daf074f4#diff-4a073e7151b3f6675fce936a7802eeb6da4ac45d545ad6198be92780f493112bR20) and our Colab example: <a target="_blank" href="https://colab.research.google.com/github/microsoft/VPTQ/blob/main/notebooks/vptq_hf_example.ipynb"> <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="VPTQ in Colab"/> </a>
+- **[2025-01-18]** VPTQ v0.0.5 released, featuring cmake support and an enhanced build pipeline!
+- **[2025-01-13]** VPTQ is formly support by Transformers in its wheel package release since [v4.48.0](https://github.com/huggingface/transformers/releases/tag/v4.48.0).
+- **[2024-12-20]** 🚀 **VPTQ ❤️ Huggingface Transformers** VPTQ support has been merged into Huggingface Transformers main branch! Check out the [commit](https://github.com/huggingface/transformers/commit/4e27a4009d3f9d4e44e9be742e8cd742daf074f4#diff-4a073e7151b3f6675fce936a7802eeb6da4ac45d545ad6198be92780f493112) and our Colab example: <a target="_blank" href="https://colab.research.google.com/github/microsoft/VPTQ/blob/main/notebooks/vptq_hf_example.ipynb"> <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="VPTQ in Colab"/> </a>
 - [2024-12-15] 🌐 Open source community contributes [**Meta Llama 3.3 70B @ 1-4 bits** models](https://huggingface.co/collections/VPTQ-community/vptq-llama-33-70b-instruct-without-finetune-675ef82388de8c1c1bef75ab)
 - [2024-11-01] 📦 VPTQ is now available on [PyPI](https://pypi.org/project/vptq/)! You can install it easily using the command: `pip install vptq`.
 - [2024-10-28] ✨ VPTQ algorithm early-released at [algorithm branch](https://github.com/microsoft/VPTQ/tree/algorithm), and checkout the [tutorial](https://github.com/microsoft/VPTQ/blob/algorithm/algorithm.md).
@@ -70,7 +71,7 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 
 - CUDA toolkit
 - python 3.10+
-- torch >= 2.2.0
+- torch >= 2.3.0
 - transformers >= 4.44.0
 - Accelerate >= 0.33.0
 - flash_attn >= 2.5.0
@@ -107,7 +108,7 @@ If a release package is not available, you can build the package from the source
     python setup.py build bdist_wheel
 
     # Install the built wheel
-    pip install dist/vptq-xxx.whl  # Replace xxx with the version number
+    pip install dist/vptq-{version}.whl  # Replace {version} with the version number
     ```
 
 2. Clean the build:
@@ -191,7 +192,7 @@ python -m vptq --model=VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-0-wo
 **Now, huggingface transformers main branch supports VPTQ**:
 
 ```python
-#! pip install git+https://github.com/huggingface/transformers.git -U
+#! pip install transformers>=4.48.0 -U
 #! pip install vptq -U
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
