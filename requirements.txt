@@ -1,7 +1,7 @@
 cmake
 packaging
 setuptools>=64.0.0
-torch
+torch>=2.3.0
 wheel
 datasets
 transformers>=4.45
