@@ -18,8 +18,15 @@ from vptq.quantize_executer import quantize_executer
 from vptq.utils.layer_utils import find_layers, replace_layer
 
 
+name2hessian = {
+    "self_attn.qkv_proj": "qkv",
+    "self_attn.o_proj": "o",
+    "mlp.gate_up_proj": "up",
+    "mlp.down_proj": "down",
+}
+
 # get llama model
-def get_llama(model_name, seqlen=None):
+def get_phi(model_name, seqlen=None):
 
     def skip(*args, **kwargs):
         pass
@@ -27,8 +34,8 @@ def get_llama(model_name, seqlen=None):
     torch.nn.init.kaiming_uniform_ = skip
     torch.nn.init.uniform_ = skip
     torch.nn.init.normal_ = skip
-    from transformers import LlamaForCausalLM
-    model = LlamaForCausalLM.from_pretrained(
+    from transformers import AutoModelForCausalLM
+    model = AutoModelForCausalLM.from_pretrained(
         model_name, attn_implementation="flash_attention_2", torch_dtype=torch.bfloat16
     )
 
@@ -37,8 +44,8 @@ def get_llama(model_name, seqlen=None):
     return model
 
 
-# quant llama model
-def quant_llama(model, args, quant_args, dev='cuda'):
+# quant phi model
+def quant_phi(model, args, quant_args, dev='cuda'):
     # model.model.required_grad = False
     print('Starting VPTQ...')
 
@@ -134,6 +141,7 @@ def quant_llama(model, args, quant_args, dev='cuda'):
                     quant_args,
                     input_queues,
                     output_queues,
+                    name2hessian
                 )
             )
 
@@ -159,7 +167,7 @@ def quant_llama(model, args, quant_args, dev='cuda'):
                 # load to cpu
                 layer_state_dicts[layer_idx] = torch.load(
                     f'{args.output_dir}/qlinear_layer_state_{layer_idx}.pt', map_location='cpu',
-                    weights_only=False
+                    weights_only=True
                 )
                 # bypass KeyError: torch.uint16
                 for key, value in layer_state_dicts[layer_idx].items():
@@ -167,7 +175,7 @@ def quant_llama(model, args, quant_args, dev='cuda'):
                         layer_state_dicts[layer_idx][key] = value.view(torch.uint16)
                 layer_qlinear_args[layer_idx] = torch.load(
                     f'{args.output_dir}/qlinear_args_{layer_idx}.pt', map_location='cpu',
-                    weights_only=False
+                    weights_only=True
                 )
         else:
             while not output_queues.empty():
@@ -194,7 +202,7 @@ def quant_llama(model, args, quant_args, dev='cuda'):
 def get_quantized_llama(model_name, seqlen, layer_state_dicts, layer_qlinear_args):
 
     # print(f'layer_state_dicts: {layer_state_dicts.keys()}')
-    model = get_llama(model_name, seqlen=seqlen)
+    model = get_phi(model_name, seqlen=seqlen)
     dtype = next(iter(model.parameters())).dtype
     layers = model.model.layers
 
@@ -228,7 +236,7 @@ def get_quantized_llama(model_name, seqlen, layer_state_dicts, layer_qlinear_arg
 
 
 @torch.no_grad()
-def eval_llama(model, testenc, dev):
+def eval_phi(model, testenc, dev):
     current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
     print(f'----Evaluating llama ...---- {current_time}')
 
@@ -259,8 +267,6 @@ def eval_llama(model, testenc, dev):
             cache['i'] += 1
             cache['attention_mask'] = kwargs['attention_mask']
             cache['position_ids'] = kwargs['position_ids']
-            if hasattr(model.model, 'rotary_emb'):
-                cache['rotary_emb'] = model.model.rotary_emb(x=inp, position_ids=kwargs['position_ids'])
             raise ValueError
 
     layers[0] = Catcher(layers[0])
@@ -279,18 +285,18 @@ def eval_llama(model, testenc, dev):
     outs = torch.zeros_like(inps)
     attention_mask = cache['attention_mask']
     position_ids = cache['position_ids']
-    # get position embeddings from the model's rotary embeddings
+    # get position embeddings from the model's rotary embeddings 
     # for the latest huggingface transformers
-    position_embeddings = model.model.rotary_emb(outs, position_ids)
+    position_embeddings = model.model.rotary_emb(outs, position_ids) 
 
     for i in tqdm(range(len(layers))):
         layer = layers[i].to(dev)
 
         for j in range(nsamples):
             outs[j] = layer(inps[j].unsqueeze(0).to(dev), 
-                          attention_mask=attention_mask, 
-                          position_ids=position_ids,
-                          position_embeddings=position_embeddings)[0]
+                            attention_mask=attention_mask, 
+                            position_ids=position_ids,
+                            position_embeddings=position_embeddings)[0]
 
         layers[i] = layer.cpu()
         del layer

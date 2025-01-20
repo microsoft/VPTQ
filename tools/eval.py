@@ -1,21 +1,26 @@
-from transformers import AutoTokenizer, set_seed
+from transformers import AutoModelForCausalLM, AutoTokenizer, set_seed
 import torch
 from vptq.models.llama import eval_llama
 from vptq.models.qwen import eval_qwen
+from vptq.models.phi import eval_phi
+
 from vptq.utils.data import get_data_loader
 import vptq
 
+import argparse
+
 set_seed(0)
 
-model_path = "/home/aiscuser/yangwang/VPTQ.dev/outputs/Meta-Llama-3.1-8B-Instruct-rotate-debug/2025-01-05-03-35-02/model.pt"
-model = torch.load(model_path)
-model_name = "meta-llama/Llama-3.1-8B-Instruct"
-# model = vptq.AutoModelForCausalLM.from_pretrained(model_path, device_map="auto").cpu() 
-model.eval()
+parser = argparse.ArgumentParser()
+parser.add_argument("--model_path", type=str, default="VPTQ-community/Meta-Llama-3.1-8B-Instruct-v8-k65536-65536-woft")
+args = parser.parse_args()
+
+model = AutoModelForCausalLM.from_pretrained(args.model_path)
 
 datasets = ['wikitext2', 'c4-new']
 seqlens = [2048, 4096, 8192]
 results = {}
+model_name = model.config.model_type
 
 for seqlen in seqlens:
     model.seqlen = seqlen
@@ -29,11 +34,15 @@ for seqlen in seqlens:
         
         print(f"Evaluating {dataset} with context length {seqlen}")
         
-        if 'llama' in model_path.lower() or 'mistral' in model_path.lower():
+        if 'llama' in model_name.lower() or 'mistral' in model_name.lower():
             ppl = eval_llama(model, testloader, 'cuda')
-        elif 'qwen' in model_path.lower():
+        elif 'qwen' in model_name.lower():
             ppl = eval_qwen(model, testloader, 'cuda')
-            
+        elif 'phi' in model_name.lower():
+            ppl = eval_phi(model, testloader, 'cuda')
+        else:
+            raise ValueError(f"Unsupported model: {model_name}")
+
         if f'ctx_{seqlen}' not in results:
             results[f'ctx_{seqlen}'] = {}
         results[f'ctx_{seqlen}'][dataset] = ppl
