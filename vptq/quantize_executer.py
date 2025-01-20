@@ -38,6 +38,7 @@ def setup_logging(log_path, task_id, debug=False):
 
     # Add handlers to the logger
     logger.addHandler(file_handler)
+    return logger
 
 
 # quantize executer
