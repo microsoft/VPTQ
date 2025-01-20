@@ -95,10 +95,22 @@ if __name__ == "__main__":
 
     # save model, not for inference
     if args.save_model:
-        model_path = osp.join(args.output_dir, "model/")
+        # save model for debug 
+        model_path = osp.join(args.output_dir, 'model.pt')
+        torch.save(model, model_path)
+        
+        model_path = osp.join(args.output_dir, 'model/')
         model.save_pretrained(model_path)
-        print(f"save model to {model_path}")
-        tokenizer = AutoTokenizer.from_pretrained(f"{args.model_name}", legacy=False)
+        
+        # save config 
+        config_path = osp.join(args.output_dir, 'model/config.json')
+        with open(config_path, 'w') as f:
+            json.dump(model.config.to_dict(), f)
+
+        print(f'save config to {config_path}')
+        print(f'save model to {model_path}')
+        tokenizer = AutoTokenizer.from_pretrained(f'{args.model_name}', legacy=False)
+
         tokenizer.save_pretrained(model_path)
         print(f"save tokenizer to {model_path}")
 
@@ -106,6 +118,7 @@ if __name__ == "__main__":
     if args.save_packed_model:
         model_path = osp.join(args.output_dir, "packed_model/")
         model = pack_model(model, from_type=torch.uint16, to_type=torch.uint16, as_type=torch.int16)
+
         if args.absorb_perm:
             model = absorb_perm(model)
         model.save_pretrained(model_path, safe_serialization=True)
@@ -144,7 +157,8 @@ if __name__ == "__main__":
     if args.new_eval:
         datasets = ["wikitext2", "c4-new"]
 
-    seqlens = [2048, 4096, 8192]
+    # seqlens = [2048, 4096, 8192]
+    seqlens = [2048]
 
     # store results
     results = {}

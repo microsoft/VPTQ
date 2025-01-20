@@ -79,7 +79,11 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype, name
                 kmeans_mode='hessian',
                 iter=quant_args.kiter,
                 tol=quant_args.ktol,
+                enable_norm=quant_args.enable_norm,
+                norm_dim=quant_args.norm_dim,
+                enable_sphere=quant_args.enable_sphere,
                 debug=True,
+                enable_abs=quant_args.enable_abs,
                 # enable_load_checkpoint=args.enable_load_checkpoint,
                 # enable_load_checkpoint=args.enable_load_checkpoint,
                 # load_checkpoint_path=args.load_checkpoint_path,
@@ -96,9 +100,11 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype, name
                 logger=logger,
                 collect_act=False,
                 layer_name=layer_name,
-                enable_perm='hessian',
+                enable_perm=quant_args.enable_perm,
                 enable_norm=quant_args.enable_norm,
-                norm_dim=0,
+                norm_dim=quant_args.norm_dim,
+                enable_abs=quant_args.enable_abs,
+                enable_sphere=quant_args.enable_sphere,
                 debug=True
             )
 
@@ -116,13 +122,16 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype, name
             # num_centroids = quantizer.num_centroids[1]
             centroids = quantizer.centroids
             indices = quantizer.indices
-
+            indices_sign = quantizer.indices_sign
+            indices_scale = quantizer.indices_scale
+            
             # res centroid
             # num_res_centroids = quantizer.num_res_centroids
             res_centroids = quantizer.res_centroids
             # res_centroids = quantizer.res_centroids[1]
             res_indices = quantizer.res_indices
             # res_indices = quantizer.res_indices[1]
+            res_indices_sign = quantizer.res_indices_sign
 
             in_features = weight.size(1)
             out_features = weight.size(0)
@@ -144,7 +153,10 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype, name
                 outlier_size=quantizer.outlier_size,
                 bias=True if linear.bias is not None else False,
                 enable_norm=quant_args.enable_norm,
-                enable_perm=True if _vptq.quantizer.enable_perm is not None else False,
+                norm_dim=quant_args.norm_dim,
+                enable_perm=quant_args.enable_perm,
+                enable_abs=quant_args.enable_abs,
+                enable_sphere=quant_args.enable_sphere,
                 # enable_residual=True,
                 vector_quant_dim='out',
                 device=dev,
@@ -164,9 +176,12 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype, name
                 res_indices=res_indices,
                 weight_scale=weight_scale,
                 weight_bias=weight_bias,
+                indices_sign=indices_sign,
+                indices_scale=indices_scale,
+                res_indices_sign=res_indices_sign,
                 bias=linear.bias,
                 perm=perm,
-                dtype=dtype
+                dtype=dtype,
             )
 
             qlayer.to(dev)

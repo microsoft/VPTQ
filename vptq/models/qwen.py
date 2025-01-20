@@ -145,16 +145,14 @@ def quant_qwen(model, args, quant_args, dev='cuda'):
                 # load to cpu
                 layer_state_dicts[layer_idx] = torch.load(
                     f'{args.output_dir}/qlinear_layer_state_{layer_idx}.pt', map_location='cpu',
-                    weights_only=True
-                )
+                    weights_only=False)
                 # bypass KeyError: torch.uint16
                 for key, value in layer_state_dicts[layer_idx].items():
                     if "indices" in key:
                         layer_state_dicts[layer_idx][key] = value.view(torch.uint16)
                 layer_qlinear_args[layer_idx] = torch.load(
                     f'{args.output_dir}/qlinear_args_{layer_idx}.pt', map_location='cpu',
-                    weights_only=True
-                )
+                    weights_only=False)
         else:
             while not output_queues.empty():
                 (gpu_id, layer_idx, _layer_state_dict, _layer_qlinear_args) = output_queues.get()
