@@ -8,11 +8,14 @@ from dataclasses import dataclass, field
 from typing import List, Tuple
 
 import cuml
+import cupy
 import numpy as np
 import torch
 
 from vptq.utils.reshape import reshape
 
+def cupy_to_torch(cupy_array):
+    return torch.utils.dlpack.from_dlpack(cupy_array.toDlpack())
 
 @dataclass
 class QuantizationArguments:
@@ -242,7 +245,8 @@ class NPVectorQuantizer:
 
                 # convert to numpy and float32 to avoid error
                 sub_vectors = sub_vectors.to(torch.float32).cpu().numpy()
-                _kmeans.fit(sub_vectors, sample_weight=vector_weights)
+                with cupy.cuda.Device(vector_weights.device.index):
+                    _kmeans.fit(sub_vectors, sample_weight=vector_weights)
 
                 self.logger.info(f'cuml kmeans {_kmeans.n_iter_} iterations, error {_kmeans.inertia_}')
 
@@ -342,7 +346,8 @@ class NPVectorQuantizer:
                 self.logger.info(f'kmeans_mode: {self.kmeans_mode}, cuml kmeans, {num_centroids} clusters')
                 # self.logger.info(sub_vectors.shape)
                 sub_vectors = sub_vectors.to(torch.float32).cpu().numpy()
-                _kmeans.fit(sub_vectors, sample_weight=vector_weights)
+                with cupy.cuda.Device(vector_weights.device.index):
+                    _kmeans.fit(sub_vectors, sample_weight=vector_weights)
                 self.logger.info(f'cuml kmeans {_kmeans.n_iter_} iterations, error {_kmeans.inertia_}')
 
                 self.res_centroids[idx] = torch.from_numpy(_kmeans.cluster_centers_).to(device=data.device)

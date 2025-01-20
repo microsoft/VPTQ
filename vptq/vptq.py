@@ -196,9 +196,9 @@ class VPTQ:
             self.quantizer.perm = torch.arange(weight.shape[1])
 
         # save gpu memory
-        weight = weight.to('cpu')
-        hessian = hessian.to('cpu')
-        inv_hessian = inv_hessian.to('cpu')
+        # weight = weight.to('cpu')
+        # hessian = hessian.to('cpu')
+        # inv_hessian = inv_hessian.to('cpu')
         # end of weight and hessian preprocess
 
         # step 1: init centroids ###
