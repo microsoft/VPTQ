@@ -1,4 +1,4 @@
-name: vptq-algo-lattice
+name: vptq-algo
 channels:
   - conda-forge
   - nvidia
