@@ -100,9 +100,6 @@ class VQuantLinear(nn.Module):
         self.vector_len = vector_lens[1]
         self.num_centroids = num_centroids[1]
 
-        self.padding = (-self.out_features) % self.vector_len
-        self.num_indices = (self.out_features + self.padding) // self.vector_len
-
         # FIXME: these two fields are identical for legacy reasons
         self.group_num = group_num
         self.num_codebooks = self.group_num
@@ -209,6 +206,8 @@ class VQuantLinear(nn.Module):
 
         # === 6. process packed indices
         self.group_size = group_size
+        self.padding = (-self.out_features) % self.vector_len
+        self.num_indices = (self.out_features + self.padding) // self.vector_len
         dtype = torch.int32 if self.is_indice_packed else torch.int16
         if self.is_indice_packed:
             self.index_bits = int(math.log2(self.num_centroids))
@@ -338,6 +337,13 @@ class VQuantLinear(nn.Module):
             self.res_centroids.weight.requires_grad = requires_grad
 
     def forward(self, x, W=None, H=None):
+        """
+        Args:
+            x: Tensor[bf16, fp16], the activation tensor that has a shape of
+               (batch_size, sequence_length, in_features). `batch_size` is the
+               number of sequences in a batch.
+        """
+
         if self.enable_proxy_error:
             # only for debug and layerwise finetuning
             return self.proxy_error_forward(W, H)

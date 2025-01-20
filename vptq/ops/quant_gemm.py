@@ -9,6 +9,7 @@ __all__ = [
 ]
 
 import math
+from typing import Optional
 
 import torch
 from torch.nn import functional as F
@@ -154,13 +155,13 @@ def dequant(
 
 def quant_gemm(
     x: torch.Tensor,
-    bias: torch.Tensor,
+    bias: Optional[torch.Tensor],
     indices: torch.Tensor,
     centroids: torch.Tensor,
-    outlier_indices: torch.Tensor,
-    outlier_centroids: torch.Tensor,
-    residual_indices: torch.Tensor,
-    residual_centroids: torch.Tensor,
+    outlier_indices: Optional[torch.Tensor],
+    outlier_centroids: Optional[torch.Tensor],
+    residual_indices: Optional[torch.Tensor],
+    residual_centroids: Optional[torch.Tensor],
     perm: torch.Tensor,
     weight_scale: torch.Tensor,
     weight_bias: torch.Tensor,
@@ -179,7 +180,7 @@ def quant_gemm(
     outlier_padding: int,
     vector_quant_dim: str = "out"
 ) -> torch.Tensor:
-    r"""Dequantize the input tensor and perform GEMM operation.
+    """Dequantize the input tensor and perform GEMM operation.
     """
     centroids_ = centroids.view(num_codebooks, num_centroids, vector_len)
 
@@ -206,7 +207,7 @@ def quant_gemm(
         invert_perm = invert_perm.to(torch.uint16).view(torch.int16)
 
     if (x.numel() // x.shape[-1] < 3) and __cuda_ops_installed:
-        out = vptq_ops.gemm(
+        out = vptq_ops.quant_gemv(
             x,
             indices,
             centroids_,
@@ -218,14 +219,12 @@ def quant_gemm(
             weight_scale,
             weight_bias,
             bias,
-            vector_len,
             in_features,
             out_features,
         )
         return out
     else:
         if __cuda_ops_installed:
-
             weight = vptq_ops.dequant(
                 indices,
                 centroids_,
@@ -268,6 +267,5 @@ def quant_gemm(
                 outlier_padding=outlier_padding,
                 vector_quant_dim=vector_quant_dim
             )
-
         out = F.linear(x, weight, bias)
         return out

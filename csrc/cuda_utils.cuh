@@ -2,27 +2,47 @@
 // Licensed under the MIT License.
 #pragma once
 
+#include <ATen/cuda/CUDAContext.h>
+
 #if defined(USE_ROCM)
-  #include <hip/hip_fp16.h>
   #include <hip/hip_bf16.h>
+  #include <hip/hip_fp16.h>
 
   #define VPTQ_LDG(arg) __ldg(arg)
   #define SHFL_DOWN(val, offset) __shfl_down(val, offset)
   #define WARP_SIZE warpSize
+
 typedef __hip_bfloat162 __bfloat162;
 typedef __hip_bfloat16 __bfloat16;
 #else
-  #include <cuda_fp16.h>
   #include <cuda_bf16.h>
+  #include <cuda_fp16.h>
 
   #define WARP_SIZE 32
   #define VPTQ_LDG(arg) *(arg)
   #define SHFL_DOWN(val, offset) __shfl_down_sync(0xffffffff, val, offset)
+
 typedef __nv_bfloat162 __bfloat162;
 typedef __nv_bfloat16 __bfloat16;
 #endif
 
 namespace vptq {
+
+template <typename T>
+struct C10ToNvType {
+  typedef __bfloat16 type;
+};
+
+template <>
+struct C10ToNvType<c10::Half> {
+  typedef __half type;
+};
+
+template <>
+struct C10ToNvType<float> {
+  typedef float type;
+};
+
 namespace cuda {
 
 constexpr int kBlockSize = 256;
@@ -243,4 +263,5 @@ __device__ __half operator*(const __half& a, const __half& b) {
   return __hmul(a, b);
 }
 #endif
+
 }  // namespace vptq
