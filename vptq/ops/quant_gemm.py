@@ -6,7 +6,6 @@
 __all__ = [
     "dequant",
     "quant_gemm",
-    "quant_gemv_v2",
 ]
 
 import math
