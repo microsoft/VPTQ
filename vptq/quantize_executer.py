@@ -38,13 +38,14 @@ def setup_logging(log_path, task_id, debug=False):
 
     # Add handlers to the logger
     logger.addHandler(file_handler)
+    return logger
 
 
 # quantize executer
-def quantize_executer(task_id, tasks, args, quant_args, input_queues, output_queues, name2hessian=None):
+def quantize_executer(task_id, tasks, args, quant_args, input_queues, output_queues, name2hessian=None, dev=None):
     # TODO: we have to set the device in os environment
     # cuml 23.12 only runs on the CUDA:0
-    dev = 'cuda:0'
+    dev = 'cuda:0' if dev is None else dev
     # attention_mask = None
     # position_ids = torch.arange(args.seq_len).unsqueeze(0).to(dev)
 
