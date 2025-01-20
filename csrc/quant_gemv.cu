@@ -286,39 +286,4 @@ torch::Tensor wquant_act16_gemv(
   return output;
 }
 
-torch::Tensor quant_gemv_v2(
-    const torch::Tensor& activations, const c10::optional<torch::Tensor>& bias,
-    const torch::Tensor& indices, const torch::Tensor& centroids,
-    const c10::optional<torch::Tensor>& residual_centroids,
-    const torch::Tensor& scale_weights, const torch::Tensor& scale_bias,
-    int64_t in_features, int64_t out_features) {
-  CHECK_INPUT(indices);
-  CHECK_INPUT(centroids);
-  CHECK_INPUT(scale_weights);
-  CHECK_INPUT(scale_bias);
-
-  int64_t ndim = activations.ndimension();
-  TORCH_CHECK(ndim == 3, "activations must be a 3D Tensor, but got: ",
-              activations.sizes());
-
-  const int64_t batch = activations.size(0);
-
-  std::cout << "batch: " << batch << std::endl;
-
-  const int64_t num_codebooks = centroids.size(0);
-  const int64_t num_centroids = centroids.size(1);
-  const int64_t vec_len = centroids.size(2);
-
-  std::cout << "num_codebooks: " << num_codebooks << std::endl
-            << "num_centroids: " << num_centroids << std::endl
-            << "vec_len: " << vec_len << std::endl;
-
-  torch::Tensor output;
-  output = at::empty({in_features, out_features}, centroids.options());
-
-  // auto stream = at::cuda::getCurrentCUDAStream().stream();
-
-  return output;
-}
-
 }  // namespace vptq

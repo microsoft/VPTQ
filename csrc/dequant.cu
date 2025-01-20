@@ -208,7 +208,9 @@ torch::Tensor launch_deqantize_outliers_cuda_packkernel(
       TORCH_CHECK(false, "un-supported base_groupsize:" +
                              std::to_string(base_groupsize));
   }
+
 #undef CASE_DispatchDequantWithOutliers
+
   if (out_ouf_inf) {
     return output;
   } else {
