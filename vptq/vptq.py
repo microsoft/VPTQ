@@ -5,6 +5,7 @@
 
 import time
 
+from numpy import int_
 import torch
 import torch.nn as nn
 import transformers
@@ -31,7 +32,7 @@ class VPTQ:
         percdamp=.01,
         group_size=-1,
         group_num=-1,
-        enable_perm=None,
+        enable_perm=False,
         enable_norm=False,
         norm_dim=0,
         debug=False
@@ -107,6 +108,7 @@ class VPTQ:
         # weight norm
         self.enable_norm = enable_norm
         self.norm_dim = norm_dim
+        
         # self.quantizer.weight_scale = None
         # self.quantizer.weight_bias = None
 
@@ -137,13 +139,9 @@ class VPTQ:
             #         f'bias:{self.quantizer.weight_bias.shape}')
             self.quantizer.init_norm(weight)
 
-            if self.norm_dim == 0:
-                weight = (weight - self.quantizer.weight_bias) / \
-                    self.quantizer.weight_scale
-            else:
-                weight = (weight - self.quantizer.weight_bias.unsqueeze(self.norm_dim)) / \
-                    self.quantizer.weight_scale.unsqueeze(self.norm_dim)
-
+            weight = (weight - self.quantizer.weight_bias.unsqueeze(self.norm_dim)) / \
+                self.quantizer.weight_scale.unsqueeze(self.norm_dim)
+                    
         if isinstance(self.layer, nn.Conv2d):
             weight = weight.flatten(1)
         if isinstance(self.layer, transformers.Conv1D):
@@ -173,14 +171,12 @@ class VPTQ:
         if self.debug:
             self.logger.info(
                 f'kmeans_mode: {self.quantizer.kmeans_mode}, '
-                f'enable_perm: {self.quantizer.enable_perm}'
+                f'enable_perm: {self.quantizer.enable_perm}, '
+                f'enable_norm: {self.quantizer.enable_norm}, '
             )
 
         # permute weight and hessian
-        if self.quantizer.enable_perm is not None:
-            # if self.quantizer.enable_perm == 'hessian':
-            #     self.quantizer.perm = torch.argsort(torch.diag(hessian), descending=True)
-            # init perm in quantizer
+        if self.quantizer.enable_perm:
             self.quantizer.init_perm(hessian, self.perm)
             # reorder weight and H
             weight = weight[:, self.quantizer.perm]
@@ -193,6 +189,10 @@ class VPTQ:
             else:
                 kmeans_weight = None
         else:
+            # reverse perm hesisan
+            if self.perm is not None:
+                inv_perm = torch.argsort(self.perm)
+                inv_hessian = inv_hessian[inv_perm][:, inv_perm]
             self.quantizer.perm = torch.arange(weight.shape[1])
 
         # save gpu memory
@@ -206,11 +206,12 @@ class VPTQ:
             # clone weight and hessian, vptq will modify them in-place
             _weight = weight.clone().to(self.dev)
             _hessian = hessian.clone().to(self.dev)
+            
             tick = time.time() if self.debug else None
 
             # run k-means, init centroids and get quantized data by k-means
             qweight_init = self.quantizer.init_centroids_indices(data=_weight, weights=kmeans_weight)
-
+            
             if self.debug:
                 self.logger.info(f'{self.layer_name} 1st kmeans time: {time.time() - tick}')
                 self.logger.info(
@@ -246,7 +247,9 @@ class VPTQ:
                 f'{self.layer_name} proxy error after VPTQ: {error_sum.item()}, '
                 f'{sum.item()}, {norm_error.item()}'
             )
+            # debug 
             # self.logger.info(f'qerror^2: {torch.mean(qerror ** 2).item()}')
+            # torch.save(qweight, f'{self.layer_name}_qweight.pt')
 
         # step 3: residual quantization
         if self.quantizer.num_res_centroids[1] > 1:  # (100-N)%
@@ -303,12 +306,8 @@ class VPTQ:
         qweight = qweight.reshape(self.layer.weight.shape).to(self.layer.weight.data.dtype)
 
         if self.enable_norm:
-            if self.norm_dim == 0:
-                qweight = qweight * self.quantizer.weight_scale + self.quantizer.weight_bias
-            elif self.norm_dim == 1:
-                qweight = qweight * \
-                    self.quantizer.weight_scale.unsqueeze(self.norm_dim) \
-                    + self.quantizer.weight_bias.unsqueeze(self.norm_dim)
+            qweight = qweight * self.quantizer.weight_scale.unsqueeze(self.norm_dim) + \
+                self.quantizer.weight_bias.unsqueeze(self.norm_dim)
 
         self.qweight = qweight
 
@@ -381,15 +380,34 @@ class VPTQ:
                 # self.logger.info(f'block_qweight[:, k:k+self.step]: {block_qweight[:, k:k+self.step].shape}')
 
                 # update quantized block qweight
+                # norm_block_qweight = block_qweight * S + B
                 block_qweight[:, k:k + self.step] = tile_qweight
 
                 # (drow,step)*(step,step)=(drow,step)
-                tile_error = (tile_weight - tile_qweight).matmul(tile_inv_hessian)
-
+                # [(norm_tile_weight - norm_tile_qweight) * S + B] * H^-1
+                tile_error = (tile_weight - tile_qweight)
+                
+                # if self.enable_norm:
+                #     tile_error = tile_error * self.quantizer.weight_scale.unsqueeze(self.norm_dim) + \
+                #         self.quantizer.weight_bias.unsqueeze(self.norm_dim)
+                
+                tile_error = tile_error.matmul(tile_inv_hessian)
                 # Losses1[:,i:i+step] =  err1.matmul((w-q).T())
+                # [(norm_tile_weight - norm_tile_qweight) * S + B] * H^-1 * H^-1 * (w-q).T()
 
-                block_weight[:, k + self.step:] -= tile_error.matmul(block_inv_hessian[k:k + self.step, k + self.step:])
+                inv_tile_error = tile_error.matmul(block_inv_hessian[k:k + self.step, k + self.step:])
+                
+                # if self.enable_norm:
+                #     inv_tile_error = (inv_tile_error - self.quantizer.weight_bias.unsqueeze(self.norm_dim)) / \
+                #         self.quantizer.weight_scale.unsqueeze(self.norm_dim)
+                #     tile_error = (tile_error - self.quantizer.weight_bias.unsqueeze(self.norm_dim)) / \
+                #         self.quantizer.weight_scale.unsqueeze(self.norm_dim)
+                
+                block_weight[:, k + self.step:] -= inv_tile_error 
                 block_error[:, k:k + self.step] = tile_error
+
+                # block_weight[:, k + self.step:] -= tile_error.matmul(block_inv_hessian[k:k + self.step, k + self.step:])
+                # block_error[:, k:k + self.step] = tile_error
 
             qweight[:, i:j] = block_qweight
             # Losses[:, i1:i2] = Losses1 / 2
@@ -407,7 +425,8 @@ class VPTQ:
             # self.layer.weight.data[:, j:] = weight[:, j:]
         # self.logger.info(f'{self.layer_name} error: {i1}:{i2} {torch.sum((self.layer(self.inp1) - self.out1).double() ** 2).item()}')
         return qweight, qerror
-
+    
+    @torch.no_grad()
     def get_error(self, weight, qweight, hessian):
 
         def _matrix_multiply_with_blocks(A, B, hessian, block_size=64, dev='cuda'):
@@ -431,13 +450,27 @@ class VPTQ:
         # weight_mean = torch.mean(weight.T @ weight * hessian)
         # error_mean = torch.mean(error.T @ error * hessian)
         weight = weight.to(qweight.device)
+        
+        if self.enable_norm:
+            scaled_weight = weight * self.quantizer.weight_scale.unsqueeze(self.norm_dim) + \
+                self.quantizer.weight_bias.unsqueeze(self.norm_dim)
+        else:
+            scaled_weight = weight
+        
         hessian = hessian.to(qweight.device)
-        wTw_hessian = _matrix_multiply_with_blocks(weight.T, weight, hessian, block_size=512, dev=qweight.device)
+        wTw_hessian = _matrix_multiply_with_blocks(scaled_weight.T, scaled_weight, hessian, block_size=512, dev=qweight.device)
         weight_mean = torch.mean(wTw_hessian.to(qweight.device))
         # weight_mean = torch.mean(wTw * hessian)
         del wTw_hessian
         torch.cuda.empty_cache()
-        error = qweight - weight
+        if self.enable_norm:
+            scaled_qweight = qweight * self.quantizer.weight_scale.unsqueeze(self.norm_dim) + \
+                self.quantizer.weight_bias.unsqueeze(self.norm_dim)
+        else:
+            scaled_qweight = qweight
+        
+        error = scaled_qweight - scaled_weight
+        
         eTe_hessian = _matrix_multiply_with_blocks(error.T, error, hessian, block_size=512, dev=qweight.device)
         error_mean = torch.mean(eTe_hessian.to(qweight.device))
         del eTe_hessian

@@ -7,12 +7,15 @@ import math
 from dataclasses import dataclass, field
 from typing import List, Tuple
 
+from sympy import centroid
+
 import cuml
 import cupy
 import numpy as np
 import torch
 
 from vptq.utils.reshape import reshape
+from vptq.utils.sign import pack_sign, unpack_sign
 
 def cupy_to_torch(cupy_array):
     return torch.utils.dlpack.from_dlpack(cupy_array.toDlpack())
@@ -31,14 +34,44 @@ class QuantizationArguments:
     kmeans_mode: str = field(default=None)
     kmeans_alpha: float = field(default=0)
     enable_norm: bool = field(default=False)
-    norm_dim: int = field(default=0)
+    norm_dim: int = field(default=0, metadata={"help": "0: norm out feature, , 1: norm in feature"})
     enable_perm: bool = field(default=False)
-
+    # config_scale: Literal['minmax', 'np.nanstd',adamaxax'] = field(
+    #     default='minmax',
+    #     metadata={
+    #         "help": "Scaling method for quantization: "
+    #                "minmax (min-max scaling), "
+    #                "meanstd (mean-std normalization), "
+    #                "absmax (absolute max scaling)"
+    #     }
+    # )
+    # centroid_dtype: str = field(
+    #     default='int8',
+    #     metadata={
+    #         "help": "Data type for centroids. Options: fp16, bf16, fp8, int8",
+    #         "dtype_mapping": {
+    #             "fp16": torch.float16, 
+    #             "bf16": torch.bfloat16,
+    #             "fp8": torch.float8_e4m3fn,
+    #             "int8": torch.int8,
+    #         }
+    #     }
+    # )
+    # scale_dtype: str = field(
+    #     default='fp16',
+    #     metadata={
+    #         "help": "Data type for scale. Options: fp16, bf16, fp8",
+    #         "dtype_mapping": {
+    #             "fp16": torch.float16, 
+    #             "bf16": torch.bfloat16,
+    #             "fp8": torch.float8_e4m3fn,
+    #         }
+    #     }
+    # )
 
 # N-percent outlier Vector Quantizator
 # Partition data into N% outliers and (100-N)%.
 class NPVectorQuantizer:
-
     def __init__(
         self,
         layer_name,
@@ -100,11 +133,15 @@ class NPVectorQuantizer:
 
         self.enable_norm = enable_norm
         self.norm_dim = norm_dim
-
+        
         # centroids and indices
         self.centroids, self.indices = {}, {}
+        self.indices_sign = {}
+        self.indices_scale = {}
         # residual centroids and indices
         self.res_centroids, self.res_indices = {}, {}
+        self.res_indices_sign = {}
+        self.res_indices_scale = {}
         self.vector_norm = None
 
         # load checkpoint
@@ -126,9 +163,22 @@ class NPVectorQuantizer:
         self.prefix_layer_name = 'model.layers.'
 
     def init_norm(self, weight):
-        self.weight_scale = torch.std(weight, dim=self.norm_dim)
-        self.weight_bias = torch.mean(weight, dim=self.norm_dim)
-
+        # self.weight_bias = torch.mean(weight, dim=self.norm_dim)
+        # self.weight_scale = torch.std(weight, dim=self.norm_dim)
+        # weight_min = torch.quantile(weight, 0.01, dim=self.norm_dim)
+        # weight_max = torch.quantile(weight, 0.99, dim=self.norm_dim)
+        # self.weight_scale = weight_max - weight_min
+        # self.weight_scale = self.weight_scale
+        # self.weight_bias = torch.mean(weight, dim=self.norm_dim)
+        
+        weight_min = torch.min(weight, dim=self.norm_dim).values
+        weight_max = torch.max(weight, dim=self.norm_dim).values
+        self.weight_scale = weight_max - weight_min
+        self.weight_bias = weight_min
+        
+        # self.weight_scale = torch.std(weight, dim=self.norm_dim) * 0.01
+        # self.weight_bias = torch.mean(weight, dim=self.norm_dim)
+        
         if self.debug:
             self.logger.info(
                 f'enabling norm dim {self.norm_dim}, '
@@ -242,7 +292,6 @@ class NPVectorQuantizer:
                 )
 
                 vector_weights = vector_weights.mean(dim=1) if vector_weights is not None else None
-
                 # convert to numpy and float32 to avoid error
                 sub_vectors = sub_vectors.to(torch.float32).cpu().numpy()
                 with cupy.cuda.Device(vector_weights.device.index):
@@ -250,7 +299,9 @@ class NPVectorQuantizer:
 
                 self.logger.info(f'cuml kmeans {_kmeans.n_iter_} iterations, error {_kmeans.inertia_}')
 
-                self.centroids[idx] = torch.from_numpy(_kmeans.cluster_centers_).to(device=data.device)
+                _centroids = torch.from_numpy(_kmeans.cluster_centers_).to(device=data.device)
+                
+                self.centroids[idx] = _centroids
 
                 quant_data = self.centroids[idx][_kmeans.labels_]
 
@@ -265,6 +316,7 @@ class NPVectorQuantizer:
 
         quantized_data = torch.hstack(quantized_data)
         self.logger.info(f'quantized_data shape: {quantized_data.shape}')
+        
         return quantized_data
 
     def quantize_vector(self, data, index):
@@ -273,6 +325,7 @@ class NPVectorQuantizer:
         index: The index of the first column of the input data in the entire weight matrix
         '''
         # Input check
+        # self.logger.info(f'quantize_vector data shape: {data.shape}')
         if self.enable_transpose:
             assert data.shape[1] == 1, 'only support quantize one column each time'
             data = data.T
@@ -300,6 +353,7 @@ class NPVectorQuantizer:
             dist = torch.cdist(data.float(), self.centroids[cidx].float())
 
             indices = dist.argmin(dim=-1)
+            
             quantized_data = self.centroids[cidx][indices]
 
             # save indices to self.indices
@@ -310,7 +364,6 @@ class NPVectorQuantizer:
             else:
                 self.indices[cidx] = torch.hstack([self.indices[cidx], indices.unsqueeze(1).to(device=data.device)])
             # self.logger.info(f'self.indices[cidx]: {self.indices[cidx].shape}')
-
             # Reshape and remove padding if necessary
             quantized_data = quantized_data.reshape(padded_shape)
             quantized_data = self.reshaper[cidx].remove_padding(quantized_data)
@@ -344,7 +397,7 @@ class NPVectorQuantizer:
                 )
 
                 self.logger.info(f'kmeans_mode: {self.kmeans_mode}, cuml kmeans, {num_centroids} clusters')
-                # self.logger.info(sub_vectors.shape)
+                
                 sub_vectors = sub_vectors.to(torch.float32).cpu().numpy()
                 with cupy.cuda.Device(vector_weights.device.index):
                     _kmeans.fit(sub_vectors, sample_weight=vector_weights)
@@ -365,6 +418,7 @@ class NPVectorQuantizer:
         return quant_data
 
     # residual quantize
+    # quantize vector with residual to index
     def quantize_residual_vector(self, data, index):
         '''
         input data shape: if not transposed [-1,vector_len] else [nrows,1]

@@ -12,6 +12,8 @@ from torch.nn import functional as F
 from torch.nn.parameter import Parameter
 
 
+from vptq.utils.sign import unpack_sign
+
 class VQuantLinear(nn.Module):
 
     def __init__(
@@ -30,6 +32,7 @@ class VQuantLinear(nn.Module):
         group_size: int,
         outlier_size: int,
         enable_norm: bool = False,
+        norm_dim: int = 0,
         enable_perm: bool = False,
         is_indice_packed: bool = False,
         # configuration
@@ -55,7 +58,9 @@ class VQuantLinear(nn.Module):
             "group_size": group_size,
             "outlier_size": outlier_size,
             "enable_norm": enable_norm,
+            "norm_dim": norm_dim,
             "enable_perm": enable_perm,
+            "norm_dim": norm_dim,
             "bias": bias,
             "is_indice_packed": is_indice_packed,
             "indices_as_float": indices_as_float,
@@ -100,7 +105,7 @@ class VQuantLinear(nn.Module):
             self.transpose = True
 
         self.num_indices = (self.out_features + self.padding) // self.vector_len
-
+        
         # set outliers
         if vector_lens[0] > 1 and num_centroids[0] > 0:
             self.enable_outlier = True
@@ -136,12 +141,18 @@ class VQuantLinear(nn.Module):
 
         # process norm
         self.enable_norm = enable_norm
+        self.norm_dim = norm_dim
+        
         if self.enable_norm:
             if self.vector_quant_dim == "in":
                 assert True, "Not implemented"
             else:
-                self.weight_scale = Parameter(torch.empty(self.in_features, **factory_kwargs), requires_grad=True)
-                self.weight_bias = Parameter(torch.empty(self.in_features, **factory_kwargs), requires_grad=True)
+                if self.norm_dim == 0:
+                    self.weight_scale = Parameter(torch.empty(self.in_features, **factory_kwargs), requires_grad=True)
+                    self.weight_bias = Parameter(torch.empty(self.in_features, **factory_kwargs), requires_grad=True)
+                else:
+                    self.weight_scale = Parameter(torch.empty(self.out_features, **factory_kwargs), requires_grad=True)
+                    self.weight_bias = Parameter(torch.empty(self.out_features, **factory_kwargs), requires_grad=True)
 
         # process permutation
         self.enable_perm = enable_perm
@@ -179,7 +190,6 @@ class VQuantLinear(nn.Module):
                     requires_grad=False,
                 )
             else:
-
                 self.indices = Parameter(
                     torch.empty((self.num_codebooks, self.num_indices, self.group_size),
                                 dtype=torch.int16,
@@ -200,6 +210,7 @@ class VQuantLinear(nn.Module):
                                 device=device),
                     requires_grad=False,
                 )
+ 
         else:
             self.res_centroids = self.register_parameter("res_centroids", None)
             self.res_indices = self.register_parameter("res_indices", None)
@@ -213,7 +224,9 @@ class VQuantLinear(nn.Module):
         res_indices=None,
         weight_scale=None,
         weight_bias=None,
-        weight=None,
+        indices_sign=None,
+        indices_scale=None,
+        res_indices_sign=None,
         bias=None,
         perm=None,
         dtype=None,
@@ -424,13 +437,9 @@ class VQuantLinear(nn.Module):
 
         centroids = self.centroids.weight.view(self.num_codebooks, self.num_centroids, self.vector_len)
 
-        # print(f'indices fp16: {self.indices}')
-        # print(f'indices uint16: {self.indices.view(torch.int16)}')
         if self.is_indice_packed:
             index_bits = math.ceil(math.log2(self.num_centroids))
             index_res_bits = math.ceil(math.log2(self.num_res_centroids)) if self.enable_residual else 0
-
-            # print(f'self.indices shape: {self.indices.shape}')
             indices, res_indices = self.unpack_index_tensor(
                 pack_tensor=self.indices,
                 index_bits=index_bits,
@@ -439,11 +448,6 @@ class VQuantLinear(nn.Module):
                 num_res_elements=self.group_size,
                 index_dtype=torch.uint16,
             )
-
-            # print(f'indices: {indices.shape}')
-            # if self.enable_residual:
-            #     print(f'res_indices: {res_indices.shape}')
-
         else:
             indices = self.indices.view(torch.uint16).to(torch.int64)
             if self.enable_residual:
@@ -453,33 +457,22 @@ class VQuantLinear(nn.Module):
 
         # print(f'2 indices: {indices.shape}')
         indices = indices.reshape(self.num_codebooks, -1, self.vector_len)
-        # print(f'3 indices: {indices.shape}')
-        # print(f'4 indices: {indices}')
-
+        
         selected_centroids = torch.gather(centroids, 1, indices)
-        # print(f'1 selected_centroids: {selected_centroids.shape}')
-        # print(f'2 selected_centroids: {selected_centroids}')
-        # selected_centroids = selected_centroids.view(
-        #     self.num_codebooks, -1, self.in_features - len(self.outlier_idices), self.vector_len)
-        selected_centroids = selected_centroids.view(self.num_codebooks, -1, self.group_size, self.vector_len)
-        # print(f'3 selected_centroids: {selected_centroids.shape}')
-        # print(f'4 selected_centroids: {selected_centroids}')
-        selected_centroids = selected_centroids.permute(0, 1, 3, 2)
-        # print(f'5 selected_centroids: {selected_centroids.shape}')
-        # print(f'6 selected_centroids: {selected_centroids}')
 
-        # print(self.num_codebooks, self.group_size)
+        selected_centroids = selected_centroids.view(self.num_codebooks, -1, self.group_size, self.vector_len)
+        
+        selected_centroids = selected_centroids.permute(0, 1, 3, 2)
+
         qweight = selected_centroids.reshape(self.num_codebooks, -1, self.group_size)
+        
         qweight = qweight.permute(1, 0, 2)
         qweight = qweight.reshape(-1, self.num_codebooks * self.group_size)
-
-        # print(f'qweight: {qweight.shape}')
 
         if self.enable_residual:
             res_centroids = self.res_centroids.weight.view(self.num_codebooks, self.num_res_centroids, self.vector_len)
 
             res_indices = res_indices.unsqueeze(-1).expand(-1, -1, -1, self.vector_len)
-
             res_indices = res_indices.reshape(self.num_codebooks, -1, self.vector_len)
 
             selected_res_centroids = torch.gather(res_centroids, 1, res_indices)
@@ -517,6 +510,7 @@ class VQuantLinear(nn.Module):
             selected_outlier_centroids = selected_outlier_centroids.reshape(
                 1, -1, self.outlier_size, self.outlier_vector_len
             )
+
             selected_outlier_centroids = selected_outlier_centroids.permute(0, 1, 3, 2)
 
             qweight_outlier = selected_outlier_centroids.reshape(-1, self.outlier_size)
@@ -540,9 +534,12 @@ class VQuantLinear(nn.Module):
                 qweight = qweight[:, invert_perm]
 
         if self.enable_norm:
-            qweight = qweight * self.weight_scale
-            qweight = qweight + self.weight_bias
-
+            if self.norm_dim == 0:
+                qweight = qweight * self.weight_scale
+                qweight = qweight + self.weight_bias
+            else:
+                qweight = qweight * self.weight_scale.unsqueeze(self.norm_dim)
+                qweight = qweight + self.weight_bias.unsqueeze(self.norm_dim)
         return qweight
 
     def forward(self, x):
@@ -551,6 +548,7 @@ class VQuantLinear(nn.Module):
         qweight = self.fast_dequant()
         if qweight is None:
             qweight = self.dequant()
+        
         return F.linear(x, qweight, self.bias)
 
     # proxy error

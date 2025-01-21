@@ -28,7 +28,7 @@ for seqlen in seqlens:
         dataloader, testloader = get_data_loader(
             dataset, 
             seed=0, 
-            model=args.model_path,
+            model=model_name,
             seqlen=model.seqlen
         )
         
@@ -42,6 +42,7 @@ for seqlen in seqlens:
             ppl = eval_phi(model, testloader, 'cuda')
         else:
             raise ValueError(f"Unsupported model: {model_name}")
+
         if f'ctx_{seqlen}' not in results:
             results[f'ctx_{seqlen}'] = {}
         results[f'ctx_{seqlen}'][dataset] = ppl
