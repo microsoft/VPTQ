@@ -34,9 +34,7 @@ class VPTQ:
         group_num=-1,
         enable_perm=False,
         enable_norm=False,
-        enable_sphere=False,
         norm_dim=0,
-        enable_abs=False,
         debug=False
     ):
         # set layer
@@ -110,9 +108,7 @@ class VPTQ:
         # weight norm
         self.enable_norm = enable_norm
         self.norm_dim = norm_dim
-        self.enable_sphere = enable_sphere
         
-        self.enable_abs = enable_abs
         # self.quantizer.weight_scale = None
         # self.quantizer.weight_bias = None
 
@@ -176,9 +172,7 @@ class VPTQ:
             self.logger.info(
                 f'kmeans_mode: {self.quantizer.kmeans_mode}, '
                 f'enable_perm: {self.quantizer.enable_perm}, '
-                f'enable_sphere: {self.quantizer.enable_sphere}, '
                 f'enable_norm: {self.quantizer.enable_norm}, '
-                f'enable_abs: {self.quantizer.enable_abs}'
             )
 
         # permute weight and hessian

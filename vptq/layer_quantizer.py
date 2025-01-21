@@ -81,12 +81,7 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype, name
                 tol=quant_args.ktol,
                 enable_norm=quant_args.enable_norm,
                 norm_dim=quant_args.norm_dim,
-                enable_sphere=quant_args.enable_sphere,
                 debug=True,
-                enable_abs=quant_args.enable_abs,
-                # enable_load_checkpoint=args.enable_load_checkpoint,
-                # enable_load_checkpoint=args.enable_load_checkpoint,
-                # load_checkpoint_path=args.load_checkpoint_path,
             )
 
             # init vptq algo
@@ -103,8 +98,6 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype, name
                 enable_perm=quant_args.enable_perm,
                 enable_norm=quant_args.enable_norm,
                 norm_dim=quant_args.norm_dim,
-                enable_abs=quant_args.enable_abs,
-                enable_sphere=quant_args.enable_sphere,
                 debug=True
             )
 
@@ -155,8 +148,6 @@ def layer_quantizer(args, quant_args, layer, layer_idx, logger, dev, dtype, name
                 enable_norm=quant_args.enable_norm,
                 norm_dim=quant_args.norm_dim,
                 enable_perm=quant_args.enable_perm,
-                enable_abs=quant_args.enable_abs,
-                enable_sphere=quant_args.enable_sphere,
                 # enable_residual=True,
                 vector_quant_dim='out',
                 device=dev,
