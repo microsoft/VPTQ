@@ -95,10 +95,6 @@ if __name__ == "__main__":
 
     # save model, not for inference
     if args.save_model:
-        # save model for debug 
-        model_path = osp.join(args.output_dir, 'model.pt')
-        torch.save(model, model_path)
-        
         model_path = osp.join(args.output_dir, 'model/')
         model.save_pretrained(model_path)
         
