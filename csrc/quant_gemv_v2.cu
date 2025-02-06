@@ -1,9 +1,27 @@
-#include "common.h"
-#include "dispatch_macros.h"
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 #include "quant_gemv_v2.cuh"
+#include "util/common.h"
+#include "util/cuda_utils.cuh"
+#include "util/dispatch_macros.h"
 
 namespace vptq {
 
+/**
+ * @brief Quantized GEMV kernel.
+ * @param act The input activations.
+ * @param bias The bias.
+ * @param indices The indices.
+ * @param centroids The codebook for the main vector quantized weights.
+ *        Stored in row-major order. Element type: fp16, bf16.
+ *        Shape: (num_codebooks, num_centroids, vec_len).
+ * @param residual_centroids The residual centroids.
+ * @param scale_weights The scale weights.
+ * @param scale_bias The scale bias.
+ * @param in_features The number of input features.
+ * @param out_features The number of output features.
+ */
 torch::Tensor quant_gemv_v2(
     const torch::Tensor& act, const c10::optional<torch::Tensor>& bias,
     const torch::Tensor& indices, const torch::Tensor& centroids,
@@ -44,6 +62,9 @@ torch::Tensor quant_gemv_v2(
   const int64_t num_centroids = centroids.size(1);
   const int64_t vec_len = centroids.size(2);
 
+  TORCH_CHECK_LT(batch, 16)
+      << "In GEMV, the batch size is suggested to be less than 16.";
+
   TORCH_CHECK_EQ(num_codebooks, 1) << "Only support one codebook.";
 
   TORCH_CHECK(
@@ -60,7 +81,7 @@ torch::Tensor quant_gemv_v2(
   dim3 blocks(batch, num_codebooks, block_z);
   // FIXME(ying): refine the choice of threads in a thread block.
   // For test at the moment.
-  dim3 threads(256, 1, 1);
+  dim3 threads(256, 1, 1);  // four warps in a thread block.
 
   std::cout << "num_codebooks: " << num_codebooks << std::endl
             << "num_centroids: " << num_centroids << std::endl

@@ -1,8 +1,9 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+
 #pragma once
 
-#include "cuda_utils.cuh"
+#include "util/cuda_utils.cuh"
 
 namespace vptq {
 

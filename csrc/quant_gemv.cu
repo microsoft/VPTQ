@@ -1,8 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "common.h"
 #include "quant_gemv.cuh"
+#include "util/common.h"
 
 namespace vptq {
 

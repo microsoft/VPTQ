@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 /// register bindings for VPTQ APIs in this file. ///
-
 #include <torch/extension.h>
 
 namespace vptq {

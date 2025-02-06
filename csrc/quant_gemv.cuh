@@ -2,7 +2,8 @@
 // Licensed under the MIT License.
 #pragma once
 
-#include "cuda_utils.cuh"
+#include "util/cuda_utils.cuh"
+#include "util/debug.cuh"
 
 namespace vptq {
 
