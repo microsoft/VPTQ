@@ -3,6 +3,7 @@
 #pragma once
 
 #include "copy/sync.cuh"
+#include "util/convert.cuh"
 #include "util/debug.cuh"
 
 namespace vptq {
@@ -22,10 +23,13 @@ __global__ void quant_gemv_v2_kernel(
   auto* buf = reinterpret_cast<DType*>(buf_);
 
   typename KeTraits::LoaderG2S loader;
+  typename KeTraits::StorerS2G storer;
+
   loader(centroids, buf);
   __copy_async();
   __syncthreads();
 
+  storer(buf, output);
   return;
 }
 

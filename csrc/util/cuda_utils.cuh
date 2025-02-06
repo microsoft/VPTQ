@@ -45,33 +45,8 @@ struct TypeVec2<float> {
   typedef float2 type;
 };
 
-template <typename T>
-T __device__ __forceinline__ ConvertFromFloat(float v, T vv) {
-  (void)(vv);
-  if constexpr (std::is_same<T, __bfloat16>::value) {
-    return vv = __float2bfloat16(v);
-  } else if constexpr (std::is_same<T, float>::value) {
-    return vv = v;
-  } else {
-    static_assert(std::is_same<T, __half>::value);
-    return vv = __float2half(v);
-  }
-}
-
-template <typename T>
-float __device__ __forceinline__ ConvertToFloat(T v) {
-  if constexpr (std::is_same<T, __bfloat16>::value) {
-    return __bfloat162float(v);
-  } else if constexpr (std::is_same<T, float>::value) {
-    return v;
-  } else {
-    static_assert(std::is_same<T, __half>::value);
-    return __half2float(v);
-  }
-}
-
 template <unsigned int WarpSize>
-__device__ __forceinline__ float warpReduceSum(float sum) {
+DEVICE float warpReduceSum(float sum) {
   if constexpr (WarpSize >= 64)
     sum += SHFL_DOWN(sum, 32);  // 0-16, 1-17, 2-18, etc.
   if constexpr (WarpSize >= 32)
@@ -86,8 +61,8 @@ __device__ __forceinline__ float warpReduceSum(float sum) {
 }
 
 template <int GROUPSIZE, typename T>
-__device__ __forceinline__ void ldg_vec_x(
-    T* __restrict__ dst_t32, const uint32_t* __restrict__ src_u32) {
+DEVICE void ldg_vec_x(T* __restrict__ dst_t32,
+                      const uint32_t* __restrict__ src_u32) {
   uint32_t* dst_u32 = (uint32_t*)dst_t32;
   if constexpr (std::is_same<T, float>::value ||
                 std::is_same<T, float2>::value) {
@@ -133,8 +108,7 @@ __device__ __forceinline__ void ldg_vec_x(
 }
 
 template <int WBITS>
-__device__ __forceinline__ uint32_t iterator_packed_tensor(const uint32_t* ptr,
-                                                           int idx) {
+DEVICE uint32_t iterator_packed_tensor(const uint32_t* ptr, int idx) {
   if constexpr (WBITS == 32) {
     return ptr[idx];
   } else if constexpr (WBITS == 16) {
@@ -160,7 +134,7 @@ __device__ __forceinline__ uint32_t iterator_packed_tensor(const uint32_t* ptr,
 }  // namespace cuda
 
 template <typename T>
-T __device__ __forceinline__ FMA2(T a, T b, T c) {
+T DEVICE FMA2(T a, T b, T c) {
   if constexpr (std::is_same<T, __bfloat162>::value) {
 #if (defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 800) && !defined(USE_ROCM)
     float x =
@@ -197,7 +171,7 @@ T __device__ __forceinline__ FMA(T a, T b, T c) {
 }
 
 template <typename T>
-T __device__ __forceinline__ ADD2(T a, T b) {
+T DEVICE ADD2(T a, T b) {
   if constexpr (std::is_same<T, __bfloat162>::value) {
 #if (defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 800) || defined(USE_ROCM)
     float x = __bfloat162float(a.x) + __bfloat162float(b.x);
@@ -215,7 +189,7 @@ T __device__ __forceinline__ ADD2(T a, T b) {
 }
 
 template <typename T>
-T __device__ __forceinline__ ZERO_VALUE(T a) {
+T DEVICE ZERO_VALUE(T a) {
   if constexpr (std::is_same<T, __bfloat16>::value) {
 #if defined(USE_ROCM)
     return __float2bfloat16(0.0f);

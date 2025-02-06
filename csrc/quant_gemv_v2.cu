@@ -17,6 +17,9 @@ struct QuantGemvKeTraits : public Base {
   using LoaderG2S =
       copy::GlobalToSharedLoader<DType, kThreads, kNumCentroids / kPackedVecs,
                                  kVecLen * kPackedVecs>;
+  using StorerS2G =
+      copy::SharedToGlobalStorer<DType, kThreads, kNumCentroids / kPackedVecs,
+                                 kVecLen * kPackedVecs>;
 };
 
 /**
@@ -83,7 +86,11 @@ torch::Tensor quant_gemv_v2(
       "Supported vector length in vectorized quantization: 4, 8, 12, or 16.");
 
   torch::Tensor output;
-  output = at::empty({in_features, out_features}, centroids.options());
+  // output = at::empty({in_features, out_features}, centroids.options());
+
+  // NOTE: this is for test!!!
+  output =
+      at::empty({num_codebooks, num_centroids, vec_len}, centroids.options());
 
   auto stream = at::cuda::getCurrentCUDAStream().stream();
 
@@ -117,7 +124,9 @@ torch::Tensor quant_gemv_v2(
 
         std::cout << "centroid number: " << kNumCentroids
                   << "; vector length: " << kVecLen
-                  << "; smem_size: " << smem_size / 1024 << "KB" << std::endl;
+                  << "; smem_size: " << smem_size / 1024
+                  << "KB; max smem size: " << kMaxSmemPerBlock / 1024 << "KB"
+                  << std::endl;
 
         using Config =
             QuantGemvKeTraits<nv_type, kThreads, kNumCentroids, kVecLen>;

@@ -12,8 +12,30 @@ import vptq
 
 class TestQuantGemv(unittest.TestCase):
 
+    def __init_serial(self, numel, device, dtype, debug=False) -> torch.Tensor:
+        if (numel % 2048):
+            raise ValueError("numel must be a multiple of 2048")
+
+        n_repeats = numel // 2048
+        values = list(range(2048)) * n_repeats
+
+        x = torch.tensor(values, device=device, dtype=dtype)
+
+        if debug:
+            x_values = x.tolist()
+            res = ""
+            for i in range(numel):
+                res += "%.0f," % x_values[i]
+                if (i + 1) % 16 == 0:
+                    res += "\n"
+            print(res)
+
+        return x
+
     def setUp(self):
         dtype = torch.bfloat16
+        # dtype = torch.float16
+
         device = torch.device("cuda", 0)
 
         batch_size = 3
@@ -46,6 +68,12 @@ class TestQuantGemv(unittest.TestCase):
         )
 
         shape = (self.num_codebooks, self.num_centroids, self.vector_length)
+
+        # for unittest
+        # numel = shape[0] * shape[1] * shape[2]
+        # self.centroids = self.__init_serial(numel, device, dtype)
+        # print("centroids: ", self.centroids[numel - 256:])
+
         self.centroids = torch.randn(*shape, device=device, dtype=dtype)
 
         shape = (self.num_codebooks, self.num_res_centroids, self.vector_length)
@@ -76,7 +104,10 @@ class TestQuantGemv(unittest.TestCase):
             in_features=self.in_features,
             out_features=self.out_features,
         )
-        print(out)
+        print(self.centroids[0, 127, :])
+        print(out[0, 127, :])
+
+        assert torch.allclose(out, self.centroids, atol=1e-4)
 
 
 if __name__ == "__main__":
