@@ -157,11 +157,6 @@ __device__ __forceinline__ uint32_t iterator_packed_tensor(const uint32_t* ptr,
     }
   }
 }
-
-template <typename T>
-__forceinline__ T ceil_div(T a, T b) {
-  return (a + b - 1) / b;
-}
 }  // namespace cuda
 
 template <typename T>

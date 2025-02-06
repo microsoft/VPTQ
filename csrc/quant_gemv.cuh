@@ -3,7 +3,6 @@
 #pragma once
 
 #include "util/cuda_utils.cuh"
-#include "util/debug.cuh"
 
 namespace vptq {
 

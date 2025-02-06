@@ -170,7 +170,7 @@ torch::Tensor launch_gemv_outliers_cuda_packkernel(
   output_shape[input.dim() - 1] = out_features;
   torch::Tensor output;
 
-  dim3 blocks(cuda::ceil_div(out_features, base_groupsize),
+  dim3 blocks(ceil_div(out_features, base_groupsize),
               input.numel() / in_features);
   dim3 threads(cuda::kBlockSize);  // 256 threads = 8 warps
   auto stream = at::cuda::getCurrentCUDAStream().stream();
@@ -198,7 +198,7 @@ torch::Tensor launch_gemv_outliers_cuda_packkernel(
     shared_memory_size = 0;
     auto tmp_output_shape = output_shape;
     tmp_output_shape.push_back(
-        cuda::ceil_div(in_features, cuda::kBlockSize * do_reduce));
+        ceil_div(in_features, cuda::kBlockSize * do_reduce));
     torch::Tensor tmp_output = at::empty(tmp_output_shape, centroids.options());
     blocks.z = tmp_output_shape.back();
 

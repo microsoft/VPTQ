@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-import gc
 import unittest
 
 import torch
@@ -17,14 +16,14 @@ class TestQuantGemv(unittest.TestCase):
         dtype = torch.bfloat16
         device = torch.device("cuda", 0)
 
-        batch_size = 1
+        batch_size = 3
         length = 50
 
         self.in_features = 4096
         self.out_features = 14336
         self.num_codebooks = 1
         self.vector_length = 8
-        self.num_centroids = 65536
+        self.num_centroids = 8192
         self.num_res_centroids = 256
 
         num_padding = (-self.out_features) % self.vector_length

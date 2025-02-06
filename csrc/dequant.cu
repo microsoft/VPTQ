@@ -169,9 +169,9 @@ torch::Tensor launch_deqantize_outliers_cuda_packkernel(
                            ? log2(residual_centroids.value().size(1))
                            : 0;
   auto out_size = outf_x_inf;
-  dim3 blocks(cuda::ceil_div<int>(
-      cuda::ceil_div<int>(out_size[0], base_groupsize) * out_size[1],
-      cuda::kBlockSize));
+  dim3 blocks(
+      ceil_div<int>(ceil_div<int>(out_size[0], base_groupsize) * out_size[1],
+                    cuda::kBlockSize));
   dim3 threads(cuda::kBlockSize);
   torch::Tensor output;
 
