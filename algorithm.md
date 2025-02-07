@@ -59,7 +59,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python run_vptq.py \
         --group_num 1 \
         --num_centroids -1 65536 \
         --num_res_centroids -1 256 \
-        --npercent 0 
+        --npercent 0 \
         --blocksize 128 \
         --new_eval \
         --seq_len 8192 \
