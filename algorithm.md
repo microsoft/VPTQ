@@ -32,6 +32,13 @@ conda activate vptq-algo
 export PATH=/usr/local/cuda-12/bin/:$PATH
 pip install flash-attn==2.5.8
 
+# install cuml
+pip install     --extra-index-url=https://pypi.nvidia.com     "cuml-cu12==24.12.*"
+
+#install sentence_transformers
+pip install sentence_transformers
+
+
 # or install VPTQ without compiling to save time
 # skip CUDA compilation for algorithm development
 SKIP_COMPILE=1 pip install -e . --no-build-isolation
