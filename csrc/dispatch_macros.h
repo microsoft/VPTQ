@@ -21,6 +21,7 @@
     }                                                                        \
   }();
 
+// TODO(ying): Add support for kVecLen = 12
 #define VPTQ_DISPATCH_VEC_LENGTH(VEC_LEN, ...)                                \
   [&] {                                                                       \
     switch (VEC_LEN) {                                                        \
@@ -30,10 +31,6 @@
       }                                                                       \
       case 8: {                                                               \
         static constexpr int kVecLen = 8;                                     \
-        return __VA_ARGS__();                                                 \
-      }                                                                       \
-      case 12: {                                                              \
-        static constexpr int kVecLen = 12;                                    \
         return __VA_ARGS__();                                                 \
       }                                                                       \
       case 16: {                                                              \

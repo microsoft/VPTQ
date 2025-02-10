@@ -9,13 +9,9 @@
 namespace vptq::copy {
 using namespace cute;
 
-/// TODO(ying); the current implementation supports load row-major data only.
-template <typename DType, const int kThreads, const int64_t kRows_,
-          const int64_t kCols_, typename Base = AccessInfo<DType>>
-struct GlobalToSharedLoader : public Base {
-  static constexpr int kRows = kRows_;
-  static constexpr int kCols = kCols_;
-
+template <typename DType, const int kNumPerAccess, typename ThreadLayout,
+          typename GlobalLayout /*src*/, typename SharedLayout /*dst*/>
+struct GlobalToSharedLoader {
   DEVICE void operator()(const DType* src_, DType* dst_) {
     int tid = threadIdx.x;
 
@@ -35,29 +31,8 @@ struct GlobalToSharedLoader : public Base {
   }
 
 private:
-  using GlobalLayout =
-      cute::Layout<Shape<Int<kRows>, Int<kCols>>, Stride<Int<kCols>, _1>>;
   GlobalLayout src_layout_;
-
-  using SharedLayout =
-      cute::Layout<Shape<Int<kRows>, Int<kCols>>, Stride<Int<kCols>, _1>>;
-
-  // using LayoutAtom =
-  //     decltype(composition(cute::Swizzle<2, 3, 3>{},
-  //                          cute::Layout<Shape<_4, _64>, Stride<_64, _1>>{}));
-  // using SharedLayout = decltype(tile_to_shape(
-  //     LayoutAtom{}, Shape<Int<kRows>, Int<kCols>>{}, cute::Step<_2, _1>{}));
   SharedLayout dst_layout_;
-
-  // tiled copy
-  static constexpr int kThreadCols =
-      kCols * Base::kElementBits / Base::kAccessInBits;
-  static_assert(kThreadCols > 0);
-  static constexpr int kThreadRows = kThreads / kThreadCols;
-
-  using ThreadLayout = cute::Layout<Shape<Int<kThreadRows>, Int<kThreadCols>>,
-                                    Stride<Int<kThreadCols>, _1>>;
-  using ValueLayout = cute::Layout<Shape<_1, _8>>;
 
 #ifdef CP_ASYNC_SM80_ENABLED
   using CopyInst = Copy_Atom<SM80_CP_ASYNC_CACHEGLOBAL<cute::uint128_t>, DType>;
@@ -66,17 +41,14 @@ private:
 #endif
 
   using TiledCopy =
-      decltype(make_tiled_copy(CopyInst{}, ThreadLayout{}, ValueLayout{}));
+      decltype(make_tiled_copy(CopyInst{}, ThreadLayout{},
+                               cute::Layout<Shape<_1, Int<kNumPerAccess>>>{}));
   TiledCopy tiled_copy_;
 };
 
-/// TODO(ying); the current implementation supports load row-major data only.
-template <typename DType, const int kThreads, const int64_t kRows_,
-          const int64_t kCols_, typename Base = AccessInfo<DType>>
-struct SharedToGlobalStorer : public Base {
-  static constexpr int kRows = kRows_;
-  static constexpr int kCols = kCols_;
-
+template <typename DType, const int kNumPerAccess, typename ThreadLayout,
+          typename SharedLayout /*src*/, typename GlobalLayout /*dst*/>
+struct SharedToGlobalStorer {
   DEVICE void operator()(const DType* src_, DType* dst_) {
     int tid = threadIdx.x;
 
@@ -96,33 +68,12 @@ struct SharedToGlobalStorer : public Base {
   }
 
 private:
-  using SharedLayout =
-      cute::Layout<Shape<Int<kRows>, Int<kCols>>, Stride<Int<kCols>, _1>>;
-  // using LayoutAtom =
-  //     decltype(composition(cute::Swizzle<2, 3, 3>{},
-  //                          cute::Layout<Shape<_4, _64>, Stride<_64, _1>>{}));
-  // using SharedLayout = decltype(tile_to_shape(
-  //     LayoutAtom{}, Shape<Int<kRows>, Int<kCols>>{}, cute::Step<_2, _1>{}));
   SharedLayout src_layout_;
-
-  using GlobalLayout =
-      cute::Layout<Shape<Int<kRows>, Int<kCols>>, Stride<Int<kCols>, _1>>;
   GlobalLayout dst_layout_;
 
-  // tiled copy
-  static constexpr int kThreadCols =
-      kCols * Base::kElementBits / Base::kAccessInBits;
-  static_assert(kThreadCols > 0);
-  static constexpr int kThreadRows = kThreads / kThreadCols;
-
-  using ThreadLayout = cute::Layout<Shape<Int<kThreadRows>, Int<kThreadCols>>,
-                                    Stride<Int<kThreadCols>, _1>>;
-  using ValueLayout = cute::Layout<Shape<_1, _8>>;
-
-  using CopyInst = Copy_Atom<DefaultCopy, DType>;
-
   using TiledCopy =
-      decltype(make_tiled_copy(CopyInst{}, ThreadLayout{}, ValueLayout{}));
+      decltype(make_tiled_copy(Copy_Atom<DefaultCopy, DType>{}, ThreadLayout{},
+                               cute::Layout<Shape<_1, Int<kNumPerAccess>>>{}));
   TiledCopy tiled_copy_;
 };
 

@@ -22,8 +22,8 @@ __global__ void quant_gemv_v2_kernel(
   extern __shared__ __align__(sizeof(double)) unsigned char buf_[];
   auto* buf = reinterpret_cast<DType*>(buf_);
 
-  typename KeTraits::LoaderG2S loader;
-  typename KeTraits::StorerS2G storer;
+  typename KeTraits::Loader loader;
+  typename KeTraits::Storer storer;
 
   loader(centroids, buf);
   __copy_async();
