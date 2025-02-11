@@ -4,7 +4,7 @@
 
 #include "util/cuda_utils.cuh"
 
-namespace vptq {
+namespace vptq::kernels {
 
 template <typename scalar_t, int IDXBITS, int ResidualBits, int GROUPSIZE,
           bool Return_OUF_x_INF>
@@ -114,4 +114,4 @@ __global__ void DequantizeWithOutliers_PackIndice(
   }
 }
 
-}  // namespace vptq
+}  // namespace vptq::kernels

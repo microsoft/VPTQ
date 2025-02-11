@@ -2,11 +2,11 @@
 // Licensed under the MIT License.
 #pragma once
 
-#include "copy/copy_traits.cuh"
+#include "kernels/copy/copy_traits.cuh"
 
 #include <cute/tensor.hpp>
 
-namespace vptq::copy {
+namespace vptq::kernels::copy {
 using namespace cute;
 
 template <typename DType, const int kNumPerAccess, typename ThreadLayout,
@@ -77,4 +77,4 @@ private:
   TiledCopy tiled_copy_;
 };
 
-}  // namespace vptq::copy
+}  // namespace vptq::kernels::copy

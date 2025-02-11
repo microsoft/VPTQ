@@ -3,6 +3,6 @@
 #pragma once
 
 #include "config.cuh"
-#include "copy/copy.cuh"
-#include "copy/copy_traits.cuh"
-#include "copy/sync.cuh"
+#include "kernels/copy/copy.cuh"
+#include "kernels/copy/copy_traits.cuh"
+#include "kernels/copy/sync.cuh"

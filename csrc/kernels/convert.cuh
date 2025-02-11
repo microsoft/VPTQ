@@ -2,9 +2,8 @@
 // Licensed under the MIT License.
 #pragma once
 
-#include "config.cuh"
+namespace vptq::kernels {
 
-namespace vptq {
 template <typename T>
 T DEVICE from_float(float v, T vv) {
   (void)(vv);
@@ -29,4 +28,5 @@ float DEVICE to_float(T v) {
     return __half2float(v);
   }
 }
-}  // namespace vptq
+
+}  // namespace vptq::kernels

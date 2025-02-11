@@ -1,41 +1,41 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "quant_gemv.cuh"
+#include "kernels/quant_gemv.cuh"
 #include "util/common.h"
 
 namespace vptq {
 
-#define CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce,      \
-                        ResidualBits)                                          \
-  {                                                                            \
-    using nv_type = typename C10ToNvType<scalar_t>::type;                      \
-    WqA16WithOutliers_PackIndice<nv_type, IDXBITS, ResidualBits, BASEGROUP, 4, \
-                                 Do_Reduce>                                    \
-        <<<blocks, threads, shared_memory_size, stream>>>(                     \
-            reinterpret_cast<nv_type*>(out_buf.data_ptr<scalar_t>()),          \
-            reinterpret_cast<const nv_type*>(input.data_ptr<scalar_t>()),      \
-            q_indice.data_ptr<int32_t>(), outliers_indices_ptr,                \
-            reinterpret_cast<const nv_type*>(centroids.data_ptr<scalar_t>()),  \
-            residual_centroids.has_value()                                     \
-                ? reinterpret_cast<const nv_type*>(                            \
-                      residual_centroids.value().data_ptr<scalar_t>())         \
-                : nullptr,                                                     \
-            outliers_centroids.has_value()                                     \
-                ? reinterpret_cast<const nv_type*>(                            \
-                      outliers_centroids.value().data_ptr<scalar_t>())         \
-                : nullptr,                                                     \
-            perm_ptr,                                                          \
-            reinterpret_cast<const nv_type*>(                                  \
-                weight_scale.data_ptr<scalar_t>()),                            \
-            reinterpret_cast<const nv_type*>(                                  \
-                weight_bias.data_ptr<scalar_t>()),                             \
-            bias.has_value() ? reinterpret_cast<const nv_type*>(               \
-                                   bias.value().data_ptr<scalar_t>())          \
-                             : nullptr,                                        \
-            out_features, in_features, outliers_indices_size_n1,               \
-            q_indice.stride(0), q_indice.stride(1), centroids.stride(0),       \
-            q_indice.size(0));                                                 \
+#define CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce,     \
+                        ResidualBits)                                         \
+  {                                                                           \
+    using nv_type = typename C10ToNvType<scalar_t>::type;                     \
+    kernels::WqA16WithOutliers_PackIndice<nv_type, IDXBITS, ResidualBits,     \
+                                          BASEGROUP, 4, Do_Reduce>            \
+        <<<blocks, threads, shared_memory_size, stream>>>(                    \
+            reinterpret_cast<nv_type*>(out_buf.data_ptr<scalar_t>()),         \
+            reinterpret_cast<const nv_type*>(input.data_ptr<scalar_t>()),     \
+            q_indice.data_ptr<int32_t>(), outliers_indices_ptr,               \
+            reinterpret_cast<const nv_type*>(centroids.data_ptr<scalar_t>()), \
+            residual_centroids.has_value()                                    \
+                ? reinterpret_cast<const nv_type*>(                           \
+                      residual_centroids.value().data_ptr<scalar_t>())        \
+                : nullptr,                                                    \
+            outliers_centroids.has_value()                                    \
+                ? reinterpret_cast<const nv_type*>(                           \
+                      outliers_centroids.value().data_ptr<scalar_t>())        \
+                : nullptr,                                                    \
+            perm_ptr,                                                         \
+            reinterpret_cast<const nv_type*>(                                 \
+                weight_scale.data_ptr<scalar_t>()),                           \
+            reinterpret_cast<const nv_type*>(                                 \
+                weight_bias.data_ptr<scalar_t>()),                            \
+            bias.has_value() ? reinterpret_cast<const nv_type*>(              \
+                                   bias.value().data_ptr<scalar_t>())         \
+                             : nullptr,                                       \
+            out_features, in_features, outliers_indices_size_n1,              \
+            q_indice.stride(0), q_indice.stride(1), centroids.stride(0),      \
+            q_indice.size(0));                                                \
   }
 
 #define CallWqA16kernel_dtype(out_buf, IDXBITS, BASEGROUP, Do_Reduce, \

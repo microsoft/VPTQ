@@ -2,7 +2,8 @@
 // Licensed under the MIT License.
 #pragma once
 
-namespace vptq::copy {
+namespace vptq::kernels::copy {
+
 template <int N>
 DEVICE void wait_group() {
 #if defined(CP_ASYNC_SM80_ENABLED)
@@ -20,4 +21,5 @@ DEVICE void __copy_async() {
   commit_copy_group();
   wait_group<0>();
 }
-}  // namespace vptq::copy
+
+}  // namespace vptq::kernels::copy

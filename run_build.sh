@@ -14,6 +14,7 @@
 
 # python3 setup.py clean
 # python3 setup.py develop 2>&1 | tee build.log
+# exit 0
 
 # TORCH_VERSION=`python -c "import torch; print(torch.__version__)"`
 # python3 setup.py build bdist_wheel \
@@ -34,15 +35,15 @@ if [ -f "$source_file" ]; then
    rm "$source_file"
 fi
 
-# if [ -d "CMakeFiles" ]; then
-#   rm -rf CMakeFiles
-# fi
+if [ -d "CMakeFiles" ]; then
+  rm -rf CMakeFiles
+fi
 
-# if [ -f "CMakeCache.txt" ]; then
-#   rm -f CMakeCache.txt
-# fi
+if [ -f "CMakeCache.txt" ]; then
+  rm -f CMakeCache.txt
+fi
 
-# cmake ../../
+cmake ../../
 
 make -j32 2>&1 | tee ../../build.log
 

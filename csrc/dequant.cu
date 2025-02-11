@@ -1,37 +1,37 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "dequant.cuh"
+#include "kernels/dequant.cuh"
 #include "util/common.h"
 
 namespace vptq {
 
-#define callDequantWithOutliers(scalar_t, IDXBITS, BASEGROUP, OUT_OUF_INF,    \
-                                ResidualBits)                                 \
-  {                                                                           \
-    using nv_type = typename C10ToNvType<scalar_t>::type;                     \
-    DequantizeWithOutliers_PackIndice<nv_type, IDXBITS, ResidualBits,         \
-                                      BASEGROUP, OUT_OUF_INF>                 \
-        <<<blocks, threads, 0, stream>>>(                                     \
-            reinterpret_cast<nv_type*>(output.data_ptr<scalar_t>()),          \
-            q_indice.data_ptr<int32_t>(), outliers_indices_ptr,               \
-            reinterpret_cast<const nv_type*>(centroids.data_ptr<scalar_t>()), \
-            residual_centroids.has_value()                                    \
-                ? reinterpret_cast<const nv_type*>(                           \
-                      residual_centroids.value().data_ptr<scalar_t>())        \
-                : nullptr,                                                    \
-            outliers_centroids.has_value()                                    \
-                ? reinterpret_cast<const nv_type*>(                           \
-                      outliers_centroids.value().data_ptr<scalar_t>())        \
-                : nullptr,                                                    \
-            perm_ptr,                                                         \
-            reinterpret_cast<const nv_type*>(                                 \
-                weight_scale.data_ptr<scalar_t>()),                           \
-            reinterpret_cast<const nv_type*>(                                 \
-                weight_bias.data_ptr<scalar_t>()),                            \
-            out_size[0], out_size[1], outliers_indices_size_n1,               \
-            outliers_centroids_size_n1, q_indice.stride(0),                   \
-            q_indice.stride(1), centroids.stride(0), q_indice.size(0));       \
+#define callDequantWithOutliers(scalar_t, IDXBITS, BASEGROUP, OUT_OUF_INF,     \
+                                ResidualBits)                                  \
+  {                                                                            \
+    using nv_type = typename C10ToNvType<scalar_t>::type;                      \
+    kernels::DequantizeWithOutliers_PackIndice<nv_type, IDXBITS, ResidualBits, \
+                                               BASEGROUP, OUT_OUF_INF>         \
+        <<<blocks, threads, 0, stream>>>(                                      \
+            reinterpret_cast<nv_type*>(output.data_ptr<scalar_t>()),           \
+            q_indice.data_ptr<int32_t>(), outliers_indices_ptr,                \
+            reinterpret_cast<const nv_type*>(centroids.data_ptr<scalar_t>()),  \
+            residual_centroids.has_value()                                     \
+                ? reinterpret_cast<const nv_type*>(                            \
+                      residual_centroids.value().data_ptr<scalar_t>())         \
+                : nullptr,                                                     \
+            outliers_centroids.has_value()                                     \
+                ? reinterpret_cast<const nv_type*>(                            \
+                      outliers_centroids.value().data_ptr<scalar_t>())         \
+                : nullptr,                                                     \
+            perm_ptr,                                                          \
+            reinterpret_cast<const nv_type*>(                                  \
+                weight_scale.data_ptr<scalar_t>()),                            \
+            reinterpret_cast<const nv_type*>(                                  \
+                weight_bias.data_ptr<scalar_t>()),                             \
+            out_size[0], out_size[1], outliers_indices_size_n1,                \
+            outliers_centroids_size_n1, q_indice.stride(0),                    \
+            q_indice.stride(1), centroids.stride(0), q_indice.size(0));        \
   }
 
 #define callDequantWithOutliers_dtype(IDXBITS, BASEGROUP, OUT_OUF_INF, \

@@ -1,51 +1,12 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "copy/mod.cuh"
 #include "dispatch_macros.h"
-#include "quant_gemv_v2.cuh"
+#include "kernels/quant_gemv_traits.cuh"
+#include "kernels/quant_gemv_v2.cuh"
 #include "util/common.h"
 
 namespace vptq {
-
-template <typename DType, const int kThreads, const int64_t kNumCentroids,
-          const int64_t kVecLen, typename Base = copy::AccessInfo<DType>>
-struct CodebookTraits : public Base {
-  static constexpr int kVecInBytes = kVecLen * sizeof(DType);
-  static_assert(Base::kCacheLineBytes % kVecInBytes == 0,
-                "The cache line size must be divisible by the vector size.");
-
-  static constexpr int kPackedVecs = Base::kCacheLineBytes / kVecInBytes;
-  static_assert(kNumCentroids % kPackedVecs == 0,
-                "Current implementations require the number of centroids must "
-                "be divisible by the number of packed vectors.");
-
-  static constexpr int kRows = kNumCentroids / kPackedVecs;
-  static constexpr int kCols = kVecLen * kPackedVecs;
-
-  static constexpr int kThreadCols =  // how many threads are laid out in a row.
-      kCols * Base::kElementBits / Base::kAccessInBits;
-  static_assert(kThreadCols > 0);
-  static constexpr int kThreadRows = kThreads / kThreadCols;
-
-  using ThreadLayout = cute::Layout<Shape<Int<kThreadRows>, Int<kThreadCols>>,
-                                    Stride<Int<kThreadCols>, _1>>;
-  using Layout =
-      cute::Layout<Shape<Int<kRows>, Int<kCols>>, Stride<Int<kCols>, _1>>;
-  using Loader = copy::GlobalToSharedLoader<DType, Base::kNumPerAccess,
-                                            ThreadLayout, Layout, Layout>;
-  using Storer = copy::SharedToGlobalStorer<DType, Base::kNumPerAccess,
-                                            ThreadLayout, Layout, Layout>;
-};
-
-template <typename DType, const int kThreads, const int64_t kNumCentroids,
-          const int64_t kVecLen>
-struct QuantGemvKeTraits {
-  using MainCentroidTraits =
-      CodebookTraits<DType, kThreads, kNumCentroids, kVecLen>;
-  using Loader = typename MainCentroidTraits::Loader;
-  using Storer = typename MainCentroidTraits::Storer;
-};
 
 /**
  * @brief Quantized GEMV kernel.
@@ -107,15 +68,28 @@ torch::Tensor quant_gemv_v2(
   TORCH_CHECK_EQ(num_codebooks, 1) << "Only support one codebook.";
 
   TORCH_CHECK(
-      vec_len == 4 || vec_len == 8 || vec_len == 12 || vec_len == 16,
-      "Supported vector length in vectorized quantization: 4, 8, 12, or 16.");
+      vec_len == 4 || vec_len == 8 || vec_len == 16,
+      "Supported vector length in vectorized quantization: 4, 8, or 16.");
+
+  int64_t num_res_centroids = 0;
+  if (residual_centroids.has_value()) {
+    CHECK_INPUT(residual_centroids.value());
+    TORCH_CHECK_EQ(residual_centroids.value().ndimension(), 3);
+    TORCH_CHECK_EQ(residual_centroids.value().size(0), 1)
+        << "Only support one codebook.";
+    TORCH_CHECK_EQ(residual_centroids.value().size(2), vec_len)
+        << "The vector length of the residual centroids must be the same as "
+           "the main centroids.";
+
+    num_res_centroids = residual_centroids.value().size(1);
+  }
 
   torch::Tensor output;
   // output = at::empty({in_features, out_features}, centroids.options());
 
   // NOTE: this is for test!!!
-  output =
-      at::empty({num_codebooks, num_centroids, vec_len}, centroids.options());
+  output = at::empty({num_codebooks, num_res_centroids, vec_len},
+                     centroids.options());
 
   auto stream = at::cuda::getCurrentCUDAStream().stream();
 
@@ -133,47 +107,54 @@ torch::Tensor quant_gemv_v2(
   VPTQ_DISPATCH_TYPES(dtype, [&] {
     VPTQ_DISPATCH_VEC_LENGTH(vec_len, [&] {
       VPTQ_DISPATCH_NUM_CENTROIDS(num_centroids, [&] {
-        const nv_type* residual_centroids_ptr =
-            residual_centroids.has_value()
-                ? reinterpret_cast<const nv_type*>(
-                      residual_centroids.value().data_ptr())
-                : nullptr;
-        const nv_type* bias_ptr =
-            bias.has_value()
-                ? reinterpret_cast<nv_type*>(bias.value().data_ptr())
-                : nullptr;
+        VPTQ_DISPATCH_RES_NUM_CENTROIDS(num_res_centroids, [&] {
+          const nv_type* residual_centroids_ptr =
+              residual_centroids.has_value()
+                  ? reinterpret_cast<const nv_type*>(
+                        residual_centroids.value().data_ptr())
+                  : nullptr;
 
-        // load codebook into shared memory
-        int64_t size_codebook = kNumCentroids * kVecLen * sizeof(nv_type);
-        int64_t smem_size = size_codebook;
+          const nv_type* bias_ptr =
+              bias.has_value()
+                  ? reinterpret_cast<nv_type*>(bias.value().data_ptr())
+                  : nullptr;
 
-        std::cout << "centroid number: " << kNumCentroids
-                  << "; vector length: " << kVecLen
-                  << "; smem_size: " << smem_size / 1024
-                  << "KB; max smem size: " << kMaxSmemPerBlock / 1024 << "KB"
-                  << std::endl;
+          // load entire codebooks into shared memory
+          int64_t size_codebook =
+              (kNumCentroids + kNumResCentroids) * kVecLen * sizeof(nv_type);
+          int64_t smem_size = size_codebook;
 
-        using Config =
-            QuantGemvKeTraits<nv_type, kThreads, kNumCentroids, kVecLen>;
+          std::cout << "centroid number: " << kNumCentroids
+                    << "; residual centroid number: " << kNumResCentroids
+                    << "; vector length: " << kVecLen << ";" << std::endl
+                    << "smem_size: " << smem_size / 1024 << "KB;" << std::endl;
 
-        auto kernel = &quant_gemv_v2_kernel<nv_type, Config>;
+          using Config =
+              kernels::QuantGemvKeTraits<nv_type, kThreads, kNumCentroids,
+                                         kNumResCentroids, kVecLen>;
 
-        // TODO(ying): Check whether shared memory usage exceeds the hardware
-        // limit.
-        if (smem_size > kMaxSmemPerBlock) {
-          cudaFuncSetAttribute(
-              kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
-        }
+          std::cout << "numel1: " << Config::MainCentroidTraits::kNumel
+                    << ", numel2: " << Config::ResCentroidTraits::kNumel
+                    << std::endl;
 
-        kernel<<<blocks, threads, smem_size, stream>>>(
-            reinterpret_cast<nv_type*>(output.mutable_data_ptr()),
-            reinterpret_cast<const nv_type*>(act.data_ptr()), bias_ptr,
-            indices.data_ptr<int32_t>(),
-            reinterpret_cast<const nv_type*>(centroids.data_ptr()),
-            residual_centroids_ptr,
-            reinterpret_cast<const nv_type*>(scale_weights.data_ptr()),
-            reinterpret_cast<const nv_type*>(scale_bias.data_ptr()),
-            in_features, out_features, vec_len);
+          auto kernel = &kernels::ke_quant_gemv_v2<nv_type, Config>;
+          // TODO(ying): Check whether shared memory usage exceeds the hardware
+          // limit.
+          if (smem_size > kMaxSmemPerBlock) {
+            cudaFuncSetAttribute(
+                kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
+          }
+
+          kernel<<<blocks, threads, smem_size, stream>>>(
+              reinterpret_cast<nv_type*>(output.mutable_data_ptr()),
+              reinterpret_cast<const nv_type*>(act.data_ptr()), bias_ptr,
+              indices.data_ptr<int32_t>(),
+              reinterpret_cast<const nv_type*>(centroids.data_ptr()),
+              residual_centroids_ptr,
+              reinterpret_cast<const nv_type*>(scale_weights.data_ptr()),
+              reinterpret_cast<const nv_type*>(scale_bias.data_ptr()),
+              in_features, out_features, vec_len);
+        });
       });
     });
   });

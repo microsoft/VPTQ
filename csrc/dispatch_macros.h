@@ -54,3 +54,16 @@
                  NUM_CENTROIDS);                                       \
     }                                                                  \
   }();
+
+#define VPTQ_DISPATCH_RES_NUM_CENTROIDS(NUM_RES_CENTROIDS, ...)        \
+  [&] {                                                                \
+    switch (NUM_RES_CENTROIDS) {                                       \
+      case 256: {                                                      \
+        static constexpr int kNumResCentroids = 256;                   \
+        return __VA_ARGS__();                                          \
+      }                                                                \
+      default:                                                         \
+        AT_ERROR("Dispatch is not implemented for centroids number: ", \
+                 NUM_RES_CENTROIDS);                                   \
+    }                                                                  \
+  }();

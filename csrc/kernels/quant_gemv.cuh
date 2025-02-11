@@ -2,10 +2,11 @@
 // Licensed under the MIT License.
 #pragma once
 
-#include "util/convert.cuh"
+#include "config.cuh"
+#include "kernels/convert.cuh"
 #include "util/cuda_utils.cuh"
 
-namespace vptq {
+namespace vptq::kernels {
 
 template <typename scalar_t, int IDXBITS, int ResidualBits, int GROUPSIZE,
           int OL_GroupSize, int Do_Reduce>
@@ -184,4 +185,4 @@ __global__ void WqA16WithOutliers_PackIndice(
   }
 }
 
-}  // namespace vptq
+}  // namespace vptq::kernels

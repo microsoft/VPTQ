@@ -2,7 +2,8 @@
 // Licensed under the MIT License.
 #pragma once
 
-namespace vptq::copy {
+namespace vptq::kernels::copy {
+
 template <typename DType>
 struct AccessInfo {
   // the maximal width of vectorized access.
@@ -13,4 +14,5 @@ struct AccessInfo {
 
   static constexpr int kCacheLineBytes = 128;  // 128 bytes
 };
-}  // namespace vptq::copy
+
+}  // namespace vptq::kernels::copy
