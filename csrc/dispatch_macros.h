@@ -62,6 +62,10 @@
         static constexpr int kNumResCentroids = 256;                   \
         return __VA_ARGS__();                                          \
       }                                                                \
+      case 512: {                                                      \
+        static constexpr int kNumResCentroids = 512;                   \
+        return __VA_ARGS__();                                          \
+      }                                                                \
       default:                                                         \
         AT_ERROR("Dispatch is not implemented for centroids number: ", \
                  NUM_RES_CENTROIDS);                                   \

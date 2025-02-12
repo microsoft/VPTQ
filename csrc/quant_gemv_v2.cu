@@ -5,7 +5,7 @@
 #include "kernels/quant_gemv_traits.cuh"
 #include "kernels/quant_gemv_v2.cuh"
 #include "util/common.h"
-
+#include "util/math_utils.h"
 namespace vptq {
 
 /**
@@ -85,15 +85,11 @@ torch::Tensor quant_gemv_v2(
   }
 
   torch::Tensor output;
-  // output = at::empty({in_features, out_features}, centroids.options());
-
-  // NOTE: this is for test!!!
-  output = at::empty({num_codebooks, num_res_centroids, vec_len},
-                     centroids.options());
+  output = at::empty({in_features, out_features}, centroids.options());
 
   auto stream = at::cuda::getCurrentCUDAStream().stream();
 
-  int block_z = ceil_div(out_features, vec_len);
+  int block_z = divup<int64_t, int64_t, int64_t>(out_features, vec_len);
   dim3 blocks(batch, num_codebooks, block_z);
 
   // FIXME(ying): refine the choice of threads in a thread block.
@@ -137,7 +133,8 @@ torch::Tensor quant_gemv_v2(
                     << ", numel2: " << Config::ResCentroidTraits::kNumel
                     << std::endl;
 
-          auto kernel = &kernels::ke_quant_gemv_v2<nv_type, Config>;
+          static constexpr int kTileSize = 512;
+          auto kernel = &kernels::ke_quant_gemv_v2<nv_type, Config, kTileSize>;
           // TODO(ying): Check whether shared memory usage exceeds the hardware
           // limit.
           if (smem_size > kMaxSmemPerBlock) {
@@ -153,7 +150,7 @@ torch::Tensor quant_gemv_v2(
               residual_centroids_ptr,
               reinterpret_cast<const nv_type*>(scale_weights.data_ptr()),
               reinterpret_cast<const nv_type*>(scale_bias.data_ptr()),
-              in_features, out_features, vec_len);
+              in_features, out_features);
         });
       });
     });

@@ -3,6 +3,7 @@
 
 #include "kernels/quant_gemv.cuh"
 #include "util/common.h"
+#include "util/math_utils.h"
 
 namespace vptq {
 
@@ -170,7 +171,7 @@ torch::Tensor launch_gemv_outliers_cuda_packkernel(
   output_shape[input.dim() - 1] = out_features;
   torch::Tensor output;
 
-  dim3 blocks(ceil_div(out_features, base_groupsize),
+  dim3 blocks(divup<int64_t, int64_t, int64_t>(out_features, base_groupsize),
               input.numel() / in_features);
   dim3 threads(cuda::kBlockSize);  // 256 threads = 8 warps
   auto stream = at::cuda::getCurrentCUDAStream().stream();
@@ -197,8 +198,8 @@ torch::Tensor launch_gemv_outliers_cuda_packkernel(
     constexpr int do_reduce = 4;
     shared_memory_size = 0;
     auto tmp_output_shape = output_shape;
-    tmp_output_shape.push_back(
-        ceil_div(in_features, cuda::kBlockSize * do_reduce));
+    tmp_output_shape.push_back(divup<int64_t, int64_t, int64_t>(
+        in_features, cuda::kBlockSize * do_reduce));
     torch::Tensor tmp_output = at::empty(tmp_output_shape, centroids.options());
     blocks.z = tmp_output_shape.back();
 

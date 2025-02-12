@@ -20,11 +20,6 @@ namespace vptq {
 
 #define gpuErrchk(ret) gpuAssert((ret), __FILE__, __LINE__);
 
-template <typename T>
-__forceinline__ T ceil_div(T a, T b) {
-  return (a + b - 1) / b;
-}
-
 class OptionalCUDAGuard {
   int set_device_ = -1;
   int current_device_ = -1;
