@@ -9,8 +9,43 @@
 namespace vptq::kernels {
 using namespace cute;
 
-template <typename DType, const int kThreads, const int64_t kNumCentroids,
-          const int64_t kVecLen, typename Base = copy::AccessInfo<DType>>
+namespace {
+template <typename DType, const int kTileSize, const int kVecLen,
+          const int kNumCentroids, const int kNumResCentroids>
+struct SharedStorageImpl {
+  ///==== Shared memory for inputs ====///
+  static constexpr int kSizeCodebook = kNumCentroids * kVecLen;
+  array_aligned<DType, kSizeCodebook, 128> codebook;  // 128-bits aligned
+
+  static constexpr int kSizeCodebookRes = kNumResCentroids * kVecLen;
+  array_aligned<DType, kSizeCodebookRes, 128> codebook_res;  // 128-bits aligned
+
+  // 3 stands for input, scale_weights, scale_bias
+  static constexpr int kSizeInputs = kTileSize * 3;
+  array_aligned<DType, kSizeInputs> inputs;
+
+  array_aligned<DType, kVecLen> bias;
+
+  // TODO(ying): placeholder, a non-packed indices
+  array_aligned<int32_t, kTileSize * 2> indices;
+
+  ///==== Shared mempory for intermediate results ====///
+  static constexpr int kSizeWeights = kTileSize * kVecLen;
+  array_aligned<DType, kSizeWeights, 128> dequant_weights;
+
+  ///==== Shared mempory for outputs ====///
+  static constexpr int kSizeOut = kVecLen;
+  array_aligned<DType, kSizeOut> output;
+
+  static constexpr int kSmemSize =
+      ((kSizeCodebook + kSizeCodebookRes + kSizeInputs + kVecLen +
+        kSizeWeights + kSizeOut) *
+       sizeof(DType)) +
+      (kTileSize * 2 * sizeof(int32_t));
+};
+
+template <typename DType, const int kThreads, const int kNumCentroids,
+          const int kVecLen, typename Base = copy::AccessInfo<DType>>
 struct CodebookTraits : public Base {
   static constexpr int kVecInBytes = kVecLen * sizeof(DType);
   // TODO: To support a vector length of 12, this constraint can be relaxed.
@@ -41,18 +76,50 @@ struct CodebookTraits : public Base {
   using Storer = copy::SharedToGlobalStorer<DType, Base::kNumPerAccess,
                                             ThreadLayout, Layout, Layout>;
 };
+}  // namespace
 
-template <typename DType, const int kThreads, const int64_t kNumCentroids_,
-          const int64_t kNumResCentroids_, const int64_t kVecLen_>
-struct QuantGemvKeTraits {
-  static constexpr int64_t kVecLen = kVecLen_;
-  static constexpr int64_t kNumCentroids = kNumCentroids_;
-  static constexpr int64_t kNumResCentroids = kNumResCentroids_;
+template <typename DType, const int kThreads,        //
+          const int kTileSize_, const int kVecLen_,  //
+          const int kNumCentroids_, const int kNumResCentroids_,
+          typename Base = copy::AccessInfo<DType>>
+struct QuantGemvKeTraits : public Base {
+  static constexpr int kVecLen = kVecLen_;
+  static constexpr int kNumCentroids = kNumCentroids_;
+  static constexpr int kNumResCentroids = kNumResCentroids_;
+  static constexpr int kTileSize = kTileSize_;
+
+  // allocate shared memory
+  using SharedStorage = SharedStorageImpl<DType, kTileSize, kVecLen,
+                                          kNumCentroids, kNumResCentroids>;
+  static constexpr int kSmemSize = SharedStorage::kSmemSize;
 
   using MainCentroidTraits =
       CodebookTraits<DType, kThreads, kNumCentroids, kVecLen>;
   using ResCentroidTraits =
       CodebookTraits<DType, kThreads, kNumResCentroids, kVecLen>;
+
+  // how many threads are used to load a single input tile;
+  static constexpr int kInputThreads =
+      kTileSize * sizeof(DType) / Base::kAccessInBytes;
+
+  // Note: This is a basic implementation that currently may lead to performance
+  // issues and needs optimization.
+  static_assert(kInputThreads <= kThreads,
+                "The current implementation requires that the number of "
+                "threads used to load a single input tile must be less than or "
+                "equal to the number of threads in the block.");
+  using InputThreadLayout = cute::Layout<Shape<_1, Int<kInputThreads>>,
+                                         Stride<Int<kInputThreads>, _1>>;
+  using InputLayout =
+      cute::Layout<Shape<_3, Int<kTileSize>>, Stride<Int<kTileSize>, _1>>;
+  using InputLoader =
+      copy::GlobalToSharedLoader<DType, Base::kNumPerAccess, InputThreadLayout,
+                                 InputLayout, InputLayout>;
+
+  // storer is defined for debugging purposes
+  using InputStorer =
+      copy::SharedToGlobalStorer<DType, Base::kNumPerAccess, InputThreadLayout,
+                                 InputLayout, InputLayout>;
 };
 
 }  // namespace vptq::kernels

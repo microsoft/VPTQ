@@ -284,7 +284,6 @@ def quant_gemv_v2(
     num_codebooks: int,
     num_centroids: int,
     num_residual_centroids: int,
-    in_features: int,
     out_features: int,
 ) -> torch.Tensor:
     """ Dequantize the input tensor and perform GEMV operation.
@@ -317,7 +316,6 @@ def quant_gemv_v2(
         num_codebooks: int, the number of codebooks.
         num_centroids: int, the number of centroids.
         num_residual_centroids: int, the number of residual centroids.
-        in_features: int, the number of input features.
         out_features: int, the number of output features.
     """
 
@@ -331,7 +329,13 @@ def quant_gemv_v2(
         shape = (num_codebooks, num_residual_centroids, vector_len)
         residual_centroids_ = residual_centroids.view(shape)
 
-    out = vptq_ops.quant_gemv_v2(
+    if x.numel() // x.shape[-1] >= 16:
+        raise RuntimeError((
+            "The input tensor is too large for GEMV to "
+            "achieve good performance. Please use quant_gemm instead."
+        ))
+
+    return vptq_ops.quant_gemv_v2(
         x,
         bias,
         indices,
@@ -339,7 +343,5 @@ def quant_gemv_v2(
         residual_centroids_,
         scale_weights,
         scale_bias,
-        in_features,
         out_features,
     )
-    return out

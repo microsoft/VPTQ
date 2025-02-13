@@ -58,6 +58,10 @@
 #define VPTQ_DISPATCH_RES_NUM_CENTROIDS(NUM_RES_CENTROIDS, ...)        \
   [&] {                                                                \
     switch (NUM_RES_CENTROIDS) {                                       \
+      case 0: {                                                        \
+        static constexpr int kNumResCentroids = 0;                     \
+        return __VA_ARGS__();                                          \
+      }                                                                \
       case 256: {                                                      \
         static constexpr int kNumResCentroids = 256;                   \
         return __VA_ARGS__();                                          \

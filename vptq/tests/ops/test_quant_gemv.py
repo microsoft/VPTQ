@@ -18,8 +18,9 @@ class TestQuantGemv(unittest.TestCase):
 
         device = torch.device("cuda", 0)
 
-        batch_size = 3
-        length = 50
+        # gemv requires batch size * length < 16
+        batch_size = 5
+        length = 3
 
         self.in_features = 4096
         self.out_features = 14336
@@ -56,8 +57,8 @@ class TestQuantGemv(unittest.TestCase):
         shape = (1, self.out_features)
         self.bias = torch.randn(*shape, device=device, dtype=dtype)
 
-        # the scaling and bias tensors. NOTE, the scale weights and bias are
-        # applied to the in_features in this test
+        # NOTE: In this test, the scale weights and bias are applied
+        # to the in_features.
         shape = (1, self.in_features)
         self.scale_weights = torch.randn(*shape, device=device, dtype=dtype)
         self.scale_bias = torch.randn(*shape, device=device, dtype=dtype)
@@ -75,10 +76,12 @@ class TestQuantGemv(unittest.TestCase):
             num_codebooks=self.num_codebooks,
             num_centroids=self.num_centroids,
             num_residual_centroids=self.num_res_centroids,
-            in_features=self.in_features,
             out_features=self.out_features,
         )
+
+        print(self.x)
         print(out)
+        assert torch.allclose(out, self.x, atol=1e-4)
 
 
 if __name__ == "__main__":
