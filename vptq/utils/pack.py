@@ -185,6 +185,7 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
             sub_mod.res_indices = None
 
             sub_mod.cpu()
+            sub_mod.is_indice_packed = True
             quantization_config["config_for_layers"][mod_name] = sub_mod.init_args
             quantization_config["config_for_layers"][mod_name]["is_indice_packed"] = True
 
