@@ -13,6 +13,8 @@ import vptq
 class TestQuantGemv(unittest.TestCase):
 
     def setUp(self):
+        torch.manual_seed(1234)
+
         dtype = torch.bfloat16
         # dtype = torch.float16
 
@@ -79,9 +81,21 @@ class TestQuantGemv(unittest.TestCase):
             out_features=self.out_features,
         )
 
-        print(self.x)
+        print(self.bias)
         print(out)
-        assert torch.allclose(out, self.x, atol=1e-4)
+
+        # N = 8
+        # for i in range(self.in_features // N):
+        #     v1 = self.x[:, :, i * N:(i + 1) * N]
+        #     v2 = out[:, :, i * N:(i + 1) * N]
+
+        #     passed = torch.allclose(v1, v2, atol=1e-4)
+        #     if not passed:
+        #         print(f"{i}-th value are not close")
+        #         print(v1)
+        #         print(v2)
+
+        assert torch.allclose(out, self.bias, atol=1e-4)
 
 
 if __name__ == "__main__":

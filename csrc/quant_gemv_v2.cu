@@ -96,7 +96,12 @@ torch::Tensor quant_gemv_v2(
   // output = at::empty({batch, seq_length, out_features}, centroids.options());
 
   // NOTE: this is for test!!!
-  output = at::empty({batch, seq_length, in_features}, centroids.options());
+  // output = at::empty({batch, seq_length, in_features}, centroids.options());
+
+  output = at::empty({1, out_features}, centroids.options());
+
+  // output = at::empty({batch, seq_length, in_features}, centroids.options());
+  // output = at::empty({1, in_features}, centroids.options());
 
   auto stream = at::cuda::getCurrentCUDAStream().stream();
 
@@ -159,7 +164,10 @@ torch::Tensor quant_gemv_v2(
                     << "; out_features: " << out_features << ";" << std::endl
                     << "smem_size: " << smem_size / 1024 << "KB;" << std::endl;
 
-          std::cout << "kInputThreads: " << Config::kInputThreads << std::endl;
+          std::cout << "Input Shape: (" << Config::InputTraits::kRows << ", "
+                    << Config::InputTraits::kCols << "); Threads = ("
+                    << Config::InputTraits::kThreadRows << ", "
+                    << Config::InputTraits::kThreadCols << ");" << std::endl;
 
           kernel<<<blocks, threads, smem_size, stream>>>(
               reinterpret_cast<nv_type*>(output.mutable_data_ptr()),

@@ -6,7 +6,6 @@
         "optional": "cpp",
         "system_error": "cpp",
         "array": "cpp",
-        "string": "cpp",
-        "string_view": "cpp"
+        "string": "cpp"
     }
 }

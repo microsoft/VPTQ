@@ -3,9 +3,12 @@
 #pragma once
 
 #include "dispatch_macros.h"
+#include "kernels/convert.cuh"
+#include "kernels/copy/mod.cuh"
 #include "kernels/quant_gemv_traits.cuh"
 #include "kernels/quant_gemv_v2.cuh"
 #include "util/common.h"
+
 namespace vptq::kernels {
 
 using namespace copy;
@@ -25,12 +28,19 @@ __global__ void ke_quant_gemv_v2(
   using SharedStorage = typename KeTraits::SharedStorage;
   SharedStorage& smem = *reinterpret_cast<SharedStorage*>(buf_);
 
+  DType* s_output = smem.output.data();  // output in shared memory
+
   static constexpr int kTileSize = KeTraits::kTileSize;
 
-  // load the main centroids into shared memory
-  typename KeTraits::MainCentroidTraits::Loader loader;
-  loader(centroids, smem.codebook.data());
+  // Advance the input pointer to the current CTA
+  int batch_id = blockIdx.x / seq_length;
+  int seq_id = blockIdx.x % seq_length;
+  const DType* x =
+      act + batch_id * (seq_length * in_features) + seq_id * in_features;
 
+  typename KeTraits::MainCentroidTraits::Loader loader;
+  // load the main centroids into shared memory
+  loader(centroids, smem.codebook.data());
   if (residual_centroids) {
     // load the residual centroids into shared memory if available
     typename KeTraits::ResCentroidTraits::Loader loader;
@@ -39,7 +49,7 @@ __global__ void ke_quant_gemv_v2(
   __copy_async();
   __syncthreads();
 
-  // for debug
+  // for debugging the loaded data
   // typename KeTraits::MainCentroidTraits::Storer storer;
   // storer(smem.codebook.data(), output);
 
@@ -49,39 +59,31 @@ __global__ void ke_quant_gemv_v2(
   typename KeTraits::InputLoader input_loader;
   typename KeTraits::InputStorer storer;
 
-  // TODO(ying): naive implementation, need to be improved
-  // Advance the input pointer to the current CTA
-  int batch_id = blockIdx.x / seq_length;
-  int seq_id = blockIdx.x % seq_length;
-
-  const DType* x =
-      batch_id * (seq_length * in_features) + seq_id * in_features + act;
-
-  // for debug
-  DType* y =
-      batch_id * (seq_length * in_features) + seq_id * in_features + output;
-
-  DType* s_input = smem.inputs.data();
-  DType* s_scale_weights = scale_weights ? s_input + kTileSize : nullptr;
+  DType* s_inputs = smem.inputs.data();
+  // optional inputs, scale and bias for quantized weights
+  DType* s_scale_weights = scale_weights ? s_inputs + kTileSize : nullptr;
   DType* s_scale_bias = scale_bias ? s_scale_weights + kTileSize : nullptr;
 
-  for (int k = 0; k < in_features; k += kTileSize) {
-    input_loader(x + k, s_input + k);
+  // optional input, bias applied after the final output
+  DType* s_bias = bias ? s_output + KeTraits::kVecLen : nullptr;
+  if (bias && threadIdx.x == 0) {
+    int offset = blockIdx.z * KeTraits::kVecLen;
+    ld_global_st_shared<16>(
+        static_cast<uint32_t>(__cvta_generic_to_shared(s_bias)), bias + offset);
+  }
+
+  for (int step = 0; step < in_features; step += kTileSize) {
+    input_loader(x + step, s_inputs);
 
     if (scale_weights) {
-      input_loader(scale_weights + k, s_scale_weights + k);
-      input_loader(scale_bias + k, s_scale_bias + k);
-    }
-
-    if (bias) {
     }
     __copy_async();
     __syncthreads();
 
-    storer(s_input + k, y + k);
-    __copy_async();
-    __syncthreads();
-
+    // for debugging the loaded data
+    // storer(s_inputs, y + step);
+    // __copy_async();
+    // __syncthreads();
     // decode
 
     // in-place scaling
@@ -90,6 +92,14 @@ __global__ void ke_quant_gemv_v2(
 
     // store results for the current tile
   }
+
+  // for debugging the loaded data
+  // if (bias && threadIdx.x == 0) {
+  //   int offset = blockIdx.z * KeTraits::kVecLen;
+  //   ld_shared_st_global<16>(
+  //       output + offset,
+  //       static_cast<uint32_t>(__cvta_generic_to_shared(s_bias)));
+  // }
 
   return;
 }
