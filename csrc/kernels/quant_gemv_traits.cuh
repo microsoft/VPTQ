@@ -10,6 +10,10 @@ namespace vptq::kernels {
 using namespace cute;
 
 namespace {
+
+template <const int a, const int b>
+static constexpr int divup = (a + b - 1) / b;
+
 template <typename DType, const int kTileSize, const int kVecLen,
           const int kNumCentroids, const int kNumResCentroids>
 struct SharedStorageImpl {
@@ -83,12 +87,6 @@ struct InputTraitsImpl : public Base {
                 "threads used to load a single input tile must be less than or "
                 "equal to the number of threads in the block.");
 
-  static constexpr int kRows = 1;
-  static constexpr int kCols = kTileSize;
-
-  static constexpr int kThreadRows = 1;
-  static constexpr int kThreadCols = kThreadsTotal;
-
   using DataLayout =
       cute::Layout<Shape<_1, Int<kTileSize>>, Stride<Int<kTileSize>, _1>>;
   using ThreadLayout = cute::Layout<Shape<_1, Int<kThreadsTotal>>,
@@ -108,24 +106,32 @@ template <typename DType, const int kThreads,        //
           const int kNumCentroids_, const int kNumResCentroids_,
           typename Base = copy::AccessInfo<DType>>
 struct QuantGemvKeTraits : public Base {
+  static constexpr int kNumPerAccess = Base::kNumPerAccess;
+
   static constexpr int kVecLen = kVecLen_;
   static constexpr int kNumCentroids = kNumCentroids_;
   static constexpr int kNumResCentroids = kNumResCentroids_;
   static constexpr int kTileSize = kTileSize_;
 
-  // allocate shared memory
+  /// allocate shared memory
   using SharedStorage = SharedStorageImpl<DType, kTileSize, kVecLen,
                                           kNumCentroids, kNumResCentroids>;
   static constexpr int kSmemSize = SharedStorage::kSmemSize;
 
+  /// configurations for loading codebooks
   using MainCentroidTraits =
       CodebookTraits<DType, kThreads, kNumCentroids, kVecLen>;
   using ResCentroidTraits =
       CodebookTraits<DType, kThreads, kNumResCentroids, kVecLen>;
 
+  /// configurations for loading tiled input
   using InputTraits = InputTraitsImpl<DType, kThreads, kTileSize>;
   using InputLoader = typename InputTraits::Loader;
   using InputStorer = typename InputTraits::Storer;
+
+  /// configurations for loading bias
+  static constexpr int kBiasLoadThreads =
+      divup<kVecLen * sizeof(DType), Base::kAccessInBytes>;
 };
 
 }  // namespace vptq::kernels

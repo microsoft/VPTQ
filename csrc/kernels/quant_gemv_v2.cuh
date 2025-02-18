@@ -49,13 +49,6 @@ __global__ void ke_quant_gemv_v2(
   __copy_async();
   __syncthreads();
 
-  // for debugging the loaded data
-  // typename KeTraits::MainCentroidTraits::Storer storer;
-  // storer(smem.codebook.data(), output);
-
-  // typename KeTraits::ResCentroidTraits::Storer storer;
-  // storer(smem.codebook_res.data(), output);
-
   typename KeTraits::InputLoader input_loader;
   typename KeTraits::InputStorer storer;
 
@@ -66,10 +59,14 @@ __global__ void ke_quant_gemv_v2(
 
   // optional input, bias applied after the final output
   DType* s_bias = bias ? s_output + KeTraits::kVecLen : nullptr;
-  if (bias && threadIdx.x == 0) {
-    int offset = blockIdx.z * KeTraits::kVecLen;
-    ld_global_st_shared<16>(
-        static_cast<uint32_t>(__cvta_generic_to_shared(s_bias)), bias + offset);
+  if (bias && threadIdx.x < KeTraits::kBiasLoadThreads) {
+    int thread_offset = threadIdx.x * KeTraits::kNumPerAccess;
+    const DType* src_ptr =
+        bias + blockIdx.z * KeTraits::kVecLen + thread_offset;
+
+    ld_global_st_shared<16>(  // a single thread access 16 bytes data
+        static_cast<uint32_t>(__cvta_generic_to_shared(s_bias + thread_offset)),
+        src_ptr);
   }
 
   for (int step = 0; step < in_features; step += kTileSize) {
@@ -80,10 +77,6 @@ __global__ void ke_quant_gemv_v2(
     __copy_async();
     __syncthreads();
 
-    // for debugging the loaded data
-    // storer(s_inputs, y + step);
-    // __copy_async();
-    // __syncthreads();
     // decode
 
     // in-place scaling
@@ -94,12 +87,12 @@ __global__ void ke_quant_gemv_v2(
   }
 
   // for debugging the loaded data
-  // if (bias && threadIdx.x == 0) {
-  //   int offset = blockIdx.z * KeTraits::kVecLen;
-  //   ld_shared_st_global<16>(
-  //       output + offset,
-  //       static_cast<uint32_t>(__cvta_generic_to_shared(s_bias)));
-  // }
+  if (bias && threadIdx.x < KeTraits::kBiasLoadThreads) {
+    int thread_offset = threadIdx.x * KeTraits::kNumPerAccess;
+    DType* dst_ptr = output + blockIdx.z * KeTraits::kVecLen + thread_offset;
+    ld_shared_st_global<16>(
+        dst_ptr, static_cast<uint32_t>(__cvta_generic_to_shared(s_bias)));
+  }
 
   return;
 }

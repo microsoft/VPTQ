@@ -164,11 +164,6 @@ torch::Tensor quant_gemv_v2(
                     << "; out_features: " << out_features << ";" << std::endl
                     << "smem_size: " << smem_size / 1024 << "KB;" << std::endl;
 
-          std::cout << "Input Shape: (" << Config::InputTraits::kRows << ", "
-                    << Config::InputTraits::kCols << "); Threads = ("
-                    << Config::InputTraits::kThreadRows << ", "
-                    << Config::InputTraits::kThreadCols << ");" << std::endl;
-
           kernel<<<blocks, threads, smem_size, stream>>>(
               reinterpret_cast<nv_type*>(output.mutable_data_ptr()),
               reinterpret_cast<const nv_type*>(act.data_ptr()), bias_ptr,
