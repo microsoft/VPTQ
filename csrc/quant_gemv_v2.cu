@@ -93,15 +93,7 @@ torch::Tensor quant_gemv_v2(
   }
 
   torch::Tensor output;
-  // output = at::empty({batch, seq_length, out_features}, centroids.options());
-
-  // NOTE: this is for test!!!
-  // output = at::empty({batch, seq_length, in_features}, centroids.options());
-
-  output = at::empty({1, out_features}, centroids.options());
-
-  // output = at::empty({batch, seq_length, in_features}, centroids.options());
-  // output = at::empty({1, in_features}, centroids.options());
+  output = at::empty({batch, seq_length, out_features}, centroids.options());
 
   auto stream = at::cuda::getCurrentCUDAStream().stream();
 
@@ -145,12 +137,14 @@ torch::Tensor quant_gemv_v2(
           using Config =
               kernels::QuantGemvKeTraits<nv_type, kThreads, kTileSize, kVecLen,
                                          kNumCentroids, kNumResCentroids>;
+          using SharedStorage = Config::SharedStorage;
+          int smem_size = SharedStorage::kSmemSize;
 
-          auto kernel = &kernels::ke_quant_gemv_v2<nv_type, Config>;
+          auto kernel =
+              &kernels::ke_quant_gemv_v2<nv_type, SharedStorage, Config>;
 
-          // TODO(ying): Check whether shared memory usage exceeds the hardware
-          // limit.
-          int smem_size = Config::kSmemSize;
+          // TODO(ying): Check whether shared memory usage exceeds
+          // the hardware limit.
           if (smem_size > kMaxSmemPerBlock) {
             cudaFuncSetAttribute(
                 kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
@@ -164,10 +158,14 @@ torch::Tensor quant_gemv_v2(
                     << "; out_features: " << out_features << ";" << std::endl
                     << "smem_size: " << smem_size / 1024 << "KB;" << std::endl;
 
+          std::cout << "kThreads: " << Config::InputLoader::kThreads
+                    << "; kWarpShape: " << Config::InputLoader::kWarpTileShape
+                    << std::endl;
+
           kernel<<<blocks, threads, smem_size, stream>>>(
               reinterpret_cast<nv_type*>(output.mutable_data_ptr()),
               reinterpret_cast<const nv_type*>(act.data_ptr()), bias_ptr,
-              indices.data_ptr<int32_t>(),
+              indices.data_ptr<uint16_t>(),
               reinterpret_cast<const nv_type*>(centroids.data_ptr()),
               residual_centroids_ptr, scale_weights_ptr, scale_bias_ptr, batch,
               seq_length, in_features, out_features);

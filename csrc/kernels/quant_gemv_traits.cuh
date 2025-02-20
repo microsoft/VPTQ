@@ -7,6 +7,8 @@
 #include <cute/tensor.hpp>
 
 namespace vptq::kernels {
+namespace tl = vptq::tile_layout;
+
 using namespace cute;
 
 namespace {
@@ -46,6 +48,9 @@ struct SharedStorageImpl {
 template <typename DType, const int kThreads, const int kNumCentroids,
           const int kVecLen, typename Base = copy::AccessInfo<DType>>
 struct CodebookTraits : public Base {
+  static_assert(kThreads % WARP_SIZE == 0,
+                "The number of threads must be divisible by the warp size.");
+
   static constexpr int kVecInBytes = kVecLen * sizeof(DType);
   // TODO: To support a vector length of 12, this constraint can be relaxed.
   static_assert(Base::kCacheLineBytes % kVecInBytes == 0,
@@ -76,29 +81,6 @@ struct CodebookTraits : public Base {
                                             ThreadLayout, Layout, Layout>;
 };
 
-template <typename DType, const int kThreads, const int kTileSize,
-          typename Base = copy::AccessInfo<DType>>
-struct InputTraitsImpl : public Base {
-  static constexpr int kThreadsTotal =
-      kTileSize * sizeof(DType) / Base::kAccessInBytes;
-
-  static_assert(kThreadsTotal <= kThreads,
-                "The current implementation requires that the number of "
-                "threads used to load a single input tile must be less than or "
-                "equal to the number of threads in the block.");
-
-  using DataLayout =
-      cute::Layout<Shape<_1, Int<kTileSize>>, Stride<Int<kTileSize>, _1>>;
-  using ThreadLayout = cute::Layout<Shape<_1, Int<kThreadsTotal>>,
-                                    Stride<Int<kThreadsTotal>, _1>>;
-  using Loader =
-      copy::GlobalToSharedLoader<DType, Base::kNumPerAccess, ThreadLayout,
-                                 DataLayout, DataLayout>;
-  // storer is defined for debugging purposes
-  using Storer =
-      copy::SharedToGlobalStorer<DType, Base::kNumPerAccess, ThreadLayout,
-                                 DataLayout, DataLayout>;
-};
 }  // namespace
 
 template <typename DType, const int kThreads,        //
@@ -106,8 +88,7 @@ template <typename DType, const int kThreads,        //
           const int kNumCentroids_, const int kNumResCentroids_,
           typename Base = copy::AccessInfo<DType>>
 struct QuantGemvKeTraits : public Base {
-  static constexpr int kNumPerAccess = Base::kNumPerAccess;
-
+  /// constants
   static constexpr int kVecLen = kVecLen_;
   static constexpr int kNumCentroids = kNumCentroids_;
   static constexpr int kNumResCentroids = kNumResCentroids_;
@@ -116,22 +97,48 @@ struct QuantGemvKeTraits : public Base {
   /// allocate shared memory
   using SharedStorage = SharedStorageImpl<DType, kTileSize, kVecLen,
                                           kNumCentroids, kNumResCentroids>;
-  static constexpr int kSmemSize = SharedStorage::kSmemSize;
-
   /// configurations for loading codebooks
   using MainCentroidTraits =
       CodebookTraits<DType, kThreads, kNumCentroids, kVecLen>;
   using ResCentroidTraits =
       CodebookTraits<DType, kThreads, kNumResCentroids, kVecLen>;
 
-  /// configurations for loading tiled input
-  using InputTraits = InputTraitsImpl<DType, kThreads, kTileSize>;
-  using InputLoader = typename InputTraits::Loader;
-  using InputStorer = typename InputTraits::Storer;
-
   /// configurations for loading bias
   static constexpr int kBiasLoadThreads =
       divup<kVecLen * sizeof(DType), Base::kAccessInBytes>;
+
+  /// configurations for loading tiled input
+  static constexpr int kNumWarps = kThreads / WARP_SIZE;
+  // Number of warps required to load a single input tile. This may be fewer
+  // than the total warps used in a CTA.
+  static constexpr int kNumWarpsPerTile =
+      kTileSize * sizeof(DType) / Base::kAccessInBytes / WARP_SIZE;
+  static_assert(kNumWarps % kNumWarpsPerTile == 0,
+                "The number of warps must be divisible by the number of warps "
+                "used to load a single tile.");
+  using WarpCounter = copy::WarpCounter<kNumWarps, kNumWarpsPerTile>;
+
+  /// configurations for loading tiled input
+  static constexpr int kThreadsInput =
+      kTileSize * sizeof(DType) / Base::kAccessInBytes;
+  static_assert(kThreadsInput <= kThreads,
+                "The current implementation requires that the number of "
+                "threads used to load a single input tile must be less than or "
+                "equal to the number of threads in the block.");
+  using InputLoader = copy::GlobalToSharedInputLoader<DType, kTileSize>;
+  // storer is defined for debugging purposes
+  using InputStorer = copy::SharedToGlobalInputStorer<DType, kTileSize>;
+
+  /// configurations for loading tiled indices
+  static constexpr int kThreadsIndex =
+      kTileSize * sizeof(uint16_t) / Base::kAccessInBytes;
+  static_assert(kThreadsIndex <= kThreads,
+                "The current implementation requires that the number of "
+                "threads used to load a single index tile must be less than or "
+                "equal to the number of threads in the block.");
+  using IndexLoader = copy::GlobalToSharedInputLoader<uint16_t, kTileSize>;
+  // storer is defined for debugging purposes
+  using IndexStorer = copy::SharedToGlobalInputStorer<uint16_t, kTileSize>;
 };
 
 }  // namespace vptq::kernels

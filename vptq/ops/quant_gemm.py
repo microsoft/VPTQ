@@ -293,7 +293,7 @@ def quant_gemv_v2(
            in_features). NOTE that `batch_size` here represents the number of 
            sequences, not tokens.
         bias: (optional) Tensor[fp16|bf16], has a shape of (1, out_features)
-        indices: Tensor[int16], the original input tensor is flattened into a
+        indices: Tensor[uint16], the original input tensor is flattened into a
                  vector with a shape of (1, numel). Then, internally, it will be
                  reshaped into a 3D tensor with a shape of
                  (num_codebooks, num_indices, packed_groupsize).

@@ -8,6 +8,10 @@
 
 namespace vptq {
 
+DEVICE int warpid() { return threadIdx.x / WARP_SIZE; }
+
+DEVICE int laneid() { return threadIdx.x % WARP_SIZE; }
+
 template <typename T>
 struct C10ToNvType;
 
