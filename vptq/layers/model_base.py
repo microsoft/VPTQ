@@ -105,6 +105,7 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
         )
         cls_kwargs = {}
         torch_dtype = kwargs.get("dtype", auto_conf.torch_dtype)
+        gpu_utilization = kwargs.pop("gpu_utilization", None)
         cls_kwargs["torch_dtype"] = torch_dtype
         with transformers.utils.generic.ContextManagers(init_contexts):
             model = cls.from_config(auto_conf, *model_args, **cls_kwargs)
@@ -133,29 +134,6 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
 
         device_map = kwargs.pop("device_map", None)
         max_memory = kwargs.pop("max_memory", None)
-
-        if device_map is None:
-            num_gpus = torch.cuda.device_count()
-            device_names = [f"cuda:{i}" for i in range(num_gpus)]
-            device_names.append("cpu")  # Include CPU for offloading
-
-            gpu_memory = {
-                device: "auto"
-                for device in device_names
-                if device.startswith("cuda")
-            }
-            cpu_memory = {"cpu": "auto"}
-
-            max_memory = {**gpu_memory, **cpu_memory}
-
-            # Infer device map with CPU as a fallback
-            device_map = accelerate.infer_auto_device_map(
-                model,
-                max_memory=max_memory,
-                no_split_module_classes=no_split_module_classes,
-                dtype=torch_dtype,
-                allow_cpu_offload=True,  # Allow offloading to CPU
-            )
 
         if Path(pretrained_model_name_or_path).exists():
             checkpoint = pretrained_model_name_or_path
@@ -194,7 +172,11 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
         if (0 in local_max_memory
            ) and (local_max_memory[0] * 0.9 > model_buffer_size):
             local_max_memory = {0: local_max_memory[0]}
-
+        if gpu_utilization is not None:
+            gpu_utilization = max(min(gpu_utilization, 1.0), 0.0)
+            for k in local_max_memory:
+                if isinstance(k, int):
+                    local_max_memory[k] = local_max_memory[k] * gpu_utilization
         if max_memory is None:
             max_memory = local_max_memory
 
