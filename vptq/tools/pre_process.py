@@ -68,10 +68,11 @@ if __name__ == "__main__":
         state_dict,
         device_to_put_offload = "cpu",
     ):
-        root = module_name[: module_name.rfind(".")]  # module name without .weight or .bias
+        root = module_name[: module_name.rfind(".")]
         if not accelerate.utils.has_offloaded_params(module):
             device_to_put_offload = None
-        with accelerate.utils.align_module_device(module, device_to_put_offload):
+        with accelerate.utils.align_module_device(module, 
+                device_to_put_offload):
             for m_key, params in module.state_dict().items():
                 if (root + f".{m_key}") in state_dict and isinstance(
                     state_dict[root + f".{m_key}"], str
