@@ -135,7 +135,6 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
         device_map = kwargs.pop("device_map", None)
         max_memory = kwargs.pop("max_memory", None)
 
-
         if Path(pretrained_model_name_or_path).exists():
             checkpoint = pretrained_model_name_or_path
         else:  # remote

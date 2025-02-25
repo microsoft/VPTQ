@@ -45,7 +45,9 @@ if __name__ == "__main__":
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(args.input_path)
     model = vptq.AutoModelForCausalLM.from_pretrained(
-        args.input_path, gpu_utilization=args.gpu_utilization, device_map="auto"
+        args.input_path,
+        gpu_utilization=args.gpu_utilization,
+        device_map="auto"
     )
     #preprocessor pipeline
     # process 1-->processor 2-->processor 3-->processor 4-->processor 5
@@ -62,17 +64,19 @@ if __name__ == "__main__":
     old_get_state_dict_from_offload = (
         transformers.modeling_utils.get_state_dict_from_offload
     )
+
     def new_get_state_dict_from_offload(
         module,
         module_name: str,
         state_dict,
-        device_to_put_offload = "cpu",
+        device_to_put_offload="cpu",
     ):
-        root = module_name[: module_name.rfind(".")]
+        root = module_name[:module_name.rfind(".")]
         if not accelerate.utils.has_offloaded_params(module):
             device_to_put_offload = None
-        with accelerate.utils.align_module_device(module, 
-                device_to_put_offload):
+        with accelerate.utils.align_module_device(
+            module, device_to_put_offload
+        ):
             for m_key, params in module.state_dict().items():
                 if (root + f".{m_key}") in state_dict and isinstance(
                     state_dict[root + f".{m_key}"], str
