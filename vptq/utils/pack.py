@@ -310,10 +310,11 @@ def absorb_perm_layer(layer):
         logger.debug(
             f'unpack indices shape: {indices.shape}, dtype: {indices.dtype}'
         )
-        logger.debug(
-            f'unpack res_indices shape: {res_indices.shape}, \
-                dtype: {res_indices.dtype}'
-        )
+        if res_indices is not None:
+            logger.debug(
+                f'unpack res_indices shape: {res_indices.shape}, \
+                    dtype: {res_indices.dtype}'
+            )
 
         # Apply permutation
         indices = indices[..., invert_perm]
@@ -329,7 +330,8 @@ def absorb_perm_layer(layer):
             )
 
         logger.debug(f'perm indices shape: {indices.shape}')
-        logger.debug(f'perm res_indices shape: {res_indices.shape}')
+        if res_indices is not None:
+            logger.debug(f'perm res_indices shape: {res_indices.shape}')
 
         # Pack indices back
         packed_indices = pack_index(
