@@ -8,6 +8,7 @@ import logging
 import math
 from typing import Dict
 
+import accelerate
 import torch
 import tqdm
 from sentence_transformers.SentenceTransformer import SentenceTransformer
@@ -151,7 +152,7 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
     for mod_name, sub_mod in model.named_modules():
         # logger.debug(f'mod_name: {mod_name}, sub_mod: {sub_mod}')
         if "VQuantLinear" in str(type(sub_mod)):
-            sub_mod.cuda()
+            # sub_mod.cuda()
 
             if sub_mod.indices.dtype == torch.int64:
                 sub_mod.indices.data = dtype_convert(
@@ -211,7 +212,7 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
 
             sub_mod.res_indices = None
 
-            sub_mod.cpu()
+            # sub_mod.cpu()
             quantization_config["config_for_layers"][mod_name
                                                     ] = sub_mod.init_args
             quantization_config["config_for_layers"][mod_name][
@@ -376,12 +377,18 @@ def absorb_perm_layer(layer):
 def absorb_perm(model):
     absorbed_perm = False
     # Process all VQuantLinear layers
-    pbar = tqdm.tqdm(model.named_modules())
+    pbar = tqdm.tqdm(
+        model.named_modules(),
+        total=len(list(model.named_modules())),
+        desc="Absorbing perm",
+    )
 
     for name, module in pbar:
         if isinstance(module, vptq.layers.vqlinear.VQuantLinear):
-            pbar.set_description(f"Processing {name}")
-            absorbed_perm = absorb_perm_layer(module)
+            pbar.set_postfix_str(f"Processing {name}")
+            with accelerate.utils.align_module_device(module):
+                absorbed_perm = absorb_perm_layer(module)
+            torch.cuda.empty_cache()
 
     # update config
     if absorbed_perm:
