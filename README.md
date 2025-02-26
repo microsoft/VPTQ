@@ -47,6 +47,7 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 
 
 ## News
+- **[2025-02-27]** [aphrodite-engine](https://github.com/aphrodite-engine/aphrodite-engine/issues/1152) is the first inference engine which supports our VPTQ, Thanks for @[AlpinDale](https://github.com/AlpinDale)'s contribute!
 - **[2025-01-18]** VPTQ v0.0.5 released, featuring cmake support and an enhanced build pipeline!
 - **[2025-01-13]** VPTQ is formly support by Transformers in its wheel package release since [v4.48.0](https://github.com/huggingface/transformers/releases/tag/v4.48.0).
 - **[2024-12-20]** 🚀 **VPTQ ❤️ Huggingface Transformers** VPTQ support has been merged into Huggingface Transformers main branch! Check out the [commit](https://github.com/huggingface/transformers/commit/4e27a4009d3f9d4e44e9be742e8cd742daf074f4#diff-4a073e7151b3f6675fce936a7802eeb6da4ac45d545ad6198be92780f493112) and our Colab example: <a target="_blank" href="https://colab.research.google.com/github/microsoft/VPTQ/blob/main/notebooks/vptq_hf_example.ipynb"> <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="VPTQ in Colab"/> </a>
