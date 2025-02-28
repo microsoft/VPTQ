@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 
 import unittest
+from math import prod
 
 import torch
 
@@ -41,14 +42,24 @@ class TestQuantGemv(unittest.TestCase):
         self.x = torch.randn(*shape, device=device, dtype=dtype)
 
         # the quantized weight tensor
-        shape = (self.num_codebooks, num_vecs, self.in_features)
-        self.indices = torch.randint(
-            low=0,
-            high=self.num_centroids - 1,
-            size=shape,
+        # 2 here stands for indices for the main component and residual
+        # component are packed together
+        # generate data for unittest.
+        shape = (self.num_codebooks, num_vecs * 2, self.in_features)
+        num_repeats = prod(shape) // self.num_centroids
+        self.indices = torch.as_tensor(
+            list(range(self.num_centroids)) * num_repeats,
             device=device,
             dtype=torch.uint16
         )
+
+        # self.indices = torch.randint(
+        #     low=0,
+        #     high=self.num_centroids - 1,
+        #     size=shape,
+        #     device=device,
+        #     dtype=torch.uint16
+        # )
 
         shape = (self.num_codebooks, self.num_centroids, self.vector_length)
         self.centroids = torch.randn(*shape, device=device, dtype=dtype)

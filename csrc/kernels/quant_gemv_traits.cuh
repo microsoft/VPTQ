@@ -2,7 +2,8 @@
 // Licensed under the MIT License.
 #pragma once
 
-#include "copy/mod.cuh"
+#include "kernels/copy/mod.cuh"
+#include "kernels/decode.cuh"
 
 #include <cute/tensor.hpp>
 
@@ -16,8 +17,9 @@ namespace {
 template <const int a, const int b>
 static constexpr int divup = (a + b - 1) / b;
 
-template <typename DType, const int kTileSize, const int kVecLen,
-          const int kNumCentroids, const int kNumResCentroids>
+template <typename DType, typename IdType, typename ResIdType,
+          const int kTileSize, const int kVecLen, const int kNumCentroids,
+          const int kNumResCentroids>
 struct SharedStorageImpl {
   ///==== Shared memory for inputs ====///
   static constexpr int kSizeCodebook = kNumCentroids * kVecLen;
@@ -29,8 +31,11 @@ struct SharedStorageImpl {
   static constexpr int kSizeInputs = 3 * kTileSize;
   array_aligned<DType, kSizeInputs, 128> inputs;
 
-  static constexpr int kSizeIndices = kTileSize * 2;
-  array_aligned<uint16_t, kTileSize * 2> indices;
+  // TODO(ying): Support residual indices are stored in uint8_t
+  static_assert(std::is_same_v<IdType, ResIdType>,
+                "The data type of indices for main and residual centroids must "
+                "be the same.");
+  array_aligned<IdType, kTileSize * 2> indices;
 
   ///==== Shared mempory for intermediate results ====///
   static constexpr int kSizeWeights = kTileSize * kVecLen;
@@ -42,7 +47,7 @@ struct SharedStorageImpl {
   static constexpr int kSmemSize = ((kSizeCodebook + kSizeCodebookRes +
                                      kSizeInputs + kSizeWeights + kSizeOut) *
                                     sizeof(DType)) +
-                                   kSizeIndices * sizeof(uint16_t);
+                                   2 * kTileSize * sizeof(IdType);
 };
 
 template <typename DType, const int kThreads, const int kNumCentroids,
@@ -83,7 +88,8 @@ struct CodebookTraits : public Base {
 
 }  // namespace
 
-template <typename DType, const int kThreads,        //
+template <typename DType, typename IdType, typename ResIdType,
+          const int kThreads,                        //
           const int kTileSize_, const int kVecLen_,  //
           const int kNumCentroids_, const int kNumResCentroids_,
           typename Base = copy::AccessInfo<DType>>
@@ -95,8 +101,9 @@ struct QuantGemvKeTraits : public Base {
   static constexpr int kTileSize = kTileSize_;
 
   /// allocate shared memory
-  using SharedStorage = SharedStorageImpl<DType, kTileSize, kVecLen,
-                                          kNumCentroids, kNumResCentroids>;
+  using SharedStorage =
+      SharedStorageImpl<DType, IdType, ResIdType, kTileSize, kVecLen,
+                        kNumCentroids, kNumResCentroids>;
   /// configurations for loading codebooks
   using MainCentroidTraits =
       CodebookTraits<DType, kThreads, kNumCentroids, kVecLen>;
@@ -131,14 +138,33 @@ struct QuantGemvKeTraits : public Base {
 
   /// configurations for loading tiled indices
   static constexpr int kThreadsIndex =
-      kTileSize * sizeof(uint16_t) / Base::kAccessInBytes;
+      kTileSize * sizeof(IdType) / Base::kAccessInBytes;
   static_assert(kThreadsIndex <= kThreads,
                 "The current implementation requires that the number of "
                 "threads used to load a single index tile must be less than or "
                 "equal to the number of threads in the block.");
-  using IndexLoader = copy::GlobalToSharedInputLoader<uint16_t, kTileSize>;
-  // storer is defined for debugging purposes
-  using IndexStorer = copy::SharedToGlobalInputStorer<uint16_t, kTileSize>;
+
+  // TODO(ying): The current implementation requires that the indices for both
+  // main and residual centroids are stored in the same data type. This will be
+  // addressed in the next version.
+  static_assert(std::is_same_v<IdType, ResIdType>,
+                "The data type of indices for main and residual centroids must "
+                "be the same.");
+  using IndexLoader = copy::GlobalToSharedInputLoader<IdType, 2 * kTileSize>;
+  using IndexStorer = copy::SharedToGlobalInputStorer<IdType, 2 * kTileSize>;
+
+  /// configurations for decoding indices
+  // Ensure the indices can be stored aligned with shared memory banks, and a
+  // single thread decode at least `kIdsPerBank` indices.
+  static constexpr int kBankBytes = 4;
+  static_assert(kBankBytes % sizeof(ResIdType) == 0);
+  static constexpr int kIdsPerBank = kBankBytes / sizeof(ResIdType);
+  // how many indices are decoded by a single thread
+  static_assert(kTileSize % (kThreads * kIdsPerBank) == 0);
+  static constexpr int kDecodeNumPerThread = kTileSize / kThreads;
+
+  using Decoder =
+      WeightDecoder<DType, IdType, ResIdType, kDecodeNumPerThread, kVecLen>;
 };
 
 }  // namespace vptq::kernels

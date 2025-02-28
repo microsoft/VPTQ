@@ -2,14 +2,14 @@
 // Licensed under the MIT License.
 #pragma once
 
-#include "kernels/copy/layout.cuh"
+#include "kernels/layout.cuh"
 
 namespace vptq::kernels::copy {
 namespace tl = vptq::tile_layout;
 
 template <typename DType>
 struct AccessInfo {
-  // the maximal width of vectorized access.
+  // the maximal width of vectorized access in bits and bytes
   static constexpr int kAccessInBits = 128;
   static constexpr int kAccessInBytes = 16;
 
