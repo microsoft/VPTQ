@@ -4,7 +4,33 @@
 
 namespace vptq::kernels::copy {
 
-// TODO(ying): Define additional user-defined vectorized types if necessary
+namespace {
+struct __align__(8) __half4 {
+  __half2 x;
+  __half2 y;
+};
+
+struct __align__(16) __half8 {
+  __half2 x;
+  __half2 y;
+  __half2 z;
+  __half2 w;
+};
+
+struct __align__(8) __bfloat4 {
+  __bfloat162 x;
+  __bfloat162 y;
+};
+
+struct __align__(16) __bfloat8 {
+  __bfloat162 x;
+  __bfloat162 y;
+  __bfloat162 z;
+  __bfloat162 w;
+};
+
+}  // namespace
+
 template <typename DType, int kN>
 struct GetPackType;
 
@@ -14,8 +40,28 @@ struct GetPackType<__half, 2> {
 };
 
 template <>
+struct GetPackType<__half, 4> {
+  using type = __half4;  // TODO(ying): verify the generated ptx
+};
+
+template <>
+struct GetPackType<__half, 8> {
+  using type = __half8;  // TODO(ying): verify the generated ptx
+};
+
+template <>
 struct GetPackType<__bfloat16, 2> {
   using type = __bfloat162;
+};
+
+template <>
+struct GetPackType<__bfloat16, 4> {
+  using type = uint2;  // TODO(ying): verify the generated ptx
+};
+
+template <>
+struct GetPackType<__bfloat16, 8> {
+  using type = uint4;  // TODO(ying): verify the generated ptx
 };
 
 template <>

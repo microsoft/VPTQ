@@ -129,24 +129,22 @@ struct QuantGemvKeTraits : public Base {
   static constexpr int kThreadsInput =
       kTileSize * sizeof(DType) / Base::kAccessInBytes;
   static_assert(kThreadsInput <= kThreads,
-                "The current implementation requires that the number of "
-                "threads used to load a single input tile must be less than or "
-                "equal to the number of threads in the block.");
+                "The number of threads required to load a single input tile "
+                "must not exceed the total number of threads in the block.");
   using InputLoader = copy::GlobalToSharedInputLoader<DType, kTileSize>;
-  // storer is defined for debugging purposes
+  // Storer class defined for debugging purposes only
   using InputStorer = copy::SharedToGlobalInputStorer<DType, kTileSize>;
 
   /// configurations for loading tiled indices
   static constexpr int kThreadsIndex =
       kTileSize * sizeof(IdType) / Base::kAccessInBytes;
   static_assert(kThreadsIndex <= kThreads,
-                "The current implementation requires that the number of "
-                "threads used to load a single index tile must be less than or "
-                "equal to the number of threads in the block.");
+                "The number of threads required to load a single index tile "
+                "must not exceed the total number of threads in the block.");
 
-  // TODO(ying): The current implementation requires that the indices for both
-  // main and residual centroids are stored in the same data type. This will be
-  // addressed in the next version.
+  // TODO(ying): Currently, indices for both main and residual centroids must
+  // use the same data type. This limitation will be removed in the next
+  // version.
   static_assert(std::is_same_v<IdType, ResIdType>,
                 "The data type of indices for main and residual centroids must "
                 "be the same.");
@@ -154,12 +152,13 @@ struct QuantGemvKeTraits : public Base {
   using IndexStorer = copy::SharedToGlobalInputStorer<IdType, 2 * kTileSize>;
 
   /// configurations for decoding indices
-  // Ensure the indices can be stored aligned with shared memory banks, and a
-  // single thread decode at least `kIdsPerBank` indices.
+  // Ensures indices are aligned with shared memory banks and each thread
+  // decodes at least kIdsPerBank indices
   static constexpr int kBankBytes = 4;
   static_assert(kBankBytes % sizeof(ResIdType) == 0);
   static constexpr int kIdsPerBank = kBankBytes / sizeof(ResIdType);
-  // how many indices are decoded by a single thread
+  // Specifies how many indices each thread decodes, which determines
+  // the number of codebook lookups performed by a single thread
   static_assert(kTileSize % (kThreads * kIdsPerBank) == 0);
   static constexpr int kDecodeNumPerThread = kTileSize / kThreads;
 

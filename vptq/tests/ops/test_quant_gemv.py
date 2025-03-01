@@ -46,20 +46,12 @@ class TestQuantGemv(unittest.TestCase):
         # component are packed together
         # generate data for unittest.
         shape = (self.num_codebooks, num_vecs * 2, self.in_features)
-        num_repeats = prod(shape) // self.num_centroids
+        num_repeats = prod(shape) // self.num_res_centroids
         self.indices = torch.as_tensor(
-            list(range(self.num_centroids)) * num_repeats,
+            list(range(self.num_res_centroids)) * num_repeats,
             device=device,
             dtype=torch.uint16
         )
-
-        # self.indices = torch.randint(
-        #     low=0,
-        #     high=self.num_centroids - 1,
-        #     size=shape,
-        #     device=device,
-        #     dtype=torch.uint16
-        # )
 
         shape = (self.num_codebooks, self.num_centroids, self.vector_length)
         self.centroids = torch.randn(*shape, device=device, dtype=dtype)

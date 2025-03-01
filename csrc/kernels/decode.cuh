@@ -29,38 +29,92 @@ struct WeightDecoder {
   static constexpr int kNumPerThread = kNumPerThread_;
   static constexpr int kVecLen = kVecLen_;
 
-  DEVICE void operator()(DType* output,          // output
-                         const DType* codebook,  // codebook for main centroids
-                         const DType* codebook_res,  // codebook for residual
-                         const IdType* ids,  // indices for main centroids
-                         const ResIdType* res_ids,  // indices for residual
-                         const DType* alpha, const DType* beta) {
-    // threads in a CTA are laid out in 1-D fashion.
-    int offset = threadIdx.x * kNumPerThread;
-    const IdType* ids_ = ids + offset;  // indices for the current thread
-    // residual indices for the current thread
-    const ResIdType* res_ids_ = res_ids + offset;
+  /// all pointers, both input and output, are shared memory pointers
+  DEVICE void operator()(
+      DType* out,                   // dequantized output
+      const DType* main_codebook_,  // main codebook
+      const DType* res_codebook_,   // residual codebook
+      const IdType* main_idx,       // indices for main centroids
+      const ResIdType* res_idx,     // indices for residual centroids
+      const DType* scale,           // scale
+      const DType* bias) {          // bias
+    /// Register storage for indices, scale/bias, and codebook vectors
+    IdType reg_idx[kNumPerThread];
+    ResIdType reg_res_idx[kNumPerThread];
 
-    // load indices and residual indice into registers
-    // indices on thread local registers
-    IdType reg_ids[kNumPerThread];
-    ResIdType reg_residual_ids[kNumPerThread];
+    DType reg_scale[kNumPerThread];
+    DType reg_bias[kNumPerThread];
+
+    DType reg_vec[kVecLen];
+    DType reg_res_vec[kVecLen];
+
+    /// Load indices and scale/bias to registers
+    idx_loader(main_idx, reg_idx);
+    idx_loader(res_idx, reg_res_idx);
+
+    scale_loader(scale, reg_scale);
+    scale_loader(bias, reg_bias);
+
+    /// decode the codebook vectors
+    DType s, b;
+#pragma unroll
+    for (int i = 0; i < kNumPerThread; ++i) {
+      // Compute offsets in codebooks
+      const DType* main_codebook = &main_codebook_[reg_idx[i] * kVecLen];
+      const DType* res_codebook = &res_codebook_[reg_res_idx[i] * kVecLen];
 
 #pragma unroll
-    for (int i = 0; i < kNumPerThread; i += kPackedNum) {
-      copy_ids(&ids_[i] /*src*/, &reg_ids[i] /*dst*/);
-      copy_ids(&res_ids_[i] /*src*/, &reg_residual_ids[i] /*dst*/);
+      for (int j = 0; j < kVecLen; j += kPackedNums) {
+        vec_copyer(&main_codebook[j], &reg_vec[j]);
+        vec_copyer(&res_codebook[j], &reg_res_vec[j]);
+      }
+
+      s = reg_scale[i];
+      b = reg_bias[i];
+#pragma unroll
+      for (int k = 0; k < kVecLen; ++k) {
+        // TODO(ying): Replace with vectorized operation
+        reg_vec[k] = s * (reg_vec[k] + reg_res_vec[k]) + b;
+      }
+      /// store the dequantized output from registers to shared memory
+#pragma unroll
+      for (int j = 0; j < kVecLen; j += kPackedNums) {
+        vec_copyer(&reg_vec[j], &out[i * kVecLen + j]);
+      }
     }
   }
 
 private:
-  // Indices are packed into 4 bytes in the current implementation, stored in a
-  // shared memory bank. This can be tuned if needed.
-  static constexpr int kPackedIdsBytes = 4;
-  static constexpr int kPackedNum = kPackedIdsBytes / sizeof(IdType);
-  static_assert(kPackedNum, "kPackedNum must be greater than 0");
-  using VecCopy = PackedCopy<IdType, kPackedNum>;
-  VecCopy copy_ids;
+  using IdxLoader = PackedCopy<IdType, kNumPerThread>;
+  IdxLoader idx_loader;
+
+  using ScaleLoader = PackedCopy<DType, kNumPerThread>;
+  ScaleLoader scale_loader;
+
+  // Here's an example to illustrate the vectorization constraint:
+  // When a vector has length 16 and uses fp16/bf16 format, it occupies 256
+  // bits (16 * 16 bits). Loading this would require two separate 128-bit
+  // vectorized memory accesses.
+  //
+  // Two vectors may not be stored contiguously, which means they cannot
+  // always be packed into a single vectorized access. For optimal
+  // performance, each vector in the codebook must have a length that is a
+  // multiple of the vectorization width (32-bit, 64-bit, or 128-bit).
+  static constexpr int kVecBytes = sizeof(DType) * kVecLen;
+  static constexpr int kAccessInBytes = Base::kAccessInBytes;
+  static_assert(
+      kVecBytes % kAccessInBytes == 0 || kAccessInBytes % kVecBytes == 0,
+      "vector in the codebook must be aligned to the the width of the "
+      "vectorization instruction.");
+
+  // calculate how many numbers are packed within a single vector in the
+  // codebook when accessing it from the codebook.
+  static constexpr int kPackedNums = kVecBytes > kAccessInBytes
+                                         ? kAccessInBytes / sizeof(DType)
+                                         : kVecLen;
+
+  using VecCopyer = PackedCopy<DType, kPackedNums>;
+  VecCopyer vec_copyer;
 };
 
 }  // namespace vptq::kernels

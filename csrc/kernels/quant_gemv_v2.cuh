@@ -3,7 +3,7 @@
 #pragma once
 
 #include "dispatch_macros.h"
-#include "kernels/convert.cuh"
+#include "kernels/convert.cuh"  // for debug printing
 #include "kernels/copy/mod.cuh"
 #include "kernels/quant_gemv_traits.cuh"
 #include "kernels/quant_gemv_v2.cuh"
@@ -28,6 +28,8 @@ __global__ void ke_quant_gemv_v2(
     int64_t in_features, int64_t out_features) {
   /// constants
   static constexpr int kTileSize = KeTraits::kTileSize;
+  static constexpr int kVecLen = KeTraits::kVecLen;
+  static constexpr int kNumPerThread = KeTraits::Decoder::kNumPerThread;
 
   /// === shared memory buffer
   extern __shared__ unsigned char buf_[];
@@ -113,9 +115,13 @@ __global__ void ke_quant_gemv_v2(
     __syncthreads();
 
     /// === 2. decode, add residual, and scale on register === ///
+    /// advance the pointers to data for this thread
     typename KeTraits::Decoder decoder;
-    decoder(s_quant_weights, s_codebook, s_codebook_res, s_ids, s_res_ids,
-            s_scale_weights, s_scale_bias);
+    int thd_offset = threadIdx.x * kNumPerThread;
+    decoder(&s_quant_weights[thd_offset * kVecLen],      //  output
+            s_codebook, s_codebook_res,                  // codebooks
+            &s_ids[thd_offset], &s_res_ids[thd_offset],  // indices
+            &s_scale_weights[thd_offset], &s_scale_bias[thd_offset]);
 
     /// === 3. dot product and apply bias === ///
 
