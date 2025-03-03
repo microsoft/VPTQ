@@ -6,7 +6,6 @@
 #include "kernels/convert.cuh"  // for debug printing
 #include "kernels/copy/mod.cuh"
 #include "kernels/quant_gemv_traits.cuh"
-#include "kernels/quant_gemv_v2.cuh"
 #include "util/common.h"
 #include "util/cuda_utils.cuh"
 
@@ -84,6 +83,9 @@ __global__ void ke_quant_gemv_v2(
   typename KeTraits::IndexLoader index_loader;
   typename KeTraits::WarpCounter counter;
 
+  DType results[kVecLen];
+  memset(results, 0, sizeof(DType) * kVecLen);
+
   int wid = warpid();
   for (int step = 0; step < in_features; step += kTileSize) {  // over tiles
     counter.reset();
@@ -114,19 +116,38 @@ __global__ void ke_quant_gemv_v2(
     __copy_async();
     __syncthreads();
 
-    /// === 2. decode, add residual, and scale on register === ///
-    /// advance the pointers to data for this thread
-    typename KeTraits::Decoder decoder;
+    if (thread(0)) {
+      printf("\nstep = %d\n", step);
+    }
+
+    /// === 2. decode, add residual, scale, dot product, accumulate results
+    /// between tiles, apply bias on register === ///
+    typename KeTraits::Decoder gemv;
+    /// advance the pointers to shared memory data for the current thread
     int thd_offset = threadIdx.x * kNumPerThread;
-    decoder(&s_quant_weights[thd_offset * kVecLen],      //  output
-            s_codebook, s_codebook_res,                  // codebooks
-            &s_ids[thd_offset], &s_res_ids[thd_offset],  // indices
-            &s_scale_weights[thd_offset], &s_scale_bias[thd_offset]);
 
-    /// === 3. dot product and apply bias === ///
+    gemv(s_quant_weights + thd_offset * kVecLen,  // output
+         results,  // accumulate intermediate results between tiles
+         s_inputs + thd_offset,                       // input
+         s_codebook, s_codebook_res,                  // codebooks
+         s_ids + thd_offset, s_res_ids + thd_offset,  // indices
+         s_scale_weights + thd_offset, s_scale_bias + thd_offset);
+    __syncthreads();
 
-    /// === 4. accumulate results between tiles and store === ///
+    if (thread(0)) {
+      printf("shared memory 2:\n[0]:\t");
+      for (int i = 0; i < kTileSize * kVecLen; ++i) {
+        printf("%.2f, ", to_float(s_quant_weights[i]));
+
+        if (i && (i + 1) % kVecLen == 0) {
+          printf("\n[%d]:\t", (i + 1) / kVecLen);
+        }
+      }
+      printf("\n\n");
+    }
   }
+
+  /// === 3. store final results === ///
 
   return;
 }

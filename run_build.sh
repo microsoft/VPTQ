@@ -68,7 +68,7 @@ cd ../../
 
 if [ -f "$target_file" ]; then
    echo "running test..."
-   CUDA_VISIBLE_DEVICES=0 ./test.sh 2>&1 | tee test.log
+   python3 vptq/tests/ops/test_quant_gemv.py 2>&1 | tee test.log
 else
    echo "libvptq.so not found" 
 fi

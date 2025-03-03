@@ -138,7 +138,7 @@ DEVICE uint32_t iterator_packed_tensor(const uint32_t* ptr, int idx) {
 }  // namespace cuda
 
 template <typename T>
-T DEVICE FMA2(T a, T b, T c) {
+DEVICE T FMA2(T a, T b, T c) {
   if constexpr (std::is_same<T, __bfloat162>::value) {
 #if (defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 800) && !defined(USE_ROCM)
     float x =
@@ -158,7 +158,7 @@ T DEVICE FMA2(T a, T b, T c) {
 }
 
 template <typename T>
-T __device__ __forceinline__ FMA(T a, T b, T c) {
+DEVICE T FMA(T a, T b, T c) {
   if constexpr (std::is_same<T, __bfloat16>::value) {
 #if (defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 800) && !defined(USE_ROCM)
     float x = __bfloat162float(a) * __bfloat162float(b) + __bfloat162float(c);
@@ -175,7 +175,7 @@ T __device__ __forceinline__ FMA(T a, T b, T c) {
 }
 
 template <typename T>
-T DEVICE ADD2(T a, T b) {
+DEVICE T ADD2(T a, T b) {
   if constexpr (std::is_same<T, __bfloat162>::value) {
 #if (defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 800) || defined(USE_ROCM)
     float x = __bfloat162float(a.x) + __bfloat162float(b.x);
@@ -193,7 +193,7 @@ T DEVICE ADD2(T a, T b) {
 }
 
 template <typename T>
-T DEVICE ZERO_VALUE(T a) {
+DEVICE T ZERO_VALUE(T a) {
   if constexpr (std::is_same<T, __bfloat16>::value) {
 #if defined(USE_ROCM)
     return __float2bfloat16(0.0f);
@@ -208,13 +208,13 @@ T DEVICE ZERO_VALUE(T a) {
 }
 
 #if defined(USE_ROCM)
-__device__ __half operator+(const __half& a, const __half& b) {
+DEVICE __half operator+(const __half& a, const __half& b) {
   // Use HIP's intrinsic __hadd for half-precision addition
   return __hadd(a, b);
 }
 
 // Overload the * operator for __half
-__device__ __half operator*(const __half& a, const __half& b) {
+DEVICE __half operator*(const __half& a, const __half& b) {
   // Use HIP's intrinsic __hmul for half-precision multiplication
   return __hmul(a, b);
 }

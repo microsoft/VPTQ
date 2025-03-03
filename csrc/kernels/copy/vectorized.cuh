@@ -28,7 +28,6 @@ struct __align__(16) __bfloat8 {
   __bfloat162 z;
   __bfloat162 w;
 };
-
 }  // namespace
 
 template <typename DType, int kN>
@@ -41,12 +40,12 @@ struct GetPackType<__half, 2> {
 
 template <>
 struct GetPackType<__half, 4> {
-  using type = __half4;  // TODO(ying): verify the generated ptx
+  using type = __half4;
 };
 
 template <>
 struct GetPackType<__half, 8> {
-  using type = __half8;  // TODO(ying): verify the generated ptx
+  using type = __half8;
 };
 
 template <>

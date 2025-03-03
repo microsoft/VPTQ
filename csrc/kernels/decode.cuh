@@ -2,8 +2,11 @@
 // Licensed under the MIT License.
 #pragma once
 
+#include "kernels/convert.cuh"  // for debug printing
 #include "kernels/copy/copy_traits.cuh"
 #include "kernels/copy/vectorized.cuh"
+#include "kernels/math.cuh"
+#include "kernels/reduce.cuh"
 #include "util/debug.cuh"
 
 namespace vptq::kernels {
@@ -29,9 +32,12 @@ struct WeightDecoder {
   static constexpr int kNumPerThread = kNumPerThread_;
   static constexpr int kVecLen = kVecLen_;
 
-  /// all pointers, both input and output, are shared memory pointers
-  DEVICE void operator()(
+  /// all pointers, except for init_vals, are shared memory pointers
+  __device__ __forceinline__ void operator()(
+
       DType* out,                   // dequantized output
+      const DType* init_vals,       // initial values
+      const DType* input,           // input
       const DType* main_codebook_,  // main codebook
       const DType* res_codebook_,   // residual codebook
       const IdType* main_idx,       // indices for main centroids
@@ -42,8 +48,9 @@ struct WeightDecoder {
     IdType reg_idx[kNumPerThread];
     ResIdType reg_res_idx[kNumPerThread];
 
-    DType reg_scale[kNumPerThread];
-    DType reg_bias[kNumPerThread];
+    DType xs[kNumPerThread];
+    DType ss[kNumPerThread];
+    DType bs[kNumPerThread];
 
     DType reg_vec[kVecLen];
     DType reg_res_vec[kVecLen];
@@ -52,39 +59,52 @@ struct WeightDecoder {
     idx_loader(main_idx, reg_idx);
     idx_loader(res_idx, reg_res_idx);
 
-    scale_loader(scale, reg_scale);
-    scale_loader(bias, reg_bias);
+    scale_loader(input, xs);
+    scale_loader(scale, ss);
+    scale_loader(bias, bs);
+
+    // shared memory to store intermediate results for warp reduction
+    DType val;
+    __shared__ DType shm[WARP_SIZE];
 
     /// decode the codebook vectors
-    DType s, b;
 #pragma unroll
     for (int i = 0; i < kNumPerThread; ++i) {
-      // Compute offsets in codebooks
-      const DType* main_codebook = &main_codebook_[reg_idx[i] * kVecLen];
-      const DType* res_codebook = &res_codebook_[reg_res_idx[i] * kVecLen];
+      const DType* main_codebook = main_codebook_ + reg_idx[i] * kVecLen;
+      const DType* res_codebook = res_codebook_ + reg_res_idx[i] * kVecLen;
 
 #pragma unroll
       for (int j = 0; j < kVecLen; j += kPackedNums) {
-        vec_copyer(&main_codebook[j], &reg_vec[j]);
-        vec_copyer(&res_codebook[j], &reg_res_vec[j]);
+        vec_loader(main_codebook + j, reg_vec + j);
+        vec_loader(res_codebook + j, reg_res_vec + j);
       }
 
-      s = reg_scale[i];
-      b = reg_bias[i];
 #pragma unroll
-      for (int k = 0; k < kVecLen; ++k) {
+      for (int j = 0; j < kVecLen; ++j) {
         // TODO(ying): Replace with vectorized operation
-        reg_vec[k] = s * (reg_vec[k] + reg_res_vec[k]) + b;
+        reg_vec[j] = xs[i] * (ss[i] * (reg_vec[j] + reg_res_vec[j]) + bs[i]);
       }
-      /// store the dequantized output from registers to shared memory
+
+      /// warp reduction for dot product
+#pragma unroll
+      for (int j = 0; j < kVecLen; ++j) {
+        val = reg_vec[j];
+        val = power2_reduce(val, shm, reducer, init_vals[j]);
+
+        if (threadIdx.x == 0) reg_vec[j] = val;
+      }
+
+/// store the dequantized output from registers to shared memory
 #pragma unroll
       for (int j = 0; j < kVecLen; j += kPackedNums) {
-        vec_copyer(&reg_vec[j], &out[i * kVecLen + j]);
+        vec_storer(reg_vec + j, out + i * kVecLen + j);
       }
     }
   }
 
 private:
+  Sum<DType> reducer;
+
   using IdxLoader = PackedCopy<IdType, kNumPerThread>;
   IdxLoader idx_loader;
 
@@ -113,8 +133,11 @@ private:
                                          ? kAccessInBytes / sizeof(DType)
                                          : kVecLen;
 
-  using VecCopyer = PackedCopy<DType, kPackedNums>;
-  VecCopyer vec_copyer;
+  using VecLoader = PackedCopy<DType, kPackedNums>;
+  VecLoader vec_loader;
+
+  using VecStorer = PackedCopy<DType, kPackedNums>;
+  VecStorer vec_storer;
 };
 
 }  // namespace vptq::kernels

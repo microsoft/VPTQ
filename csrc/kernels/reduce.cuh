@@ -10,7 +10,8 @@ namespace vptq::kernels {
   mask = __ballot_sync(FULL_WARP_MASK, (predicate))
 
 template <typename T, typename Reducer>
-DEVICE T wrap_reduce(T val, unsigned mask, Reducer reducer) {
+__device__ __forceinline__ T wrap_reduce(T val, unsigned mask,
+                                         Reducer reducer) {
   val = reducer(val, __shfl_down_sync(mask, val, 16, 32));
   val = reducer(val, __shfl_down_sync(mask, val, 8, 32));
   val = reducer(val, __shfl_down_sync(mask, val, 4, 32));
@@ -20,8 +21,11 @@ DEVICE T wrap_reduce(T val, unsigned mask, Reducer reducer) {
 
 // NOTE: This function works only for arrays with sizes that are powers of 2.
 template <typename T, typename Reducer>
-DEVICE T power2_reduce(T val, int tid, T* shm, Reducer reducer, int block_size,
-                       T init_val) {
+__device__ __forceinline__ T power2_reduce(T val, T* shm, Reducer reducer,
+                                           T init_val) {
+  int tid = threadIdx.x;
+  int block_size = blockDim.x;
+
   unsigned mask = 0u;
   CREATE_SHFL_MASK(mask, tid < block_size);
   val = wrap_reduce(val, mask, reducer);
