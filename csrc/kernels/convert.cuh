@@ -2,10 +2,12 @@
 // Licensed under the MIT License.
 #pragma once
 
+#include "config.cuh"
+
 namespace vptq::kernels {
 
 template <typename T>
-T DEVICE from_float(float v, T vv) {
+DEVICE T from_float(float v, T vv) {
   (void)(vv);
   if constexpr (std::is_same<T, __bfloat16>::value) {
     return vv = __float2bfloat16(v);
@@ -18,7 +20,7 @@ T DEVICE from_float(float v, T vv) {
 }
 
 template <typename T>
-float DEVICE to_float(T v) {
+DEVICE float to_float(T v) {
   if constexpr (std::is_same<T, __bfloat16>::value) {
     return __bfloat162float(v);
   } else if constexpr (std::is_same<T, float>::value) {

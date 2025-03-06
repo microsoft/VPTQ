@@ -30,6 +30,7 @@ class TestQuantGemv(unittest.TestCase):
         self.num_codebooks = 1
         self.vector_length = 8
         self.num_centroids = 8192
+        # self.num_centroids = 4096
         self.num_res_centroids = 256
 
         num_padding = (-self.out_features) % self.vector_length

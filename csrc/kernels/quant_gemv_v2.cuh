@@ -3,7 +3,6 @@
 #pragma once
 
 #include "dispatch_macros.h"
-#include "kernels/convert.cuh"  // for debug printing
 #include "kernels/copy/mod.cuh"
 #include "kernels/quant_gemv_traits.cuh"
 #include "util/common.h"
@@ -136,10 +135,8 @@ __global__ void ke_quant_gemv_v2(
       // FIXME(ying): replace with vectorized operation
       for (int i = 0; i < kVecLen; ++i) s_output[i] += s_bias[i];
     }
-
     storer(s_output, output + offset);  // store shared tile to global
   }
-
   return;
 }
 

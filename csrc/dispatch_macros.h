@@ -45,6 +45,10 @@
 #define VPTQ_DISPATCH_NUM_CENTROIDS(NUM_CENTROIDS, ...)                \
   [&] {                                                                \
     switch (NUM_CENTROIDS) {                                           \
+      case 4096: {                                                     \
+        static constexpr int kNumCentroids = 4096;                     \
+        return __VA_ARGS__();                                          \
+      }                                                                \
       case 8192: {                                                     \
         static constexpr int kNumCentroids = 8192;                     \
         return __VA_ARGS__();                                          \

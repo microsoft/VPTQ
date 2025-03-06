@@ -149,9 +149,8 @@ torch::Tensor quant_gemv_v2(
           // TODO(ying): Check whether shared memory usage exceeds
           // the hardware limit.
           if (smem_size > kMaxSmemPerBlock) {
-            cudaFuncSetAttribute(&kernel,
-                                 cudaFuncAttributeMaxDynamicSharedMemorySize,
-                                 smem_size);
+            cudaFuncSetAttribute(
+                kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
           }
 
           std::cout << "centroid number: " << kNumCentroids
