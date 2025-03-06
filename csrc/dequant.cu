@@ -63,6 +63,9 @@ namespace vptq {
     case 12:                                                                   \
       callDequantWithOutliers_dtype(12, BASEGROUP, OUT_OUF_INF, ResidualBits); \
       break;                                                                   \
+    case 10:                                                                   \
+      callDequantWithOutliers_dtype(10, BASEGROUP, OUT_OUF_INF, ResidualBits); \
+      break;                                                                   \
     case 8:                                                                    \
       callDequantWithOutliers_dtype(8, BASEGROUP, OUT_OUF_INF, ResidualBits);  \
       break;                                                                   \
@@ -200,6 +203,7 @@ torch::Tensor launch_deqantize_outliers_cuda_packkernel(
   switch (base_groupsize) {
     CASE_DispatchDequantWithOutliers(16);
     CASE_DispatchDequantWithOutliers(12);
+    CASE_DispatchDequantWithOutliers(10);
     CASE_DispatchDequantWithOutliers(8);
     CASE_DispatchDequantWithOutliers(6);
     CASE_DispatchDequantWithOutliers(4);

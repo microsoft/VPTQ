@@ -67,6 +67,9 @@ namespace vptq {
     case 12:                                                                  \
       CallWqA16kernel_dtype(out_buf, 12, BASEGROUP, Do_Reduce, ResidualBits); \
       break;                                                                  \
+    case 10:                                                                  \
+      CallWqA16kernel_dtype(out_buf, 10, BASEGROUP, Do_Reduce, ResidualBits); \
+      break;                                                                  \
     case 8:                                                                   \
       CallWqA16kernel_dtype(out_buf, 8, BASEGROUP, Do_Reduce, ResidualBits);  \
       break;                                                                  \
@@ -208,6 +211,9 @@ torch::Tensor launch_gemv_outliers_cuda_packkernel(
         break;
       case 12:
         DispatchWqA16Kernel(tmp_output, 12, do_reduce);
+        break;
+      case 10:
+        DispatchWqA16Kernel(tmp_output, 10, do_reduce);
         break;
       case 8:
         DispatchWqA16Kernel(tmp_output, 8, do_reduce);
