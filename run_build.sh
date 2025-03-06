@@ -37,17 +37,17 @@ if [ -f "$source_file" ]; then
    rm "$source_file"
 fi
 
-# if [ -d "CMakeFiles" ]; then
-#   rm -rf CMakeFiles
-# fi
+if [ -d "CMakeFiles" ]; then
+  rm -rf CMakeFiles
+fi
 
-# if [ -f "CMakeCache.txt" ]; then
-#   rm -f CMakeCache.txt
-# fi
+if [ -f "CMakeCache.txt" ]; then
+  rm -f CMakeCache.txt
+fi
 
-# cmake -DCMAKE_C_COMPILER=`which gcc` \
-#    -DCMAKE_CXX_COMPILER=`which g++` \
-#    ../../
+cmake -DCMAKE_C_COMPILER=`which gcc` \
+   -DCMAKE_CXX_COMPILER=`which g++` \
+   ../../
 
 make -j32 2>&1 | tee ../../build.log
 

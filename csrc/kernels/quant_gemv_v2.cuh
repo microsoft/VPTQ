@@ -8,9 +8,9 @@
 #include "kernels/quant_gemv_traits.cuh"
 #include "util/common.h"
 #include "util/cuda_utils.cuh"
+#include "util/debug.cuh"
 
 namespace vptq::kernels {
-
 using namespace copy;
 
 template <typename DType, typename IdType, typename ResIdType,
@@ -28,7 +28,7 @@ __global__ void ke_quant_gemv_v2(
   /// constants
   static constexpr int kTileSize = KeTraits::kTileSize;
   static constexpr int kVecLen = KeTraits::kVecLen;
-  static constexpr int kNumPerThread = KeTraits::Decoder::kNumPerThread;
+  static constexpr int kNumPerThread = KeTraits::kDecodeNumPerThread;
 
   /// === shared memory buffer
   extern __shared__ unsigned char buf_[];
@@ -36,9 +36,6 @@ __global__ void ke_quant_gemv_v2(
 
   /// === shared memory pointer for output
   DType* s_output = smem.output.data();
-
-  /// === shared memory pointer for intermediate result
-  DType* s_quant_weights = smem.dequant_weights.data();
 
   /// === shared memory pointers for inputs
   DType* s_codebook = smem.codebook.data();
@@ -76,13 +73,14 @@ __global__ void ke_quant_gemv_v2(
   // advance the input pointer to the current CTA
   int batch_id = blockIdx.x / seq_length;
   int seq_id = blockIdx.x % seq_length;
-  const DType* x =
-      act + batch_id * (seq_length * in_features) + seq_id * in_features;
+  int offset = batch_id * (seq_length * in_features) + seq_id * in_features;
+  const DType* x = act + offset;
 
   typename KeTraits::InputLoader input_loader;
   typename KeTraits::IndexLoader index_loader;
   typename KeTraits::WarpCounter counter;
 
+  // registers for accumulate intermediate results between tiles
   DType results[kVecLen];
   memset(results, 0, sizeof(DType) * kVecLen);
 
@@ -116,38 +114,31 @@ __global__ void ke_quant_gemv_v2(
     __copy_async();
     __syncthreads();
 
-    if (thread(0)) {
-      printf("\nstep = %d\n", step);
-    }
-
     /// === 2. decode, add residual, scale, dot product, accumulate results
     /// between tiles, apply bias on register === ///
-    typename KeTraits::Decoder gemv;
     /// advance the pointers to shared memory data for the current thread
-    int thd_offset = threadIdx.x * kNumPerThread;
-
-    gemv(s_quant_weights + thd_offset * kVecLen,  // output
-         results,  // accumulate intermediate results between tiles
-         s_inputs + thd_offset,                       // input
-         s_codebook, s_codebook_res,                  // codebooks
-         s_ids + thd_offset, s_res_ids + thd_offset,  // indices
-         s_scale_weights + thd_offset, s_scale_bias + thd_offset);
+    typename KeTraits::Gemv gemv;
+    int offset = threadIdx.x * kNumPerThread;
+    gemv(results,
+         &s_inputs[offset],                   // input
+         s_codebook, s_codebook_res,          // codebooks
+         &s_ids[offset], &s_res_ids[offset],  // indices
+         &s_scale_weights[offset], &s_scale_bias[offset]);
     __syncthreads();
-
-    if (thread(0)) {
-      printf("shared memory 2:\n[0]:\t");
-      for (int i = 0; i < kTileSize * kVecLen; ++i) {
-        printf("%.2f, ", to_float(s_quant_weights[i]));
-
-        if (i && (i + 1) % kVecLen == 0) {
-          printf("\n[%d]:\t", (i + 1) / kVecLen);
-        }
-      }
-      printf("\n\n");
-    }
   }
 
   /// === 3. store final results === ///
+  if (threadIdx.x == 0) {
+    typename KeTraits::VecStorer storer;
+    storer(results, s_output);  // store register tile to shared
+
+    if (s_bias) {  // apply bias if available
+      // FIXME(ying): replace with vectorized operation
+      for (int i = 0; i < kVecLen; ++i) s_output[i] += s_bias[i];
+    }
+
+    storer(s_output, output + offset);  // store shared tile to global
+  }
 
   return;
 }
