@@ -143,4 +143,5 @@ __global__ void ke_quant_gemv_v2(
   }
   return;
 }
+
 }  // namespace vptq::kernels

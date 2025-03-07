@@ -153,20 +153,6 @@ torch::Tensor quant_gemv_v2(
                 kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
           }
 
-          std::cout << "centroid number: " << kNumCentroids
-                    << "; residual centroid number: " << kNumResCentroids
-                    << "; vector length: " << kVecLen << ";" << std::endl
-                    << "batch: " << batch * seq_length
-                    << "; in_features: " << in_features
-                    << "; out_features: " << out_features << ";" << std::endl
-                    << "smem_size: " << smem_size / 1024 << "KB;" << std::endl;
-
-          std::cout << "kThreads: " << Config::IndexLoader::kThreads
-                    << "; kWarpShape: " << Config::IndexLoader::kWarpTileShape
-                    << std::endl
-                    << "kDecodeNumPerThread: " << Config::kDecodeNumPerThread
-                    << std::endl;
-
           kernel<<<blocks, threads, smem_size, stream>>>(
               reinterpret_cast<nv_type*>(output.mutable_data_ptr()),
               reinterpret_cast<const nv_type*>(act.data_ptr()), bias_ptr,

@@ -10,19 +10,22 @@ namespace vptq::kernels {
   mask = __ballot_sync(FULL_WARP_MASK, (predicate))
 
 template <typename T, typename Reducer>
-__device__ __forceinline__ T wrap_reduce(T val, unsigned mask,
-                                         Reducer reducer) {
+DEVICE T wrap_reduce(T val, unsigned mask, Reducer reducer) {
+#if defined(__CUDA_ARCH__)
   val = reducer(val, __shfl_down_sync(mask, val, 16, 32));
   val = reducer(val, __shfl_down_sync(mask, val, 8, 32));
   val = reducer(val, __shfl_down_sync(mask, val, 4, 32));
   val = reducer(val, __shfl_down_sync(mask, val, 2, 32));
   return reducer(val, __shfl_down_sync(mask, val, 1, 32));
+#else
+  return val;
+#endif
 }
 
 // NOTE: This function works only for arrays with sizes that are powers of 2.
 template <typename T, typename Reducer>
-__device__ __forceinline__ T power2_reduce(T val, T* shm, Reducer reducer,
-                                           T init_val) {
+DEVICE T power2_reduce(T val, T* shm, Reducer reducer, T init_val) {
+#if defined(__CUDA_ARCH__)
   int tid = threadIdx.x;
   int block_size = blockDim.x;
 
@@ -42,6 +45,9 @@ __device__ __forceinline__ T power2_reduce(T val, T* shm, Reducer reducer,
     val = wrap_reduce(val, mask, reducer);
   }
   return val;
+#else
+  return val;
+#endif
 }
 
 }  // namespace vptq::kernels
