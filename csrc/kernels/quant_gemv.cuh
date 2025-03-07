@@ -2,9 +2,11 @@
 // Licensed under the MIT License.
 #pragma once
 
-#include "cuda_utils.cuh"
+#include "config.cuh"
+#include "kernels/convert.cuh"
+#include "util/cuda_utils.cuh"
 
-namespace vptq {
+namespace vptq::kernels {
 
 template <typename scalar_t, int IDXBITS, int ResidualBits, int GROUPSIZE,
           int OL_GroupSize, int Do_Reduce>
@@ -146,7 +148,7 @@ __global__ void WqA16WithOutliers_PackIndice(
 #pragma unroll
   for (int gi = 0; gi < GROUPSIZE; ++gi) {
     float reduce_out = 0.f;
-    reduce_out = cuda::ConvertToFloat(tmp_output[gi]);
+    reduce_out = to_float(tmp_output[gi]);
     reduce_out = cuda::warpReduceSum<WARP_SIZE>(reduce_out);
     if (landid == 0) {
       shared_output[gi][warpid] = reduce_out;
@@ -172,10 +174,10 @@ __global__ void WqA16WithOutliers_PackIndice(
       if (landid == 0 && (in_y * GROUPSIZE + wid) < out_features) {
         if constexpr (Do_Reduce) {
           out[(wid)*gridDim.z] =
-              cuda::ConvertFromFloat<scalar_t>(reduce_out, zero_value) +
+              from_float<scalar_t>(reduce_out, zero_value) +
               ((bidz == 0 && bias != 0) ? bias[wid] : zero_value);
         } else {
-          out[wid] = cuda::ConvertFromFloat<scalar_t>(reduce_out, zero_value) +
+          out[wid] = from_float<scalar_t>(reduce_out, zero_value) +
                      ((bias != 0) ? bias[wid] : zero_value);
         }
       }
@@ -183,4 +185,4 @@ __global__ void WqA16WithOutliers_PackIndice(
   }
 }
 
-}  // namespace vptq
+}  // namespace vptq::kernels

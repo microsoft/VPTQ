@@ -1,41 +1,42 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "common.h"
-#include "quant_gemv.cuh"
+#include "kernels/quant_gemv.cuh"
+#include "util/common.h"
+#include "util/math_utils.h"
 
 namespace vptq {
 
-#define CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce,      \
-                        ResidualBits)                                          \
-  {                                                                            \
-    using nv_type = typename C10ToNvType<scalar_t>::type;                      \
-    WqA16WithOutliers_PackIndice<nv_type, IDXBITS, ResidualBits, BASEGROUP, 4, \
-                                 Do_Reduce>                                    \
-        <<<blocks, threads, shared_memory_size, stream>>>(                     \
-            reinterpret_cast<nv_type*>(out_buf.data_ptr<scalar_t>()),          \
-            reinterpret_cast<const nv_type*>(input.data_ptr<scalar_t>()),      \
-            q_indice.data_ptr<int32_t>(), outliers_indices_ptr,                \
-            reinterpret_cast<const nv_type*>(centroids.data_ptr<scalar_t>()),  \
-            residual_centroids.has_value()                                     \
-                ? reinterpret_cast<const nv_type*>(                            \
-                      residual_centroids.value().data_ptr<scalar_t>())         \
-                : nullptr,                                                     \
-            outliers_centroids.has_value()                                     \
-                ? reinterpret_cast<const nv_type*>(                            \
-                      outliers_centroids.value().data_ptr<scalar_t>())         \
-                : nullptr,                                                     \
-            perm_ptr,                                                          \
-            reinterpret_cast<const nv_type*>(                                  \
-                weight_scale.data_ptr<scalar_t>()),                            \
-            reinterpret_cast<const nv_type*>(                                  \
-                weight_bias.data_ptr<scalar_t>()),                             \
-            bias.has_value() ? reinterpret_cast<const nv_type*>(               \
-                                   bias.value().data_ptr<scalar_t>())          \
-                             : nullptr,                                        \
-            out_features, in_features, outliers_indices_size_n1,               \
-            q_indice.stride(0), q_indice.stride(1), centroids.stride(0),       \
-            q_indice.size(0));                                                 \
+#define CallWqA16kernel(scalar_t, out_buf, IDXBITS, BASEGROUP, Do_Reduce,     \
+                        ResidualBits)                                         \
+  {                                                                           \
+    using nv_type = typename C10ToNvType<scalar_t>::type;                     \
+    kernels::WqA16WithOutliers_PackIndice<nv_type, IDXBITS, ResidualBits,     \
+                                          BASEGROUP, 4, Do_Reduce>            \
+        <<<blocks, threads, shared_memory_size, stream>>>(                    \
+            reinterpret_cast<nv_type*>(out_buf.data_ptr<scalar_t>()),         \
+            reinterpret_cast<const nv_type*>(input.data_ptr<scalar_t>()),     \
+            q_indice.data_ptr<int32_t>(), outliers_indices_ptr,               \
+            reinterpret_cast<const nv_type*>(centroids.data_ptr<scalar_t>()), \
+            residual_centroids.has_value()                                    \
+                ? reinterpret_cast<const nv_type*>(                           \
+                      residual_centroids.value().data_ptr<scalar_t>())        \
+                : nullptr,                                                    \
+            outliers_centroids.has_value()                                    \
+                ? reinterpret_cast<const nv_type*>(                           \
+                      outliers_centroids.value().data_ptr<scalar_t>())        \
+                : nullptr,                                                    \
+            perm_ptr,                                                         \
+            reinterpret_cast<const nv_type*>(                                 \
+                weight_scale.data_ptr<scalar_t>()),                           \
+            reinterpret_cast<const nv_type*>(                                 \
+                weight_bias.data_ptr<scalar_t>()),                            \
+            bias.has_value() ? reinterpret_cast<const nv_type*>(              \
+                                   bias.value().data_ptr<scalar_t>())         \
+                             : nullptr,                                       \
+            out_features, in_features, outliers_indices_size_n1,              \
+            q_indice.stride(0), q_indice.stride(1), centroids.stride(0),      \
+            q_indice.size(0));                                                \
   }
 
 #define CallWqA16kernel_dtype(out_buf, IDXBITS, BASEGROUP, Do_Reduce, \
@@ -173,7 +174,7 @@ torch::Tensor launch_gemv_outliers_cuda_packkernel(
   output_shape[input.dim() - 1] = out_features;
   torch::Tensor output;
 
-  dim3 blocks(cuda::ceil_div(out_features, base_groupsize),
+  dim3 blocks(divup<int64_t, int64_t, int64_t>(out_features, base_groupsize),
               input.numel() / in_features);
   dim3 threads(cuda::kBlockSize);  // 256 threads = 8 warps
   auto stream = at::cuda::getCurrentCUDAStream().stream();
@@ -200,8 +201,8 @@ torch::Tensor launch_gemv_outliers_cuda_packkernel(
     constexpr int do_reduce = 4;
     shared_memory_size = 0;
     auto tmp_output_shape = output_shape;
-    tmp_output_shape.push_back(
-        cuda::ceil_div(in_features, cuda::kBlockSize * do_reduce));
+    tmp_output_shape.push_back(divup<int64_t, int64_t, int64_t>(
+        in_features, cuda::kBlockSize * do_reduce));
     torch::Tensor tmp_output = at::empty(tmp_output_shape, centroids.options());
     blocks.z = tmp_output_shape.back();
 
