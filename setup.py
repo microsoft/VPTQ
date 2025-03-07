@@ -55,6 +55,20 @@ class CMakeExtension(Extension):
         Extension.__init__(self, name, sources=[], **kwargs)
         self.cmake_lists_dir = os.path.abspath(cmake_lists_dir)
 
+        if os.path.isdir(".git"):
+            subprocess.run([
+                "git", "submodule", "update", "--init", "third_party/cutlass"
+            ],
+                           check=True)
+        else:
+            if not os.path.exists(
+                "third_party/cutlass/include/cutlass/cutlass.h"
+            ):
+                raise RuntimeError((
+                    "third_party/cutlass is missing, "
+                    "please use source distribution or git clone"
+                ))
+
 
 class CMakeBuildExt(build_ext):
     """launches the CMake build."""

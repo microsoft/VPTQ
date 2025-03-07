@@ -72,8 +72,8 @@ __global__ void ke_quant_gemv_v2(
   // advance the input pointer to the current CTA
   int batch_id = blockIdx.x / seq_length;
   int seq_id = blockIdx.x % seq_length;
-  int offset = batch_id * (seq_length * in_features) + seq_id * in_features;
-  const DType* x = act + offset;
+  const DType* x =
+      act + batch_id * (seq_length * in_features) + seq_id * in_features;
 
   typename KeTraits::InputLoader input_loader;
   typename KeTraits::IndexLoader index_loader;
@@ -135,9 +135,12 @@ __global__ void ke_quant_gemv_v2(
       // FIXME(ying): replace with vectorized operation
       for (int i = 0; i < kVecLen; ++i) s_output[i] += s_bias[i];
     }
-    storer(s_output, output + offset);  // store shared tile to global
+
+    int offset = batch_id * (seq_length * out_features) +
+                 seq_id * out_features + blockIdx.z * kVecLen;
+    for (int j = 0; j < kVecLen; j += KeTraits::kPackedNums)
+      storer(s_output + j, output + offset + j);  // store shared tile to global
   }
   return;
 }
-
 }  // namespace vptq::kernels

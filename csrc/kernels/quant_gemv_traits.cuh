@@ -95,8 +95,8 @@ template <typename IndexLoader, typename ScaleLoader, typename VecLoader,
 struct GemvImpl {
   /// all pointers, except for init_vals, are shared memory pointers
   template <typename DType, typename IdType, typename ResIdType>
-  __device__ __forceinline__ void operator()(
-      const DType* init_vals,       // initial values
+  DEVICE void operator()(
+      DType* acc,                   // accumulated values
       const DType* input,           // input
       const DType* main_codebook_,  // main codebook
       const DType* res_codebook_,   // residual codebook
@@ -104,6 +104,7 @@ struct GemvImpl {
       const ResIdType* res_idx,     // indices for residual centroids
       const DType* scale,           // scale
       const DType* bias) {          // bias
+#if defined(__CUDA_ARCH__)
     /// Register storage for indices, scale/bias, and codebook vectors
     IdType reg_idx[kNumPerThread];
     ResIdType reg_res_idx[kNumPerThread];
@@ -128,32 +129,35 @@ struct GemvImpl {
     __shared__ DType shm[WARP_SIZE];
 
     /// decode the codebook vectors
-#pragma unroll
+  #pragma unroll
     for (int i = 0; i < kNumPerThread; ++i) {
       const DType* main_codebook = main_codebook_ + reg_idx[i] * kVecLen;
       const DType* res_codebook = res_codebook_ + reg_res_idx[i] * kVecLen;
 
-#pragma unroll
+  #pragma unroll
       for (int j = 0; j < kVecLen; j += kPackedNums) {
         vec_loader(main_codebook + j, reg_vec + j);
         vec_loader(res_codebook + j, reg_res_vec + j);
       }
 
-#pragma unroll
+  #pragma unroll
       for (int j = 0; j < kVecLen; ++j) {
         // TODO(ying): Replace with vectorized operation
         reg_vec[j] = xs[i] * (ss[i] * (reg_vec[j] + reg_res_vec[j]) + bs[i]);
       }
 
       /// warp reduction for dot product
-#pragma unroll
+  #pragma unroll
       for (int j = 0; j < kVecLen; ++j) {
         val = reg_vec[j];
-        val = power2_reduce(val, shm, reducer, init_vals[j]);
+        val = power2_reduce(val, shm, reducer, static_cast<DType>(0));
 
-        if (threadIdx.x == 0) reg_vec[j] = val;
+        if (threadIdx.x == 0) acc[j] += val;
       }
     }
+#else
+    assert(false && "This function should only be called on the GPU.");
+#endif
   }
 
 private:
