@@ -47,6 +47,7 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 
 
 ## News
+- **[2025-03-12]** VPTQ now provides preliminary support for inference with Deepseek R1! With our quantized models, you can efficiently run Deepseek R1 on A100 GPUs. [Tutorial](https://github.com/VPTQ/DeepSeek-V3)
 - **[2025-02-27]** [aphrodite-engine](https://github.com/aphrodite-engine/aphrodite-engine/issues/1152) is the first inference engine which supports our VPTQ, Thanks for @[AlpinDale](https://github.com/AlpinDale)'s contribute!
 - **[2025-01-18]** VPTQ v0.0.5 released, featuring cmake support and an enhanced build pipeline!
 - **[2025-01-13]** VPTQ is formly support by Transformers in its wheel package release since [v4.48.0](https://github.com/huggingface/transformers/releases/tag/v4.48.0).
