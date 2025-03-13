@@ -14,20 +14,21 @@ using namespace copy;
 
 template <typename DType, typename IdType, typename ResIdType,
           typename SharedStorage, typename KeTraits>
-__global__ void ke_quant_gemv_v2(
-    DType* __restrict__ output, const DType* const __restrict__ act,
-    const DType* const __restrict__ bias,
-    const IdType* const __restrict__ indices,
-    const DType* const __restrict__ centroids,
-    const DType* const __restrict__ residual_centroids,
-    const DType* const __restrict__ scale_weights,
-    const DType* const __restrict__ scale_bias,  //
-    int64_t batch, int64_t seq_length,           //
-    int64_t in_features, int64_t out_features) {
+__global__ void ke_quant_gemv_v2(DType* __restrict__ output,
+                                 const DType* __restrict__ act,
+                                 const DType* __restrict__ bias,
+                                 const IdType* __restrict__ indices,
+                                 const DType* __restrict__ centroids,
+                                 const ResIdType* __restrict__ residual_indices,
+                                 const DType* __restrict__ residual_centroids,
+                                 const DType* __restrict__ scale_weights,
+                                 const DType* __restrict__ scale_bias,
+                                 int64_t batch, int64_t seq_length,
+                                 int64_t in_features, int64_t out_features) {
   /// constants
   static constexpr int kTileSize = KeTraits::kTileSize;
   static constexpr int kVecLen = KeTraits::kVecLen;
-  static constexpr int kNumPerThread = KeTraits::kDecodeNumPerThread;
+  static constexpr int kNumPerThread = KeTraits::kDequantNumPerThread;
 
   /// === shared memory buffer
   extern __shared__ unsigned char buf_[];
@@ -41,7 +42,7 @@ __global__ void ke_quant_gemv_v2(
   DType* s_codebook_res = smem.codebook_res.data();
   DType* s_inputs = smem.inputs.data();
   IdType* s_ids = smem.indices.data();
-  ResIdType* s_res_ids = reinterpret_cast<ResIdType*>(s_ids + kTileSize);
+  ResIdType* s_res_ids = smem.res_indices.data();
   DType* s_scale_weights = scale_weights ? s_inputs + kTileSize : nullptr;
   DType* s_scale_bias = scale_bias ? s_scale_weights + kTileSize : nullptr;
   DType* s_bias = bias ? s_output + KeTraits::kVecLen : nullptr;
@@ -77,9 +78,9 @@ __global__ void ke_quant_gemv_v2(
 
   typename KeTraits::InputLoader input_loader;
   typename KeTraits::IndexLoader index_loader;
+  typename KeTraits::ResIndexLoader res_index_loader;
   typename KeTraits::WarpCounter counter;
 
-  // registers for accumulate intermediate results between tiles
   DType results[kVecLen];
   memset(results, 0, sizeof(DType) * kVecLen);
 
@@ -90,15 +91,9 @@ __global__ void ke_quant_gemv_v2(
       // load a single tile of the activation into shared memory
       input_loader(x + step, s_inputs, counter.cur());
     }
-    ++counter;
-
-    if (wid >= counter.cur() && wid < counter.next(2)) {
-      // load indices into shared memory
-      index_loader(indices + step * 2, s_ids, counter.cur());
-    }
 
     if (scale_weights) {
-      counter += 2;
+      ++counter;
       if (wid >= counter.cur() && wid < counter.next()) {
         // load scale_weights into shared memory if available
         input_loader(scale_weights + step, s_scale_weights, counter.cur());
@@ -110,12 +105,28 @@ __global__ void ke_quant_gemv_v2(
         input_loader(scale_bias + step, s_scale_bias, counter.cur());
       }
     }
+
+    ++counter;
+    if (wid >= counter.cur() && wid < counter.next()) {
+      // load indices into shared memory
+      index_loader(indices + step, s_ids, counter.cur());
+    }
+
+    if (residual_indices) {
+      counter += 1;
+      if (wid >= counter.cur() && wid < counter.next()) {
+        // load residual indices into shared memory if available
+        res_index_loader(residual_indices + step, s_res_ids, counter.cur());
+      }
+    }
     __copy_async();
     __syncthreads();
 
     /// === 2. decode, add residual, scale, dot product, accumulate results
     /// between tiles, apply bias on register === ///
     /// advance the pointers to shared memory data for the current thread
+    // registers for accumulate intermediate results between tiles
+
     typename KeTraits::Gemv gemv;
     int offset = threadIdx.x * kNumPerThread;
     gemv(results,

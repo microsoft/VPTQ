@@ -101,7 +101,7 @@ struct PackedCopy {
   using Packed = PackType<DType, kN>;
 
   // the maximum read/write transaction size in bytes for a thread
-  static constexpr int kMaxVecBytes = 16;
+  static constexpr int kMaxVecBytes = 16;  // 128 bits = 16 bytes
 
   static_assert(sizeof(DType) * kN <= kMaxVecBytes,
                 "The total number of bytes must be less than or equal to the "
