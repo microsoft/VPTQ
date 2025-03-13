@@ -6,9 +6,6 @@
 
 namespace vptq::kernels {
 
-template <const int a, const int b>
-static constexpr int divup = (a + b - 1) / b;
-
 template <typename DType>
 struct Sum {
   HOST_DEVICE DType operator()(const DType& a, const DType& b) const {

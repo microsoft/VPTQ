@@ -105,17 +105,10 @@ class TestQuantGemv(unittest.TestCase):
         )
 
         num_repeats = num_indices // self.num_res_centroids
-        self.residual_indices = torch.as_tensor(
+        self.res_indices = torch.as_tensor(
             list(range(self.num_res_centroids)) * num_repeats,
             device=device,
             dtype=torch.uint8
-        )
-
-        num_repeats = (num_indices // self.num_res_centroids) * 2
-        self.indices = torch.as_tensor(
-            list(range(self.num_res_centroids)) * num_repeats,
-            device=device,
-            dtype=torch.uint16
         )
 
         shape = (self.num_codebooks, self.num_centroids, self.vector_length)
@@ -133,13 +126,73 @@ class TestQuantGemv(unittest.TestCase):
         self.scale_weights = torch.randn(*shape, device=device, dtype=dtype)
         self.scale_bias = torch.randn(*shape, device=device, dtype=dtype)
 
+    def compare_float_tensors(self, tensor1, tensor2):
+        # For bfloat16 tensors, we need to convert to float32 for accurate
+        # comparison since bfloat16 has limited precision.
+
+        if tensor1.dtype == torch.bfloat16:
+            tensor1_float = tensor1.float()
+            tensor2_float = tensor2.float()
+
+            self.assertEqual(
+                tensor1_float.shape, tensor2_float.shape,
+                "Tensor shapes don't match"
+            )
+
+            rtol, atol = 1e-2, 1e-2
+            self.assertTrue(
+                torch.allclose(
+                    tensor1_float, tensor2_float, rtol=rtol, atol=atol
+                ),
+                f"Tensors not equal within tolerance: rtol={rtol}, atol={atol}"
+            )
+        else:
+            self.assertEqual(
+                tensor1.shape, tensor2.shape, "Tensor shapes don't match"
+            )
+            self.assertTrue(
+                torch.allclose(tensor1, tensor2), "Tensors not equal"
+            )
+
+    def compare_int_tensors(self, tensor1, tensor2):
+        self.assertEqual(
+            tensor1.shape, tensor2.shape, "Integer tensor shapes don't match"
+        )
+
+        # If the above assertion fails and we need more details:
+        if not torch.all(tensor1 == tensor2):
+            # Find indices where tensors differ
+            diff_indices = torch.nonzero(tensor1 != tensor2)
+            if len(diff_indices) > 0:
+                # Get a sample of differences (up to 5)
+                sample_size = min(5, len(diff_indices))
+                for i in range(sample_size):
+                    idx = tuple(diff_indices[i].tolist())
+                    print((
+                        "Difference at index "
+                        f"{idx}: {tensor1[idx]} vs {tensor2[idx]}"
+                    ))
+
+        self.assertEqual(
+            tensor1.dtype, tensor2.dtype, (
+                "Integer tensor dtypes don't match: "
+                f"{tensor1.dtype} vs {tensor2.dtype}"
+            )
+        )
+
+        # For integer tensors, we want exact equality
+        self.assertTrue(
+            torch.all(tensor1 == tensor2),
+            "Integer tensors are not exactly equal"
+        )
+
     def test(self):
         out1 = vptq.ops.quant_gemv_v2(
             self.x,
             bias=self.bias,
-            indices=self.indices,
+            indices=self.main_indices,
             centroids=self.centroids,
-            residual_indices=self.residual_indices,
+            residual_indices=self.res_indices,
             residual_centroids=self.res_centroids,
             scale_weights=self.scale_weights,
             scale_bias=self.scale_bias,
@@ -149,21 +202,23 @@ class TestQuantGemv(unittest.TestCase):
             num_residual_centroids=self.num_res_centroids,
             out_features=self.out_features
         )
-        print(out1.shape)
+        print(out1)
 
         out2 = ground_truth(
             x=self.x,
             bias=self.bias,
             indices=self.main_indices,
             centroids=self.centroids,
-            residual_indices=self.residual_indices,
+            residual_indices=self.res_indices,
             residual_centroids=self.res_centroids,
             scale_weights=self.scale_weights,
             scale_bias=self.scale_bias,
             vector_len=self.vector_length,
             out_features=self.out_features
         )
-        print(out2.shape)
+        print(out2)
+
+        self.compare_float_tensors(out1, out2)
 
 
 if __name__ == "__main__":

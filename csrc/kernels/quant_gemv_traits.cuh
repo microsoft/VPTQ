@@ -99,7 +99,8 @@ struct QuantGemvKeTraits : public Base {
   static_assert(kNumWarps % kNumWarpsPerTile == 0,
                 "The number of warps must be divisible by the number of warps "
                 "used to load a single tile.");
-
+  static constexpr int kWarpPerResIdsTile =
+      kTileSize * sizeof(ResIdType) / Base::kAccessInBytes / WARP_SIZE;
   using WarpCounter = copy::WarpCounter<kNumWarps, kNumWarpsPerTile>;
 
   // Determines the number of threads needed to load a single index tile.
@@ -154,22 +155,23 @@ struct QuantGemvKeTraits : public Base {
       CodebookTraits<DType, kThreads, kNumResCentroids, kVecLen>;
 
   ///===== configurations for loading bias =====///
-  static constexpr int kBiasLoadThreads =
-      divup<kVecLen * sizeof(DType), Base::kAccessInBytes>;
+  using BiasLoader = copy::GlobalToSharedBiasLoader<DType, kVecLen>;
+  // Storer is defined for debugging purposes only
+  using BiasStorer = copy::SharedToGlobalBiasStorer<DType, kVecLen>;
 
   ///===== configurations for loading tiled input =====///
   using InputLoader = copy::GlobalToSharedInputLoader<DType, kTileSize>;
-  // Storer class defined for debugging purposes only
+  // Storer is defined for debugging purposes only
   using InputStorer = copy::SharedToGlobalInputStorer<DType, kTileSize>;
 
   ///===== configurations for loading tiled indices =====///
-  using IndexLoader = copy::GlobalToSharedInputLoader<IdType, kTileSize>;
-  using IndexStorer = copy::SharedToGlobalInputStorer<IdType, kTileSize>;
+  using IdLoader = copy::GlobalToSharedInputLoader<IdType, kTileSize>;
+  using IdStorer = copy::SharedToGlobalInputStorer<IdType, kTileSize>;
 
   // loading tiled residual indices which may have different data type
   // (like uint8_t) from the main indices (like uint16_t)
-  using ResIndexLoader = copy::GlobalToSharedInputLoader<ResIdType, kTileSize>;
-  using ResIndexStorer = copy::SharedToGlobalInputStorer<ResIdType, kTileSize>;
+  using ResIdLoader = copy::GlobalToSharedInputLoader<ResIdType, kTileSize>;
+  using ResIdStorer = copy::SharedToGlobalInputStorer<ResIdType, kTileSize>;
 
   /// configurations for dequantizing weights and computing gemv on registers
   using IdLoaderS2R = copy::PackedCopy<IdType, kDequantNumPerThread>;

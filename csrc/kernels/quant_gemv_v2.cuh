@@ -3,6 +3,7 @@
 #pragma once
 
 #include "dispatch_macros.h"
+#include "kernels/convert.cuh"
 #include "kernels/copy/mod.cuh"
 #include "kernels/quant_gemv_traits.cuh"
 #include "util/common.h"
@@ -25,19 +26,33 @@ __global__ void ke_quant_gemv_v2(DType* __restrict__ output,
                                  const DType* __restrict__ scale_bias,
                                  int64_t batch, int64_t seq_length,
                                  int64_t in_features, int64_t out_features) {
-  /// constants
+  ///===== constants =====///
   static constexpr int kTileSize = KeTraits::kTileSize;
   static constexpr int kVecLen = KeTraits::kVecLen;
   static constexpr int kNumPerThread = KeTraits::kDequantNumPerThread;
 
-  /// === shared memory buffer
+  ///===== advance the pointers for data on global memory =====///
+  int batch_id = blockIdx.x / seq_length;
+  int seq_id = blockIdx.x % seq_length;
+  const DType* x =  // activation
+      act + batch_id * (seq_length * in_features) + seq_id * in_features;
+
+  const IdType* g_ids = indices + blockIdx.z * in_features;
+  const ResIdType* g_res_ids =
+      residual_indices ? residual_indices + blockIdx.z * in_features : nullptr;
+
+  const DType* g_bias = bias ? bias + blockIdx.z * KeTraits::kVecLen +
+                                   threadIdx.x * KeTraits::kNumPerAccess
+                             : nullptr;
+  DType* y = output + batch_id * (seq_length * out_features) +
+             seq_id * out_features + blockIdx.z * kVecLen;
+
+  ///===== shared memory buffer =====///
   extern __shared__ unsigned char buf_[];
   SharedStorage& smem = *reinterpret_cast<SharedStorage*>(buf_);
 
-  /// === shared memory pointer for output
   DType* s_output = smem.output.data();
 
-  /// === shared memory pointers for inputs
   DType* s_codebook = smem.codebook.data();
   DType* s_codebook_res = smem.codebook_res.data();
   DType* s_inputs = smem.inputs.data();
@@ -47,7 +62,7 @@ __global__ void ke_quant_gemv_v2(DType* __restrict__ output,
   DType* s_scale_bias = scale_bias ? s_scale_weights + kTileSize : nullptr;
   DType* s_bias = bias ? s_output + KeTraits::kVecLen : nullptr;
 
-  /// === 1. load data from global to shared memory === ///
+  ///===== 1. load data from global to shared memory =====///
   typename KeTraits::MainCentroidTraits::Loader loader;
   // load the main centroids into shared memory
   loader(centroids, s_codebook);
@@ -59,31 +74,23 @@ __global__ void ke_quant_gemv_v2(DType* __restrict__ output,
   __copy_async();
   __syncthreads();
 
-  if (bias && threadIdx.x < KeTraits::kBiasLoadThreads) {
-    // load the bias if available.
-    int thread_offset = threadIdx.x * KeTraits::kNumPerAccess;
-    const DType* src_ptr =
-        bias + blockIdx.z * KeTraits::kVecLen + thread_offset;
-
-    ld_global_st_shared<16>(  // a single thread access 16 bytes data
-        static_cast<uint32_t>(__cvta_generic_to_shared(s_bias + thread_offset)),
-        src_ptr);
+  if (bias) {  // load the bias if available.
+    typename KeTraits::BiasLoader loader;
+    loader(g_bias, s_bias);
   }
 
-  // advance the input pointer to the current CTA
-  int batch_id = blockIdx.x / seq_length;
-  int seq_id = blockIdx.x % seq_length;
-  const DType* x =
-      act + batch_id * (seq_length * in_features) + seq_id * in_features;
-
   typename KeTraits::InputLoader input_loader;
-  typename KeTraits::IndexLoader index_loader;
-  typename KeTraits::ResIndexLoader res_index_loader;
-  typename KeTraits::WarpCounter counter;
+  typename KeTraits::IdLoader id_loader;
 
-  DType results[kVecLen];
+  typename KeTraits::ResIdLoader res_id_loader;
+  typename KeTraits::ResIdStorer res_id_storer;
+
+  typename KeTraits::Gemv gemv;
+
+  DType results[kVecLen];  // registers for accumulating results between tiles
   memset(results, 0, sizeof(DType) * kVecLen);
 
+  typename KeTraits::WarpCounter counter;
   int wid = warpid();
   for (int step = 0; step < in_features; step += kTileSize) {  // over tiles
     counter.reset();
@@ -109,25 +116,23 @@ __global__ void ke_quant_gemv_v2(DType* __restrict__ output,
     ++counter;
     if (wid >= counter.cur() && wid < counter.next()) {
       // load indices into shared memory
-      index_loader(indices + step, s_ids, counter.cur());
+      id_loader(g_ids + step, s_ids, counter.cur());
     }
 
     if (residual_indices) {
-      counter += 1;
+      counter += KeTraits::kWarpPerResIdsTile;
       if (wid >= counter.cur() && wid < counter.next()) {
         // load residual indices into shared memory if available
-        res_index_loader(residual_indices + step, s_res_ids, counter.cur());
+        res_id_loader(g_res_ids + step, s_res_ids, counter.cur());
       }
     }
     __copy_async();
     __syncthreads();
 
-    /// === 2. decode, add residual, scale, dot product, accumulate results
-    /// between tiles, apply bias on register === ///
-    /// advance the pointers to shared memory data for the current thread
-    // registers for accumulate intermediate results between tiles
+    ///===== 2. decode, add residual, scale, dot product, accumulate results
+    /// between tiles, apply bias on register =====///
 
-    typename KeTraits::Gemv gemv;
+    // advance the pointers to shared memory data for the current thread
     int offset = threadIdx.x * kNumPerThread;
     gemv(results,
          &s_inputs[offset],                   // input
@@ -137,7 +142,7 @@ __global__ void ke_quant_gemv_v2(DType* __restrict__ output,
     __syncthreads();
   }
 
-  /// === 3. store final results === ///
+  ///===== 3. store final results =====///
   if (threadIdx.x == 0) {
     typename KeTraits::VecStorer storer;
     storer(results, s_output);  // store register tile to shared
@@ -147,10 +152,8 @@ __global__ void ke_quant_gemv_v2(DType* __restrict__ output,
       for (int i = 0; i < kVecLen; ++i) s_output[i] += s_bias[i];
     }
 
-    int offset = batch_id * (seq_length * out_features) +
-                 seq_id * out_features + blockIdx.z * kVecLen;
     for (int j = 0; j < kVecLen; j += KeTraits::kPackedNums)
-      storer(s_output + j, output + offset + j);  // store shared tile to global
+      storer(s_output + j, y + j);  // store shared tile to global
   }
   return;
 }

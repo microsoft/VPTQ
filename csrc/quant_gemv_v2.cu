@@ -104,12 +104,13 @@ torch::Tensor quant_gemv_v2(
   int block_z = divup<int64_t, int64_t, int64_t>(out_features, vec_len);
   dim3 blocks(batch * seq_length, num_codebooks, block_z);
 
-  // FIXME(ying): refine the choice of threads in a thread block.
-  // For test at the moment.
+  // FIXME(ying): refine the choice of threads in a thread
+  // block. For test at the moment.
   static const int kThreads = 4 * WARP_SIZE;
   dim3 threads(kThreads, 1, 1);
 
-  // TODO(ying): this is hardware dependent. Need to make it adaptive.
+  // TODO(ying): this is hardware dependent. Need to make it
+  // adaptive.
   const int kMaxSmemPerBlock = 48 * 1024;
 
   VPTQ_DISPATCH_TYPES(dtype, [&] {
@@ -130,23 +131,23 @@ torch::Tensor quant_gemv_v2(
 
           const DType* bias_ptr =
               bias.has_value()
-                  ? reinterpret_cast<DType*>(bias.value().data_ptr())
+                  ? reinterpret_cast<const DType*>(bias.value().data_ptr())
                   : nullptr;
 
           const DType* scale_weights_ptr =
-              scale_weights.has_value()
-                  ? reinterpret_cast<DType*>(scale_weights.value().data_ptr())
-                  : nullptr;
+              scale_weights.has_value() ? reinterpret_cast<const DType*>(
+                                              scale_weights.value().data_ptr())
+                                        : nullptr;
 
-          const DType* scale_bias_ptr =
-              scale_bias.has_value()
-                  ? reinterpret_cast<DType*>(scale_bias.value().data_ptr())
-                  : nullptr;
+          const DType* scale_bias_ptr = scale_bias.has_value()
+                                            ? reinterpret_cast<const DType*>(
+                                                  scale_bias.value().data_ptr())
+                                            : nullptr;
 
           static constexpr int kTileSize = 512;
 
-          // NOTE: IdType and ResIdType are declared in the dispatch macros
-          // according to
+          // NOTE: IdType and ResIdType are declared in the
+          // dispatch macros according to
           using Config =
               kernels::QuantGemvKeTraits<DType, IdType, ResIdType, kThreads,
                                          kTileSize, kVecLen, kNumCentroids,
@@ -160,8 +161,8 @@ torch::Tensor quant_gemv_v2(
               &kernels::ke_quant_gemv_v2<DType, IdType, ResIdType,
                                          Config::SharedStorage, Config>;
 
-          // TODO(ying): Check whether shared memory usage exceeds
-          // the hardware limit.
+          // TODO(ying): Check whether shared memory usage
+          // exceeds the hardware limit.
           if (smem_size > kMaxSmemPerBlock) {
             cudaFuncSetAttribute(
                 kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);

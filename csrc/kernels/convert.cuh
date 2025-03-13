@@ -23,11 +23,11 @@ template <typename T>
 DEVICE float to_float(T v) {
   if constexpr (std::is_same<T, __bfloat16>::value) {
     return __bfloat162float(v);
-  } else if constexpr (std::is_same<T, float>::value) {
-    return v;
-  } else {
-    static_assert(std::is_same<T, __half>::value);
+  } else if constexpr (std::is_same<T, __half>::value) {
     return __half2float(v);
+  } else {
+    static_assert(std::is_same<T, float>::value);
+    return v;
   }
 }
 
