@@ -204,6 +204,7 @@ class TestQuantGemv(unittest.TestCase):
         )
         print(out1[0, 0, 0:32])
 
+        print("ground truth")
         out2 = ground_truth(
             x=self.x,
             bias=self.bias,

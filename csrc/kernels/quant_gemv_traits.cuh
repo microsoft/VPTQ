@@ -3,7 +3,8 @@
 #pragma once
 
 #include "kernels/copy/mod.cuh"
-#include "kernels/math.cuh"
+#include "kernels/decode.cuh"
+#include "kernels/reduce.cuh"
 
 #include <cute/tensor.hpp>
 
@@ -160,8 +161,8 @@ struct QuantGemvKeTraits : public Base {
       "vector in the codebook must be aligned to the the width of the "
       "vectorization instruction.");
 
-  // calculate how many floating-point numbers are packed in a single
-  // thread when accessing the codebook.
+  // Determines how many floating-point numbers are packed in a single memory
+  // access when loading from the codebook into registers.
   static constexpr int kPackedNums = kVecBytes > kAccessInBytes
                                          ? kAccessInBytes / sizeof(DType)
                                          : kVecLen;
@@ -204,11 +205,12 @@ struct QuantGemvKeTraits : public Base {
   using VecLoaderS2R = copy::PackedCopy<DType, kPackedNums>;
   using VecStorer = copy::PackedCopy<DType, kPackedNums>;
 
-  using Reducer = Sum<DType>;
-  using Gemv = GemvImpl<IdLoaderS2R, ResIdLoaderS2R,   //
-                        ScaleLoaderS2R, VecLoaderS2R,  //
-                        Reducer,                       //
-                        kDequantNumPerThread, kVecLen, kPackedNums>;
+  // float is used for accumulating intermediate results.
+  // DO NOT change to DType.
+  using Reducer = Sum<float>;
+  using Decode =
+      DecodeImpl<IdLoaderS2R, ResIdLoaderS2R, ScaleLoaderS2R, VecLoaderS2R,
+                 kDequantNumPerThread, kVecLen, kPackedNums>;
 };
 
 }  // namespace vptq::kernels

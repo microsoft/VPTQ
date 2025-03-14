@@ -31,11 +31,13 @@ __global__ void ke_quant_gemv_v2(DType* __restrict__ output,
   static constexpr int kVecLen = KeTraits::kVecLen;
   static constexpr int kNum = KeTraits::kDequantNumPerThread;
 
+  typename KeTraits::Reducer reducer;
+
   typename KeTraits::InputLoader input_loader;
   typename KeTraits::IdLoader id_loader;
   typename KeTraits::ResIdLoader res_id_loader;
 
-  typename KeTraits::Gemv gemv;
+  typename KeTraits::Decode decode;
   typename KeTraits::WarpCounter counter;
 
   ///===== advance the pointers for data on global memory =====///
@@ -142,28 +144,45 @@ __global__ void ke_quant_gemv_v2(DType* __restrict__ output,
 
     // advance the pointers to shared memory data for the current thread
     int offset = threadIdx.x * kNum;
-    gemv(results,
-         s_inputs + offset,                   // input
-         s_ids + offset, s_codebook,          // indices and main codebook
-         s_res_ids + offset, s_codebook_res,  // indices and residual codebook
-         s_scale_weights + offset, s_scale_bias + offset,  // scale/bias
-         idx, res_idx, xs, ss, bs, vec, res_vec);
-    __syncthreads();
+    decode(results,
+           s_inputs + offset,                   // input
+           s_ids + offset, s_codebook,          // indices and main codebook
+           s_res_ids + offset, s_codebook_res,  // indices and residual codebook
+           s_scale_weights + offset, s_scale_bias + offset,  // scale/bias
+           idx, res_idx, xs, ss, bs, vec, res_vec);
   }
 
-  ///===== 3. store final results =====///
+  ///===== 3. Accumulate results across threads =====///
+  __shared__ float shm[WARP_SIZE];  // store intermediate results
+  if (threadIdx.x < WARP_SIZE) shm[threadIdx.x] = 0.;
+  __syncthreads();
+
+  float val;
+#pragma unroll
+  for (int i = 0; i < kVecLen; ++i) {
+    val = to_float(results[i]);
+    val = power2_reduce(val, shm, reducer, static_cast<float>(0.));
+
+    if (threadIdx.x == 0) results[i] = from_float(val, results[i]);
+  }
+  __syncthreads();
+
+  ///===== 4. store final results =====///
   if (threadIdx.x == 0) {
     typename KeTraits::VecStorer storer;
-    storer(results, s_output);  // store register tile to shared
+
+    for (int i = 0; i < kVecLen; i += KeTraits::kPackedNums)
+      storer(results, s_output);  // store register tile to shared
 
     if (bias) {  // apply bias if available
       // FIXME(ying): replace with vectorized operation
       for (int i = 0; i < kVecLen; ++i) s_output[i] += s_bias[i];
     }
 
-    for (int j = 0; j < kVecLen; j += KeTraits::kPackedNums)
-      storer(s_output + j, y + j);  // store shared tile to global
+    for (int i = 0; i < kVecLen; i += KeTraits::kPackedNums)
+      storer(s_output + i, y + i);  // store shared tile to global
   }
+
   return;
 }
 
