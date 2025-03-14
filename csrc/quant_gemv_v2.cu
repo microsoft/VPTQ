@@ -104,8 +104,8 @@ torch::Tensor quant_gemv_v2(
   int block_z = divup<int64_t, int64_t, int64_t>(out_features, vec_len);
   dim3 blocks(batch * seq_length, num_codebooks, block_z);
 
-  // FIXME(ying): refine the choice of threads in a thread
-  // block. For test at the moment.
+  // FIXME(ying): refine the choice of threads in a thread block.
+  // For test at the moment.
   static const int kThreads = 4 * WARP_SIZE;
   dim3 threads(kThreads, 1, 1);
 
@@ -154,8 +154,6 @@ torch::Tensor quant_gemv_v2(
                                          kNumResCentroids>;
           using SharedStorage = Config::SharedStorage;
           int smem_size = SharedStorage::kSmemSize;
-
-          std::cout << "kIdsPerBank: " << Config::kIdsPerBank << std::endl;
 
           auto kernel =
               &kernels::ke_quant_gemv_v2<DType, IdType, ResIdType,

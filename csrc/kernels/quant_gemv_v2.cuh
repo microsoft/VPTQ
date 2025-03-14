@@ -29,7 +29,14 @@ __global__ void ke_quant_gemv_v2(DType* __restrict__ output,
   ///===== constants =====///
   static constexpr int kTileSize = KeTraits::kTileSize;
   static constexpr int kVecLen = KeTraits::kVecLen;
-  static constexpr int kNumPerThread = KeTraits::kDequantNumPerThread;
+  static constexpr int kNum = KeTraits::kDequantNumPerThread;
+
+  typename KeTraits::InputLoader input_loader;
+  typename KeTraits::IdLoader id_loader;
+  typename KeTraits::ResIdLoader res_id_loader;
+
+  typename KeTraits::Gemv gemv;
+  typename KeTraits::WarpCounter counter;
 
   ///===== advance the pointers for data on global memory =====///
   int batch_id = blockIdx.x / seq_length;
@@ -41,9 +48,6 @@ __global__ void ke_quant_gemv_v2(DType* __restrict__ output,
   const ResIdType* g_res_ids =
       residual_indices ? residual_indices + blockIdx.z * in_features : nullptr;
 
-  const DType* g_bias = bias ? bias + blockIdx.z * KeTraits::kVecLen +
-                                   threadIdx.x * KeTraits::kNumPerAccess
-                             : nullptr;
   DType* y = output + batch_id * (seq_length * out_features) +
              seq_id * out_features + blockIdx.z * kVecLen;
 
@@ -62,6 +66,20 @@ __global__ void ke_quant_gemv_v2(DType* __restrict__ output,
   DType* s_scale_bias = scale_bias ? s_scale_weights + kTileSize : nullptr;
   DType* s_bias = bias ? s_output + KeTraits::kVecLen : nullptr;
 
+  ///===== Register cache for thread-local data =====///
+  DType results[kVecLen];
+  memset(results, 0, sizeof(DType) * kVecLen);
+
+  IdType idx[kNum];         // register for indices
+  ResIdType res_idx[kNum];  // register for residual indices
+
+  DType xs[kNum];  // register for input
+  DType ss[kNum];  // register for scale
+  DType bs[kNum];  // register for bias
+
+  DType vec[kVecLen];      // register for dequantized weights
+  DType res_vec[kVecLen];  // register for dequantized residual weights
+
   ///===== 1. load data from global to shared memory =====///
   typename KeTraits::MainCentroidTraits::Loader loader;
   // load the main centroids into shared memory
@@ -76,21 +94,11 @@ __global__ void ke_quant_gemv_v2(DType* __restrict__ output,
 
   if (bias) {  // load the bias if available.
     typename KeTraits::BiasLoader loader;
-    loader(g_bias, s_bias);
+    int offset =
+        blockIdx.z * KeTraits::kVecLen + threadIdx.x * KeTraits::kNumPerAccess;
+    loader(bias + offset, s_bias);
   }
 
-  typename KeTraits::InputLoader input_loader;
-  typename KeTraits::IdLoader id_loader;
-
-  typename KeTraits::ResIdLoader res_id_loader;
-  typename KeTraits::ResIdStorer res_id_storer;
-
-  typename KeTraits::Gemv gemv;
-
-  DType results[kVecLen];  // registers for accumulating results between tiles
-  memset(results, 0, sizeof(DType) * kVecLen);
-
-  typename KeTraits::WarpCounter counter;
   int wid = warpid();
   for (int step = 0; step < in_features; step += kTileSize) {  // over tiles
     counter.reset();
@@ -133,12 +141,13 @@ __global__ void ke_quant_gemv_v2(DType* __restrict__ output,
     /// between tiles, apply bias on register =====///
 
     // advance the pointers to shared memory data for the current thread
-    int offset = threadIdx.x * kNumPerThread;
+    int offset = threadIdx.x * kNum;
     gemv(results,
-         &s_inputs[offset],                   // input
-         s_codebook, s_codebook_res,          // codebooks
-         &s_ids[offset], &s_res_ids[offset],  // indices
-         &s_scale_weights[offset], &s_scale_bias[offset]);
+         s_inputs + offset,                   // input
+         s_ids + offset, s_codebook,          // indices and main codebook
+         s_res_ids + offset, s_codebook_res,  // indices and residual codebook
+         s_scale_weights + offset, s_scale_bias + offset,  // scale/bias
+         idx, res_idx, xs, ss, bs, vec, res_vec);
     __syncthreads();
   }
 
@@ -147,7 +156,7 @@ __global__ void ke_quant_gemv_v2(DType* __restrict__ output,
     typename KeTraits::VecStorer storer;
     storer(results, s_output);  // store register tile to shared
 
-    if (s_bias) {  // apply bias if available
+    if (bias) {  // apply bias if available
       // FIXME(ying): replace with vectorized operation
       for (int i = 0; i < kVecLen; ++i) s_output[i] += s_bias[i];
     }

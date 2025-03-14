@@ -130,7 +130,7 @@ struct QuantGemvKeTraits : public Base {
 
   // Ensures indices are aligned with shared memory banks and each thread
   // decodes at least kIdsPerBank indices
-  static constexpr int kBankBytes = 4;
+  static constexpr int kBankBytes = 4;  // 4 bytes per bank
   // NOTE: We assume residual indices use the smallest bit-width data type among
   // all inputs (including FP8 data inputs). This assumption is critical for
   // memory alignment and access patterns. When modifying index data types,
@@ -141,7 +141,30 @@ struct QuantGemvKeTraits : public Base {
   // Specifies how many indices each thread decodes, which determines
   // the number of codebook lookups performed by a single thread
   static_assert(kTileSize % (kThreads * kIdsPerBank) == 0);
+  // how many indices are dequantized per thread
   static constexpr int kDequantNumPerThread = kTileSize / kThreads;
+
+  // Here's an example to illustrate the vectorization constraint:
+  // When a vector has length 16 and uses fp16/bf16 format, it occupies 256
+  // bits (16 * 16 bits). Loading this would require two separate 128-bit
+  // vectorized memory accesses.
+  //
+  // Two vectors may not be stored contiguously, which means they cannot
+  // always be packed into a single vectorized access. For optimal
+  // performance, each vector in the codebook must have a length that is a
+  // multiple of the vectorization width (32-bit, 64-bit, or 128-bit).
+  static constexpr int kVecBytes = sizeof(DType) * kVecLen;
+  static constexpr int kAccessInBytes = Base::kAccessInBytes;
+  static_assert(
+      kVecBytes % kAccessInBytes == 0 || kAccessInBytes % kVecBytes == 0,
+      "vector in the codebook must be aligned to the the width of the "
+      "vectorization instruction.");
+
+  // calculate how many floating-point numbers are packed in a single
+  // thread when accessing the codebook.
+  static constexpr int kPackedNums = kVecBytes > kAccessInBytes
+                                         ? kAccessInBytes / sizeof(DType)
+                                         : kVecLen;
 
   ///===== allocate shared memory =====///
   using SharedStorage =
@@ -173,40 +196,19 @@ struct QuantGemvKeTraits : public Base {
   using ResIdLoader = copy::GlobalToSharedInputLoader<ResIdType, kTileSize>;
   using ResIdStorer = copy::SharedToGlobalInputStorer<ResIdType, kTileSize>;
 
-  /// configurations for dequantizing weights and computing gemv on registers
+  ///===== dequantizing weights and computing gemv on registers =====///
   using IdLoaderS2R = copy::PackedCopy<IdType, kDequantNumPerThread>;
   using ResIdLoaderS2R = copy::PackedCopy<ResIdType, kDequantNumPerThread>;
   using ScaleLoaderS2R = copy::PackedCopy<DType, kDequantNumPerThread>;
-
-  // Here's an example to illustrate the vectorization constraint:
-  // When a vector has length 16 and uses fp16/bf16 format, it occupies 256
-  // bits (16 * 16 bits). Loading this would require two separate 128-bit
-  // vectorized memory accesses.
-  //
-  // Two vectors may not be stored contiguously, which means they cannot
-  // always be packed into a single vectorized access. For optimal
-  // performance, each vector in the codebook must have a length that is a
-  // multiple of the vectorization width (32-bit, 64-bit, or 128-bit).
-  static constexpr int kVecBytes = sizeof(DType) * kVecLen;
-  static constexpr int kAccessInBytes = Base::kAccessInBytes;
-  static_assert(
-      kVecBytes % kAccessInBytes == 0 || kAccessInBytes % kVecBytes == 0,
-      "vector in the codebook must be aligned to the the width of the "
-      "vectorization instruction.");
-
-  // calculate how many numbers are packed within a single vector in the
-  // codebook when accessing it from the codebook.
-  static constexpr int kPackedNums = kVecBytes > kAccessInBytes
-                                         ? kAccessInBytes / sizeof(DType)
-                                         : kVecLen;
 
   using VecLoaderS2R = copy::PackedCopy<DType, kPackedNums>;
   using VecStorer = copy::PackedCopy<DType, kPackedNums>;
 
   using Reducer = Sum<DType>;
-  using Gemv =
-      GemvImpl<IdLoaderS2R, ResIdLoaderS2R, ScaleLoaderS2R, VecLoaderS2R,
-               Reducer, kDequantNumPerThread, kVecLen, kPackedNums>;
+  using Gemv = GemvImpl<IdLoaderS2R, ResIdLoaderS2R,   //
+                        ScaleLoaderS2R, VecLoaderS2R,  //
+                        Reducer,                       //
+                        kDequantNumPerThread, kVecLen, kPackedNums>;
 };
 
 }  // namespace vptq::kernels

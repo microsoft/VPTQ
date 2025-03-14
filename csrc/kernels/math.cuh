@@ -13,68 +13,63 @@ struct Sum {
   }
 };
 
+/// @param kNum: number of indices to decode per thread
+/// @param kVecLen: vector length of the codebook
+/// @param kPackedNums: how many floating-point numbers are packed in a
+///                     single vector when accessing the codebook
 template <typename IdLoader, typename ResIdLoader,   //
           typename ScaleLoader, typename VecLoader,  //
-          typename Reducer, const int kNumPerThread, const int kVecLen,
-          const int kPackedNums>
+          typename Reducer,                          //
+          const int kNum, const int kVecLen, const int kPackedNums>
 struct GemvImpl {
   /// all pointers, except for init_vals, are shared memory pointers
   template <typename DType, typename IdType, typename ResIdType>
   DEVICE void operator()(
-      DType* acc,                   // accumulated values
-      const DType* input,           // input
-      const DType* main_codebook_,  // main codebook
-      const DType* res_codebook_,   // residual codebook
-      const IdType* main_idx,       // indices for main centroids
-      const ResIdType* res_idx,     // indices for residual centroids
-      const DType* scale,           // scale
-      const DType* bias) {          // bias
+      DType* acc,                       // accumulated values
+      const DType* input,               // input
+      const IdType* main_idx,           // indices for main centroids
+      const DType* main_codebook_,      // main codebook
+      const ResIdType* res_idx_,        // indices for residual centroids
+      const DType* res_codebook_,       // residual codebook
+      const DType* scale,               // scale
+      const DType* bias,                // bias
+      IdType* idx, ResIdType* res_idx,  // indices
+      DType* xs, DType* ss, DType* bs,  // input, scale, bias
+      DType* vec, DType* res_vec) {     // dequantized weights
 #if defined(__CUDA_ARCH__)
-    /// Register storage for indices, scale/bias, and codebook vectors
-    IdType reg_idx[kNumPerThread];
-    ResIdType reg_res_idx[kNumPerThread];
-
-    DType xs[kNumPerThread];
-    DType ss[kNumPerThread];
-    DType bs[kNumPerThread];
-
-    DType reg_vec[kVecLen];
-    DType reg_res_vec[kVecLen];
-
-    /// Load indices and scale/bias to registers
-    id_loader(main_idx, reg_idx);
-    res_id_loader(res_idx, reg_res_idx);
+    ///===== 1. load input data from shared memory to registers =====///
+    id_loader(main_idx, idx);
+    res_id_loader(res_idx_, res_idx);
 
     scale_loader(input, xs);
     scale_loader(scale, ss);
     scale_loader(bias, bs);
 
-    // shared memory to store intermediate results for warp reduction
-    DType val;
-    __shared__ DType shm[WARP_SIZE];
-
-    /// decode the codebook vectors
+    ///===== 2. decode the codebook vectors =====///
   #pragma unroll
-    for (int i = 0; i < kNumPerThread; ++i) {
-      const DType* main_codebook = main_codebook_ + reg_idx[i] * kVecLen;
-      const DType* res_codebook = res_codebook_ + reg_res_idx[i] * kVecLen;
+    for (int i = 0; i < kNum; ++i) {
+      const DType* main_codebook = main_codebook_ + idx[i] * kVecLen;
+      const DType* res_codebook = res_codebook_ + res_idx[i] * kVecLen;
 
   #pragma unroll
       for (int j = 0; j < kVecLen; j += kPackedNums) {
-        vec_loader(main_codebook + j, reg_vec + j);
-        vec_loader(res_codebook + j, reg_res_vec + j);
+        vec_loader(main_codebook + j, vec + j);
+        vec_loader(res_codebook + j, res_vec + j);
       }
 
   #pragma unroll
       for (int j = 0; j < kVecLen; ++j) {
         // TODO(ying): Replace with vectorized operation
-        reg_vec[j] = xs[i] * (ss[i] * (reg_vec[j] + reg_res_vec[j]) + bs[i]);
+        vec[j] = xs[i] * (ss[i] * (vec[j] + res_vec[j]) + bs[i]);
       }
 
       /// warp reduction for dot product
+      // shared memory to store intermediate results for warp reduction
+      DType val;
+      __shared__ DType shm[WARP_SIZE];
   #pragma unroll
       for (int j = 0; j < kVecLen; ++j) {
-        val = reg_vec[j];
+        val = vec[j];
         val = power2_reduce(val, shm, reducer, static_cast<DType>(0));
 
         if (threadIdx.x == 0) acc[j] += val;

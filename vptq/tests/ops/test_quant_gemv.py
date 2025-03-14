@@ -202,7 +202,7 @@ class TestQuantGemv(unittest.TestCase):
             num_residual_centroids=self.num_res_centroids,
             out_features=self.out_features
         )
-        print(out1)
+        print(out1[0, 0, 0:32])
 
         out2 = ground_truth(
             x=self.x,
@@ -216,7 +216,7 @@ class TestQuantGemv(unittest.TestCase):
             vector_len=self.vector_length,
             out_features=self.out_features
         )
-        print(out2)
+        print(out2[0, 0, 0:32])
 
         self.compare_float_tensors(out1, out2)
 
