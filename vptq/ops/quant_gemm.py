@@ -277,6 +277,7 @@ def quant_gemv_v2(
     bias: Optional[torch.Tensor],
     indices: torch.Tensor,
     centroids: torch.Tensor,
+    residual_indices: Optional[torch.Tensor],
     residual_centroids: Optional[torch.Tensor],
     scale_weights: Optional[torch.Tensor],
     scale_bias: Optional[torch.Tensor],
@@ -305,6 +306,8 @@ def quant_gemv_v2(
                    a vector that has a shape of (1, numel), and then be
                    reshaped internally into a 3-D tensor with a shape of
                    (num_codebooks, num_centroids, vector_len).
+        residual_indices: (optional) Tensor[uint16|uint8], the indices for 
+                          the residual quantization component.
         residual_centroids: (optional) Tensor[fp16|bf16], has a shape of
                             (num_codebooks, num_residual_centroids, vector_len).
         scale_weights: (optional) Tensor[fp16|bf16], has a shape of 
@@ -340,6 +343,7 @@ def quant_gemv_v2(
         bias,
         indices,
         centroids_,
+        residual_indices,
         residual_centroids_,
         scale_weights,
         scale_bias,

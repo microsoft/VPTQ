@@ -26,7 +26,8 @@ torch::Tensor quant_gemv_v2(
     const torch::Tensor& act,
     const c10::optional<torch::Tensor>& bias,  //
     const torch::Tensor& indices,              //
-    const torch::Tensor& centroids,
+    const torch::Tensor& centroids,            //
+    const c10::optional<torch::Tensor>& residual_indices,
     const c10::optional<torch::Tensor>& residual_centroids,
     const c10::optional<torch::Tensor>& scale_weights,
     const c10::optional<torch::Tensor>& scale_bias,  //
@@ -72,6 +73,9 @@ torch::Tensor quant_gemv_v2(
            "the main centroids.";
 
     num_res_centroids = residual_centroids.value().size(1);
+    // once `residual_centroids` has value, `residual_indices`
+    // must have value as well
+    CHECK_INPUT(residual_indices.value());
   }
 
   if (scale_weights.has_value()) {
@@ -102,64 +106,71 @@ torch::Tensor quant_gemv_v2(
 
   // FIXME(ying): refine the choice of threads in a thread block.
   // For test at the moment.
-  static const int kThreads = 2 * 4 * WARP_SIZE;
-  dim3 threads(kThreads, 1, 1);  // 8 warps in a thread block.
+  static const int kThreads = 4 * WARP_SIZE;
+  dim3 threads(kThreads, 1, 1);
 
-  // TODO(ying): this is hardware dependent. Need to make it adaptive.
+  // TODO(ying): this is hardware dependent. Need to make it
+  // adaptive.
   const int kMaxSmemPerBlock = 48 * 1024;
 
   VPTQ_DISPATCH_TYPES(dtype, [&] {
     VPTQ_DISPATCH_VEC_LENGTH(vec_len, [&] {
       VPTQ_DISPATCH_NUM_CENTROIDS(num_centroids, [&] {
         VPTQ_DISPATCH_RES_NUM_CENTROIDS(num_res_centroids, [&] {
-          const nv_type* residual_centroids_ptr =
+          const DType* residual_centroids_ptr =
               residual_centroids.has_value()
-                  ? reinterpret_cast<const nv_type*>(
+                  ? reinterpret_cast<const DType*>(
                         residual_centroids.value().data_ptr())
                   : nullptr;
 
-          const nv_type* bias_ptr =
+          const ResIdType* residual_indices_ptr =
+              residual_indices.has_value()
+                  ? reinterpret_cast<const ResIdType*>(
+                        residual_indices.value().data_ptr())
+                  : nullptr;
+
+          const DType* bias_ptr =
               bias.has_value()
-                  ? reinterpret_cast<nv_type*>(bias.value().data_ptr())
+                  ? reinterpret_cast<const DType*>(bias.value().data_ptr())
                   : nullptr;
 
-          const nv_type* scale_weights_ptr =
-              scale_weights.has_value()
-                  ? reinterpret_cast<nv_type*>(scale_weights.value().data_ptr())
-                  : nullptr;
+          const DType* scale_weights_ptr =
+              scale_weights.has_value() ? reinterpret_cast<const DType*>(
+                                              scale_weights.value().data_ptr())
+                                        : nullptr;
 
-          const nv_type* scale_bias_ptr =
-              scale_bias.has_value()
-                  ? reinterpret_cast<nv_type*>(scale_bias.value().data_ptr())
-                  : nullptr;
+          const DType* scale_bias_ptr = scale_bias.has_value()
+                                            ? reinterpret_cast<const DType*>(
+                                                  scale_bias.value().data_ptr())
+                                            : nullptr;
 
           static constexpr int kTileSize = 512;
-          using IdType = uint16_t;
+          // NOTE: IdType and ResIdType are declared in the dispatch macros.
           using Config =
-              kernels::QuantGemvKeTraits<nv_type, IdType, IdType, kThreads,
+              kernels::QuantGemvKeTraits<DType, IdType, ResIdType, kThreads,
                                          kTileSize, kVecLen, kNumCentroids,
                                          kNumResCentroids>;
+
           using SharedStorage = Config::SharedStorage;
           int smem_size = SharedStorage::kSmemSize;
 
           auto kernel =
-              &kernels::ke_quant_gemv_v2<nv_type, IdType, IdType,
+              &kernels::ke_quant_gemv_v2<DType, IdType, ResIdType,
                                          Config::SharedStorage, Config>;
 
-          // TODO(ying): Check whether shared memory usage exceeds
-          // the hardware limit.
+          // TODO(ying): Check if shared memory usage exceeds hardware limit.
           if (smem_size > kMaxSmemPerBlock) {
             cudaFuncSetAttribute(
                 kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
           }
 
           kernel<<<blocks, threads, smem_size, stream>>>(
-              reinterpret_cast<nv_type*>(output.mutable_data_ptr()),
-              reinterpret_cast<const nv_type*>(act.data_ptr()), bias_ptr,
-              indices.data_ptr<uint16_t>(),
-              reinterpret_cast<const nv_type*>(centroids.data_ptr()),
-              residual_centroids_ptr, scale_weights_ptr, scale_bias_ptr, batch,
-              seq_length, in_features, out_features);
+              reinterpret_cast<DType*>(output.mutable_data_ptr()),
+              reinterpret_cast<const DType*>(act.data_ptr()), bias_ptr,
+              indices.data_ptr<IdType>(),
+              reinterpret_cast<const DType*>(centroids.data_ptr()),
+              residual_indices_ptr, residual_centroids_ptr, scale_weights_ptr,
+              scale_bias_ptr, batch, seq_length, in_features, out_features);
         });
       });
     });

@@ -11,6 +11,11 @@
 
 #include <cute/tensor.hpp>
 
+namespace {
+template <const int a, const int b>
+static constexpr int divup = (a + b - 1) / b;
+}
+
 namespace vptq::kernels::copy {
 namespace tl = vptq::tile_layout;
 using namespace cute;
@@ -115,6 +120,44 @@ struct SharedToGlobalInputStorer : public Base {
     ld_shared_st_global<Base::kAccessInBytes>(
         dst_ + offset,
         static_cast<uint32_t>(__cvta_generic_to_shared(src_ + offset)));
+  }
+};
+
+/// TODO(ying): all global to shared loaders and storers should be unified into
+/// a single implementation. Manually writing each loader and storer according
+/// to their different configurations is error-prone.
+
+/// @brief Load bias from global memory to shared memory.
+/// @param DType data type of the bias
+/// @param kNumel number of elements to load
+/// @param Base access info of the bias
+template <typename DType, const int kNumel, typename Base = AccessInfo<DType>>
+struct GlobalToSharedBiasLoader : public Base {
+  static constexpr int kNumThreads =
+      divup<kNumel * sizeof(DType), Base::kAccessInBytes>;
+
+  DEVICE void operator()(const DType* src, DType* dst_) {
+    if (threadIdx.x < kNumThreads) {
+      uint32_t dst = static_cast<uint32_t>(__cvta_generic_to_shared(dst_));
+      ld_global_st_shared<16>(dst, src);
+    }
+  }
+};
+
+/// @brief Store bias from shared memory to global memory.
+/// @param DType data type of the bias
+/// @param kNumel number of elements to store
+/// @param Base access info of the bias
+template <typename DType, const int kNumel, typename Base = AccessInfo<DType>>
+struct SharedToGlobalBiasStorer : public Base {
+  static constexpr int kNumThreads =
+      divup<kNumel * sizeof(DType), Base::kAccessInBytes>;
+
+  DEVICE void operator()(const DType* src_, DType* dst) {
+    if (threadIdx.x < kNumThreads) {
+      uint32_t src = static_cast<uint32_t>(__cvta_generic_to_shared(src_));
+      ld_shared_st_global<16>(dst, src);
+    }
   }
 };
 

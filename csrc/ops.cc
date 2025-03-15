@@ -32,6 +32,7 @@ torch::Tensor wquant_act16_gemv(
 torch::Tensor quant_gemv_v2(
     const torch::Tensor& act, const c10::optional<torch::Tensor>& bias,
     const torch::Tensor& indices, const torch::Tensor& centroids,
+    const c10::optional<torch::Tensor>& residual_indices,
     const c10::optional<torch::Tensor>& residual_centroids,
     const c10::optional<torch::Tensor>& scale_weights,
     const c10::optional<torch::Tensor>& scale_bias, int64_t out_features);

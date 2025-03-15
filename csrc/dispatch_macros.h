@@ -5,7 +5,7 @@
 
 #define DISPATCH_TYPE_CASE(TYPE, NV_TYPE, ...) \
   case TYPE: {                                 \
-    using nv_type = NV_TYPE;                   \
+    using DType = NV_TYPE;                     \
     return __VA_ARGS__();                      \
   }
 
@@ -47,10 +47,12 @@
     switch (NUM_CENTROIDS) {                                           \
       case 4096: {                                                     \
         static constexpr int kNumCentroids = 4096;                     \
+        using IdType = uint16_t;                                       \
         return __VA_ARGS__();                                          \
       }                                                                \
       case 8192: {                                                     \
         static constexpr int kNumCentroids = 8192;                     \
+        using IdType = uint16_t;                                       \
         return __VA_ARGS__();                                          \
       }                                                                \
       default:                                                         \
@@ -64,14 +66,17 @@
     switch (NUM_RES_CENTROIDS) {                                       \
       case 0: {                                                        \
         static constexpr int kNumResCentroids = 0;                     \
+        using ResIdType = uint8_t;                                     \
         return __VA_ARGS__();                                          \
       }                                                                \
       case 256: {                                                      \
         static constexpr int kNumResCentroids = 256;                   \
+        using ResIdType = uint8_t;                                     \
         return __VA_ARGS__();                                          \
       }                                                                \
       case 512: {                                                      \
         static constexpr int kNumResCentroids = 512;                   \
+        using ResIdType = uint16_t;                                    \
         return __VA_ARGS__();                                          \
       }                                                                \
       default:                                                         \
