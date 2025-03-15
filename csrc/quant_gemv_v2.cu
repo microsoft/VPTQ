@@ -145,13 +145,12 @@ torch::Tensor quant_gemv_v2(
                                             : nullptr;
 
           static constexpr int kTileSize = 512;
-
-          // NOTE: IdType and ResIdType are declared in the
-          // dispatch macros according to
+          // NOTE: IdType and ResIdType are declared in the dispatch macros.
           using Config =
               kernels::QuantGemvKeTraits<DType, IdType, ResIdType, kThreads,
                                          kTileSize, kVecLen, kNumCentroids,
                                          kNumResCentroids>;
+
           using SharedStorage = Config::SharedStorage;
           int smem_size = SharedStorage::kSmemSize;
 
@@ -159,8 +158,7 @@ torch::Tensor quant_gemv_v2(
               &kernels::ke_quant_gemv_v2<DType, IdType, ResIdType,
                                          Config::SharedStorage, Config>;
 
-          // TODO(ying): Check whether shared memory usage
-          // exceeds the hardware limit.
+          // TODO(ying): Check if shared memory usage exceeds hardware limit.
           if (smem_size > kMaxSmemPerBlock) {
             cudaFuncSetAttribute(
                 kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);

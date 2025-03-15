@@ -2,9 +2,7 @@
 // Licensed under the MIT License.
 #pragma once
 
-#include "kernels/convert.cuh"
 #include "kernels/reduce.cuh"
-#include "util/debug.cuh"
 
 namespace vptq::kernels {
 

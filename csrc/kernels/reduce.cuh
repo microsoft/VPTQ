@@ -2,8 +2,6 @@
 // Licensed under the MIT License.
 #pragma once
 
-#include "kernels/convert.cuh"
-
 namespace vptq::kernels {
 
 template <typename DType>
@@ -43,7 +41,6 @@ DEVICE T power2_reduce(T val, T* shm, Reducer reducer, T init_val) {
   CREATE_SHFL_MASK(mask, tid < block_size);
   val = wrap_reduce(val, mask, reducer);
 
-  // TODO: multiple threads access a single bank will cause bank conflict
   if (tid % WARP_SIZE == 0) shm[tid / WARP_SIZE] = val;
   __syncthreads();
 

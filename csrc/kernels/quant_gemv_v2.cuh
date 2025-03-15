@@ -8,7 +8,6 @@
 #include "kernels/quant_gemv_traits.cuh"
 #include "util/common.h"
 #include "util/cuda_utils.cuh"
-#include "util/debug.cuh"
 
 namespace vptq::kernels {
 using namespace copy;
@@ -162,7 +161,6 @@ __global__ void ke_quant_gemv_v2(DType* __restrict__ output,
   for (int i = 0; i < kVecLen; ++i) {
     val = to_float(results[i]);
     val = power2_reduce(val, shm, reducer, static_cast<float>(0.));
-
     if (threadIdx.x == 0) results[i] = from_float(val, results[i]);
   }
   __syncthreads();
@@ -172,7 +170,7 @@ __global__ void ke_quant_gemv_v2(DType* __restrict__ output,
     typename KeTraits::VecStorer storer;
 
     for (int i = 0; i < kVecLen; i += KeTraits::kPackedNums)
-      storer(results, s_output);  // store register tile to shared
+      storer(results + i, s_output + i);  // store register tile to shared
 
     if (bias) {  // apply bias if available
       // FIXME(ying): replace with vectorized operation
@@ -182,7 +180,6 @@ __global__ void ke_quant_gemv_v2(DType* __restrict__ output,
     for (int i = 0; i < kVecLen; i += KeTraits::kPackedNums)
       storer(s_output + i, y + i);  // store shared tile to global
   }
-
   return;
 }
 
