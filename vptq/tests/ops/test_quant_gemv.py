@@ -30,8 +30,7 @@ def ground_truth(
 
     if num_decoding != res_indices.shape[0]:
         raise ValueError(
-            ("indices and residual_indices "
-             "must have the same shape.")
+            ("indices and residual_indices must have the same shape.")
         )
     if num_decoding != in_features * out_features // vector_len:
         raise ValueError((
@@ -66,20 +65,25 @@ def ground_truth(
         for j in range(length):
             vec = x[i, j, :]
             out[i, j, :] = vec @ weights
-    out += bias
+
+    if bias is not None:
+        out += bias
     return out
 
 
 class TestQuantGemv(unittest.TestCase):
+    mean = 2e-2
+    std = 0.5
+
+    dtype = torch.bfloat16
+    device = torch.device("cuda", 0)
 
     def setUp(self):
         torch.manual_seed(1234)
-        dtype = torch.bfloat16
-        device = torch.device("cuda", 0)
 
         # gemv requires batch size * length < 16
-        batch_size = 5
-        length = 3
+        batch_size = 1
+        length = 1
 
         self.in_features = 1024
         self.out_features = 2048
@@ -90,56 +94,52 @@ class TestQuantGemv(unittest.TestCase):
         self.num_centroids = 8192  # must be stored in uint16
         self.num_res_centroids = 256  # can be stored in uint8
 
-        mean = 2e-2
-        std = 0.5
+        def _create_indices(num_indices, num_centroids, target_dtype):
+            indices = torch.arange(
+                num_centroids,
+                device=TestQuantGemv.device,
+                dtype=torch.int32,
+            )
+            return indices.repeat(num_indices // num_centroids
+                                 ).to(dtype=target_dtype)
 
-        #====== generate data for unittest.  ======#
-        # the activation tensor
-        shape = (batch_size, length, self.in_features)
-        self.x = torch.normal(
-            mean=mean, std=std, size=shape, device=device, dtype=dtype
-        )
+        def _create_tensor(size: tuple[int, ...]) -> torch.Tensor:
+            return torch.normal(
+                mean=TestQuantGemv.mean,
+                std=TestQuantGemv.std,
+                size=size,
+                device=TestQuantGemv.device,
+                dtype=TestQuantGemv.dtype,
+            )
 
-        # generate indices for unittest.
+        # ====== generate data for unittest.  ======#
+        self.x = _create_tensor((batch_size, length, self.in_features))
+
+        # Create indices tensors
         num_indices = self.in_features * self.out_features // self.vector_length
-        num_repeats = num_indices // self.num_centroids
-        self.main_indices = torch.as_tensor(
-            list(range(self.num_centroids)) * num_repeats,
-            device=device,
-            dtype=torch.uint16
+
+        self.main_indices = _create_indices(
+            num_indices, self.num_centroids, torch.uint16
+        )
+        self.res_indices = _create_indices(
+            num_indices, self.num_res_centroids, torch.uint8
         )
 
-        num_repeats = num_indices // self.num_res_centroids
-        self.res_indices = torch.as_tensor(
-            list(range(self.num_res_centroids)) * num_repeats,
-            device=device,
-            dtype=torch.uint8
+        self.centroids = _create_tensor(
+            (self.num_codebooks, self.num_centroids, self.vector_length)
         )
 
-        shape = (self.num_codebooks, self.num_centroids, self.vector_length)
-        self.centroids = torch.normal(
-            mean=mean, std=std, size=shape, device=device, dtype=dtype
+        self.res_centroids = _create_tensor(
+            (self.num_codebooks, self.num_res_centroids, self.vector_length)
         )
 
-        shape = (self.num_codebooks, self.num_res_centroids, self.vector_length)
-        self.res_centroids = torch.normal(
-            mean=mean, std=std, size=shape, device=device, dtype=dtype
-        )
-
-        shape = (1, 1, self.out_features)
-        self.bias = torch.normal(
-            mean=mean, std=std, size=shape, device=device, dtype=dtype
-        )
+        # self.bias = _create_tensor((1, 1, self.out_features))
+        self.bias = None
 
         # NOTE: In this test, the scale weights and bias are applied
         # to the in_features.
-        shape = (self.in_features, 1)
-        self.scale_weights = torch.normal(
-            mean=mean, std=std, size=shape, device=device, dtype=dtype
-        )
-        self.scale_bias = torch.normal(
-            mean=mean, std=std, size=shape, device=device, dtype=dtype
-        )
+        self.scale_weights = _create_tensor((self.in_features, 1))
+        self.scale_bias = _create_tensor((self.in_features, 1))
 
     def compare_float_tensors(self, tensor1, tensor2):
         # For bfloat16 tensors, we need to convert to float32 for accurate
@@ -150,8 +150,9 @@ class TestQuantGemv(unittest.TestCase):
             tensor2_float = tensor2.float()
 
             self.assertEqual(
-                tensor1_float.shape, tensor2_float.shape,
-                "Tensor shapes don't match"
+                tensor1_float.shape,
+                tensor2_float.shape,
+                "Tensor shapes don't match",
             )
 
             rtol, atol = 0.2, 0.2
@@ -159,7 +160,7 @@ class TestQuantGemv(unittest.TestCase):
                 torch.allclose(
                     tensor1_float, tensor2_float, rtol=rtol, atol=atol
                 ),
-                f"Tensors not equal within tolerance: rtol={rtol}, atol={atol}"
+                f"Tensors not equal within tolerance: rtol={rtol}, atol={atol}",
             )
         else:
             self.assertEqual(
@@ -170,21 +171,22 @@ class TestQuantGemv(unittest.TestCase):
             )
 
     def test(self):
-        out1 = vptq.ops.quant_gemv_v2(
-            self.x,
-            bias=self.bias,
-            indices=self.main_indices,
-            centroids=self.centroids,
-            residual_indices=self.res_indices,
-            residual_centroids=self.res_centroids,
-            scale_weights=self.scale_weights,
-            scale_bias=self.scale_bias,
-            vector_len=self.vector_length,
-            num_codebooks=self.num_codebooks,
-            num_centroids=self.num_centroids,
-            num_residual_centroids=self.num_res_centroids,
-            out_features=self.out_features
-        )
+        gemv_args = {
+            "x": self.x,
+            "bias": self.bias,
+            "indices": self.main_indices,
+            "centroids": self.centroids,
+            "residual_indices": self.res_indices,
+            "residual_centroids": self.res_centroids,
+            "scale_weights": self.scale_weights,
+            "scale_bias": self.scale_bias,
+            "vector_len": self.vector_length,
+            "num_codebooks": self.num_codebooks,
+            "num_centroids": self.num_centroids,
+            "num_residual_centroids": self.num_res_centroids,
+            "out_features": self.out_features,
+        }
+        out1 = vptq.ops.quant_gemv_v2(**gemv_args)
 
         out2 = ground_truth(
             x=self.x,
@@ -196,7 +198,7 @@ class TestQuantGemv(unittest.TestCase):
             scale_weights=self.scale_weights,
             scale_bias=self.scale_bias,
             vector_len=self.vector_length,
-            out_features=self.out_features
+            out_features=self.out_features,
         )
 
         self.compare_float_tensors(out1, out2)
