@@ -4,11 +4,10 @@ VPTQ now provides preliminary support for inference with Deepseek R1! With our q
 
 ![output](https://github.com/user-attachments/assets/b2e229e0-db6a-4cfd-94fe-4bbf8050457e)
 
-
 Here's a quick start guide for you:
 https://github.com/VPTQ/DeepSeek-V3
 
----
+______________________________________________________________________
 
 ## 📦 Installation
 
@@ -24,7 +23,7 @@ git checkout vptq
 pip install -e .
 ```
 
----
+______________________________________________________________________
 
 ## 📥 Preparing Models
 
@@ -51,7 +50,7 @@ Merge models from safetensors to multi-shard format (`model[0-3]-mp4.safetensors
 python merge_safetensor_folder.py --input-dir path_to_download_model --output-dir path_to_merged_model
 ```
 
----
+______________________________________________________________________
 
 ## 🚦 Running Inference
 
@@ -88,7 +87,7 @@ torchrun --nnodes 1 --nproc-per-node 4 \
     --num-load-processes 1
 ```
 
----
+______________________________________________________________________
 
 ## 🔧 Advanced: Resharding and Merging Models (Optional)
 
@@ -116,7 +115,7 @@ python deepseek_merge_kv_shared.py \
   --num_shards 4
 ```
 
----
+______________________________________________________________________
 
 ## ⚠️ Known Issues
 
@@ -124,4 +123,3 @@ python deepseek_merge_kv_shared.py \
 - Initial loading may take around 2 minutes due to layer quantization initialization.
 - Quantized models require lower temperatures (~0.1-0.2) for coherent output. Higher values may cause unreadable results due to increased noise.
 - NCCL may time out during prolonged periods without data input.
-

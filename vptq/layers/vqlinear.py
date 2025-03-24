@@ -16,9 +16,9 @@ from vptq import ops
 
 class VQuantLinear(nn.Module):
     r"""Vector Quantized Linear Layer.
-    
+
     Compute quantized matrix multiplication.
-    
+
     Args:
         in_features: Number of input features.
         out_features: Number of output features.

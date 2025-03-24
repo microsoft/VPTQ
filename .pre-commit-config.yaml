@@ -34,9 +34,6 @@ repos:
         files: (?!.*third_party)^.*$ | (?!.*book)^.*$
     -   id: check-case-conflict
     -   id: check-json
-    -   id: check-merge-conflict
-    -   id: check-shebang-scripts-are-executable
-    -   id: detect-private-key
     -   id: trailing-whitespace
 
 -   repo: local

@@ -33,7 +33,7 @@ AllowShortIfStatementsOnASingleLine: true
 Cpp11BracedListStyle: true
 # If true, always break after the template<...> of a template declaration.
 AlwaysBreakTemplateDeclarations: true
-# If false, a function declaration's or function definition's parameters will 
+# If false, a function declaration's or function definition's parameters will
 # either all be on the same line or will have one line each.
 BinPackArguments: true
 BreakConstructorInitializersBeforeComma: true
