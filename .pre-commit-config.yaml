@@ -21,7 +21,7 @@ repos:
     -   id: check-merge-conflict
     -   id: check-symlinks
     -   id: detect-private-key
-        files: (?!.*third_party)^.*$ | (?!.*book)^.*$
+        files: (?!.*third_party)^.*$
     -   id: end-of-file-fixer
     -   id: check-yaml
     -   id: check-toml
@@ -31,7 +31,7 @@ repos:
     -   id: debug-statements
     -   id: mixed-line-ending
         args: ['--fix=lf']
-        files: (?!.*third_party)^.*$ | (?!.*book)^.*$
+        files: (?!.*third_party)^.*$
     -   id: check-case-conflict
     -   id: check-json
     -   id: trailing-whitespace

@@ -2,11 +2,45 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+"""
+Unit tests for quantized GEMV (General Matrix-Vector multiplication) operations.
+
+To run these tests, execute the following command from the project root:
+    pytest vptq/tests/ops/test_quant_gemv.py -v -s
+
+The -v flag enables verbose output and -s allows print statements to be
+displayed.
+"""
 
 import pytest
 import torch
 
 import vptq
+
+
+def _create_indices(
+    num_indices, num_centroids, device: torch.device
+) -> torch.Tensor:
+    target_dtype = torch.uint16 if num_centroids > 256 else torch.uint8
+    indices = torch.arange(
+        num_centroids,
+        device=device,
+        dtype=torch.int32,
+    )
+    return indices.repeat(num_indices // num_centroids).to(dtype=target_dtype)
+
+
+def _create_tensor(
+    size: tuple[int, ...], mean: float, std: float, dtype: torch.dtype,
+    device: torch.device
+) -> torch.Tensor:
+    return torch.normal(
+        mean=mean,
+        std=std,
+        size=size,
+        device=device,
+        dtype=dtype,
+    )
 
 
 def ground_truth(
@@ -92,37 +126,23 @@ def test_data(request):
     dtype = params.get('dtype', torch.bfloat16)
     device = params.get('device', torch.device("cuda", 0))
 
-    def _create_indices(num_indices, num_centroids, target_dtype):
-        indices = torch.arange(
-            num_centroids,
-            device=device,
-            dtype=torch.int32,
-        )
-        return indices.repeat(num_indices // num_centroids
-                             ).to(dtype=target_dtype)
-
-    def _create_tensor(size: tuple[int, ...]) -> torch.Tensor:
-        return torch.normal(
-            mean=mean,
-            std=std,
-            size=size,
-            device=device,
-            dtype=dtype,
-        )
-
     # Generate test data
-    x = _create_tensor((batch_size, length, in_features))
-    num_indices = in_features * out_features // vector_length
+    x = _create_tensor((batch_size, length, in_features), mean, std, dtype,
+                       device)
 
-    main_indices = _create_indices(num_indices, num_centroids, torch.uint16)
-    res_indices = _create_indices(num_indices, num_res_centroids, torch.uint8)
-    centroids = _create_tensor((num_codebooks, num_centroids, vector_length))
+    centroids = _create_tensor((num_codebooks, num_centroids, vector_length),
+                               mean, std, dtype, device)
     res_centroids = _create_tensor(
-        (num_codebooks, num_res_centroids, vector_length)
+        (num_codebooks, num_res_centroids, vector_length), mean, std, dtype,
+        device
     )
     bias = None
-    scale_weights = _create_tensor((in_features, 1))
-    scale_bias = _create_tensor((in_features, 1))
+    scale_weights = _create_tensor((in_features, 1), mean, std, dtype, device)
+    scale_bias = _create_tensor((in_features, 1), mean, std, dtype, device)
+
+    num_indices = in_features * out_features // vector_length
+    main_indices = _create_indices(num_indices, num_centroids, device)
+    res_indices = _create_indices(num_indices, num_res_centroids, device)
 
     return {
         "x": x,
@@ -176,17 +196,18 @@ test_configs = [
         'num_centroids': 8192,
         'num_res_centroids': 256,  #  indices are stored in uint8
     },
-    # TODO(ying): add test for residual indices are stored in uint16
+    # residual indices are stored in uint16
+    {
+        'name': 'residual_indices_uint16',
+        'batch_size': 1,
+        'length': 1,
+        'in_features': 1024,
+        'out_features': 1024,
+        'vector_length': 8,
+        'num_centroids': 8192,
+        'num_res_centroids': 512,  #  indices are stored in uint16
+    },
 ]
-"""
-Unit tests for quantized GEMV (General Matrix-Vector multiplication) operations.
-
-To run these tests, execute the following command from the project root:
-    pytest vptq/tests/ops/test_quant_gemv.py -v -s
-
-The -v flag enables verbose output and -s allows print statements to be
-displayed.
-"""
 
 
 @pytest.mark.parametrize('test_data', test_configs, indirect=True)
@@ -195,11 +216,9 @@ def test_quant_gemv(test_data):
     Test the quant_gemv operation against ground truth with different
     configurations.
     """
-    # Run the quant_gemv operation
-    out1 = vptq.ops.quant_gemv_v2(**test_data)
 
     # Run ground truth
-    out2 = ground_truth(
+    out1 = ground_truth(
         x=test_data["x"],
         bias=test_data["bias"],
         indices=test_data["indices"],
@@ -211,6 +230,9 @@ def test_quant_gemv(test_data):
         vector_len=test_data["vector_len"],
         out_features=test_data["out_features"],
     )
+
+    # Run the quant_gemv operation
+    out2 = vptq.ops.quant_gemv_v2(**test_data)
 
     # Compare results
     compare_float_tensors(out1, out2)
@@ -283,37 +305,22 @@ def test_data_factory(config):
     dtype = config.get('dtype', torch.bfloat16)
     device = config.get('device', torch.device("cuda", 0))
 
-    def _create_indices(num_indices, num_centroids, target_dtype):
-        indices = torch.arange(
-            num_centroids,
-            device=device,
-            dtype=torch.int32,
-        )
-        return indices.repeat(num_indices // num_centroids
-                             ).to(dtype=target_dtype)
-
-    def _create_tensor(size: tuple[int, ...]) -> torch.Tensor:
-        return torch.normal(
-            mean=mean,
-            std=std,
-            size=size,
-            device=device,
-            dtype=dtype,
-        )
-
     # Generate test data
-    x = _create_tensor((batch_size, length, in_features))
-    num_indices = in_features * out_features // vector_length
-
-    main_indices = _create_indices(num_indices, num_centroids, torch.uint16)
-    res_indices = _create_indices(num_indices, num_res_centroids, torch.uint8)
-    centroids = _create_tensor((num_codebooks, num_centroids, vector_length))
+    x = _create_tensor((batch_size, length, in_features), mean, std, dtype,
+                       device)
+    centroids = _create_tensor((num_codebooks, num_centroids, vector_length),
+                               mean, std, dtype, device)
     res_centroids = _create_tensor(
-        (num_codebooks, num_res_centroids, vector_length)
+        (num_codebooks, num_res_centroids, vector_length), mean, std, dtype,
+        device
     )
     bias = None
-    scale_weights = _create_tensor((in_features, 1))
-    scale_bias = _create_tensor((in_features, 1))
+    scale_weights = _create_tensor((in_features, 1), mean, std, dtype, device)
+    scale_bias = _create_tensor((in_features, 1), mean, std, dtype, device)
+
+    num_indices = in_features * out_features // vector_length
+    main_indices = _create_indices(num_indices, num_centroids, device)
+    res_indices = _create_indices(num_indices, num_res_centroids, device)
 
     return {
         "x": x,
