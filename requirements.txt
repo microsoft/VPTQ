@@ -13,3 +13,4 @@ plotly==5.9.0
 pynvml
 tqdm
 sentence_transformers
+pytest

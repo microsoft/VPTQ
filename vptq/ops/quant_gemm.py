@@ -288,10 +288,10 @@ def quant_gemv_v2(
     out_features: int,
 ) -> torch.Tensor:
     """ Dequantize the input tensor and perform GEMV operation.
-    
+
     Args:
-        x: Tensor[fp16|bf16], has a shape of (batch_size, sequence_length, 
-           in_features). NOTE that `batch_size` here represents the number of 
+        x: Tensor[fp16|bf16], has a shape of (batch_size, sequence_length,
+           in_features). NOTE that `batch_size` here represents the number of
            sequences, not tokens.
         bias: (optional) Tensor[fp16|bf16], has a shape of (1, out_features)
         indices: Tensor[uint16], the original input tensor is flattened into a
@@ -306,14 +306,14 @@ def quant_gemv_v2(
                    a vector that has a shape of (1, numel), and then be
                    reshaped internally into a 3-D tensor with a shape of
                    (num_codebooks, num_centroids, vector_len).
-        residual_indices: (optional) Tensor[uint16|uint8], the indices for 
+        residual_indices: (optional) Tensor[uint16|uint8], the indices for
                           the residual quantization component.
         residual_centroids: (optional) Tensor[fp16|bf16], has a shape of
                             (num_codebooks, num_residual_centroids, vector_len).
-        scale_weights: (optional) Tensor[fp16|bf16], has a shape of 
-                       (in_feature, 1), the scale factor for the quantized 
+        scale_weights: (optional) Tensor[fp16|bf16], has a shape of
+                       (in_feature, 1), the scale factor for the quantized
                        weight.
-        scale_bias: (optional) Tensor[fp16|bf16], has a shape of 
+        scale_bias: (optional) Tensor[fp16|bf16], has a shape of
                     (in_feature, 1), the bias factor for the quantized weight.
         vector_len: int, the length of the vector in vector quantization.
         num_codebooks: int, the number of codebooks.

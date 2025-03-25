@@ -104,11 +104,6 @@ torch::Tensor quant_gemv_v2(
   int block_z = divup<int64_t, int64_t, int64_t>(out_features, vec_len);
   dim3 blocks(batch * seq_length, num_codebooks, block_z);
 
-  // FIXME(ying): refine the choice of threads in a thread block.
-  // For test at the moment.
-  static const int kThreads = 4 * WARP_SIZE;
-  dim3 threads(kThreads, 1, 1);
-
   // TODO(ying): this is hardware dependent. Need to make it
   // adaptive.
   const int kMaxSmemPerBlock = 48 * 1024;
@@ -163,6 +158,11 @@ torch::Tensor quant_gemv_v2(
             cudaFuncSetAttribute(
                 kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
           }
+
+          // FIXME(ying): refine the choice of threads in a thread block.
+          // in the current implementation, kThreads is defined in the dispatch
+          // macros according to the num_res_centroids.
+          dim3 threads(kThreads, 1, 1);
 
           kernel<<<blocks, threads, smem_size, stream>>>(
               reinterpret_cast<DType*>(output.mutable_data_ptr()),

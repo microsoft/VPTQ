@@ -67,16 +67,19 @@
       case 0: {                                                        \
         static constexpr int kNumResCentroids = 0;                     \
         using ResIdType = uint8_t;                                     \
+        static constexpr int kThreads = 128;                           \
         return __VA_ARGS__();                                          \
       }                                                                \
       case 256: {                                                      \
         static constexpr int kNumResCentroids = 256;                   \
         using ResIdType = uint8_t;                                     \
+        static constexpr int kThreads = 128;                           \
         return __VA_ARGS__();                                          \
       }                                                                \
       case 512: {                                                      \
         static constexpr int kNumResCentroids = 512;                   \
         using ResIdType = uint16_t;                                    \
+        static constexpr int kThreads = 256;                           \
         return __VA_ARGS__();                                          \
       }                                                                \
       default:                                                         \
