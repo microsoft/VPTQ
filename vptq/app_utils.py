@@ -29,8 +29,7 @@ A typical usage is:
         "--model",
         type=str,
         required=True,
-        help=("float/float16 model to load, "
-              "such as [mosaicml/mpt-7b]")
+        help=("float/float16 model to load, " "such as [mosaicml/mpt-7b]"),
     )
     parser.add_argument(
         "--tokenizer", type=str, default="", help="default same as [model]"
@@ -39,7 +38,7 @@ A typical usage is:
         "--prompt",
         type=str,
         default="once upon a time, there ",
-        help="prompt to start generation"
+        help="prompt to start generation",
     )
     parser.add_argument(
         "--chat", action="store_true", help="chat with the model"
@@ -48,7 +47,7 @@ A typical usage is:
         "--chat-system-prompt",
         type=str,
         default="you are a math teacher.",
-        help="system prompt for chat"
+        help="system prompt for chat",
     )
     return parser
 
@@ -71,10 +70,12 @@ def chat_loop(model, tokenizer, args):
         eval_prompt(model, tokenizer, args)
         return
     # "you are a math teacher."
-    print((
-        "============================chat with the model"
-        "============================"
-    ))
+    print(
+        (
+            "============================chat with the model"
+            "============================"
+        )
+    )
     print("Press 'exit' to quit")
     messages = [{"role": "system", "content": args.chat_system_prompt}]
 
@@ -90,16 +91,16 @@ def chat_loop(model, tokenizer, args):
             messages, add_generation_prompt=True, return_tensors="pt"
         )
         model_inputs = encodeds.to(model.device)
-        print("assistant: ", end='')
+        print("assistant: ", end="")
         generated_ids = model.generate(
             model_inputs,
             streamer=streamer,
             pad_token_id=2,
             max_new_tokens=500,
-            do_sample=True
+            do_sample=True,
         )
         decoded = tokenizer.batch_decode(
-            generated_ids[:, model_inputs.shape[-1]:], skip_special_tokens=True
+            generated_ids[:, model_inputs.shape[-1] :], skip_special_tokens=True
         )
         messages.append({"role": "assistant", "content": decoded[0]})
 
@@ -125,12 +126,14 @@ def get_chat_loop_generator(model_id):
         max_tokens: int,
         stream: bool = True,
         temperature: float = 1.0,
-        top_p: float = 1.0
+        top_p: float = 1.0,
     ):
-        print((
-            "============================chat with the model"
-            "============================"
-        ))
+        print(
+            (
+                "============================chat with the model"
+                "============================"
+            )
+        )
         print("Press 'exit' to quit")
 
         streamer = transformers.TextIteratorStreamer(
@@ -150,7 +153,7 @@ def get_chat_loop_generator(model_id):
             pad_token_id=2,
             do_sample=True,
             temperature=temperature,
-            top_p=top_p
+            top_p=top_p,
         )
         thread = Thread(target=model.generate, kwargs=generation_kwargs)
         thread.start()

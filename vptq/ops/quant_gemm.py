@@ -25,15 +25,19 @@ try:
     print("Successfully loaded VPTQ CUDA kernels.")
     __cuda_ops_installed = True
 except Exception as error:
-    print((
-        f"{error}\n"
-        "!!! Warning !!!: CUDA kernels are not found, "
-        "please check CUDA and VPTQ installation."
-    ))
-    print((
-        "!!! Warning !!!: Running on Torch implementations, "
-        "which is extremely slow."
-    ))
+    print(
+        (
+            f"{error}\n"
+            "!!! Warning !!!: CUDA kernels are not found, "
+            "please check CUDA and VPTQ installation."
+        )
+    )
+    print(
+        (
+            "!!! Warning !!!: Running on Torch implementations, "
+            "which is extremely slow."
+        )
+    )
 
 
 def dequant(
@@ -61,7 +65,7 @@ def dequant(
     outlier_size: int,
     vector_len: int,
     outlier_vector_len: int,
-    vector_quant_dim: str = "out"
+    vector_quant_dim: str = "out",
 ) -> torch.Tensor:
     if vector_quant_dim == "in":
         raise ValueError("Not implemented yet.")
@@ -78,7 +82,7 @@ def dequant(
             index_bits=index_bits,
             num_elements=group_size,
             res_bits=index_res_bits,
-            num_res_elements=group_size
+            num_res_elements=group_size,
         )
     else:
         indices = indices.view(torch.uint16).to(torch.int64)
@@ -179,10 +183,9 @@ def quant_gemm(
     out_features: int,
     padding: int,
     outlier_padding: int,
-    vector_quant_dim: str = "out"
+    vector_quant_dim: str = "out",
 ) -> torch.Tensor:
-    """Dequantize the input tensor and perform GEMM operation.
-    """
+    """Dequantize the input tensor and perform GEMM operation."""
     centroids_ = centroids.view(num_codebooks, num_centroids, vector_len)
 
     residual_centroids_ = None
@@ -266,7 +269,7 @@ def quant_gemm(
                 outlier_vector_len=outlier_vector_len,
                 padding=padding,
                 outlier_padding=outlier_padding,
-                vector_quant_dim=vector_quant_dim
+                vector_quant_dim=vector_quant_dim,
             )
         out = F.linear(x, weight, bias)
         return out
@@ -287,7 +290,7 @@ def quant_gemv_v2(
     num_residual_centroids: int,
     out_features: int,
 ) -> torch.Tensor:
-    """ Dequantize the input tensor and perform GEMV operation.
+    """Dequantize the input tensor and perform GEMV operation.
 
     Args:
         x: Tensor[fp16|bf16], has a shape of (batch_size, sequence_length,
@@ -333,10 +336,12 @@ def quant_gemv_v2(
         residual_centroids_ = residual_centroids.view(shape)
 
     if x.numel() // x.shape[-1] >= 16:
-        raise RuntimeError((
-            "The input tensor is too large for GEMV to "
-            "achieve good performance. Please use quant_gemm instead."
-        ))
+        raise RuntimeError(
+            (
+                "The input tensor is too large for GEMV to "
+                "achieve good performance. Please use quant_gemm instead."
+            )
+        )
 
     return vptq_ops.quant_gemv_v2(
         x,

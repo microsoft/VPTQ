@@ -71,7 +71,7 @@ class VQuantLinear(nn.Module):
         vector_quant_dim: str = "out",
         device=None,
         dtype=None,
-        enable_proxy_error=True
+        enable_proxy_error=True,
     ):
         super().__init__()
         if vector_quant_dim not in ["in", "out"]:
@@ -131,15 +131,19 @@ class VQuantLinear(nn.Module):
 
         if self.enable_outlier:
             if self.vector_quant_dim != "out":
-                raise ValueError((
-                    "Currently outlier is only supported for "
-                    "vector quantization on out_features."
-                ))
+                raise ValueError(
+                    (
+                        "Currently outlier is only supported for "
+                        "vector quantization on out_features."
+                    )
+                )
             if self.outlier_num_res_centroids != -1:
-                raise ValueError((
-                    "Current implementation does not support residual "
-                    "quantization on outliers yet."
-                ))
+                raise ValueError(
+                    (
+                        "Current implementation does not support residual "
+                        "quantization on outliers yet."
+                    )
+                )
 
             self.outlier_padding = (
                 -self.out_features
@@ -155,7 +159,7 @@ class VQuantLinear(nn.Module):
             shape = (1, self.ouliter_num_indices, self.outlier_size)
             self.outlier_indices = Parameter(
                 torch.empty(shape, dtype=index_type, device=device),
-                requires_grad=False
+                requires_grad=False,
             )
 
         # === 3. set centroids and indices for the residual quantization
@@ -166,8 +170,9 @@ class VQuantLinear(nn.Module):
         if self.enable_residual:
             self.res_indices = None
             self.res_centroids = nn.Embedding(
-                self.num_codebooks, self.num_res_centroids * self.vector_len,
-                **factory_kwargs
+                self.num_codebooks,
+                self.num_res_centroids * self.vector_len,
+                **factory_kwargs,
             )
             if self.is_indice_packed is False:
                 # NOTE: When `is_indice_packed` is True, indices for the main
@@ -187,7 +192,7 @@ class VQuantLinear(nn.Module):
             perm_dtype = torch.int16 if self.is_indice_packed else torch.int64
             self.perm = Parameter(
                 torch.arange(self.in_features, device=device, dtype=perm_dtype),
-                requires_grad=False
+                requires_grad=False,
             )
 
         # === 5. process normalization of the output
@@ -197,11 +202,11 @@ class VQuantLinear(nn.Module):
         if self.enable_norm:
             self.weight_scale = Parameter(
                 torch.empty(self.in_features, **factory_kwargs),
-                requires_grad=True
+                requires_grad=True,
             )
             self.weight_bias = Parameter(
                 torch.empty(self.in_features, **factory_kwargs),
-                requires_grad=True
+                requires_grad=True,
             )
 
         # === 6. process packed indices
@@ -231,7 +236,7 @@ class VQuantLinear(nn.Module):
             shape = (self.num_codebooks, self.num_indices, self.group_size)
             self.indices = Parameter(
                 torch.empty(shape, dtype=dtype, device=device),
-                requires_grad=False
+                requires_grad=False,
             )
 
     def init_parameters(
@@ -242,7 +247,7 @@ class VQuantLinear(nn.Module):
         res_indices=None,
         weight_scale=None,
         weight_bias=None,
-        perm=None
+        perm=None,
     ):
         # step 1, handle main centroids and indices
         _centroids = []
@@ -268,13 +273,15 @@ class VQuantLinear(nn.Module):
 
         index_type = torch.float16 if self.indices_as_float else torch.uint16
         device = self.centroids.weight.device
-        self.indices.data = _indices.to(torch.uint16
-                                       ).view(index_type).to(device)
+        self.indices.data = (
+            _indices.to(torch.uint16).view(index_type).to(device)
+        )
 
         # step 2, handle outliers
         if self.enable_outlier:
-            outlier_centroids = centroids[0].clone().detach(
-            ).requires_grad_(True)
+            outlier_centroids = (
+                centroids[0].clone().detach().requires_grad_(True)
+            )
             outlier_centroids = outlier_centroids.reshape(
                 1, self.num_outlier_centroids * self.outlier_vector_len
             )
@@ -284,9 +291,13 @@ class VQuantLinear(nn.Module):
             device = self.outlier_centroids.weight.device
 
             dtype = torch.float16 if self.indices_as_float else torch.int16
-            outlier_indices = outlier_indices.clone().detach().to(
-                torch.uint16
-            ).view(dtype).to(device)
+            outlier_indices = (
+                outlier_indices.clone()
+                .detach()
+                .to(torch.uint16)
+                .view(dtype)
+                .to(device)
+            )
 
             if len(outlier_indices.shape) == 2:
                 outlier_indices = outlier_indices.unsqueeze(0)
@@ -318,8 +329,9 @@ class VQuantLinear(nn.Module):
 
             device = self.res_centroids.weight.device
             dtype = torch.float16 if self.indices_as_float else torch.uint16
-            self.res_indices.data = _res_indices.to(torch.uint16
-                                                   ).view(dtype).to(device)
+            self.res_indices.data = (
+                _res_indices.to(torch.uint16).view(dtype).to(device)
+            )
 
         device = self.centroids.weight.device
         if self.enable_norm:
@@ -380,7 +392,7 @@ class VQuantLinear(nn.Module):
             out_features=self.out_features,
             padding=self.padding,
             outlier_padding=self.outlier_padding,
-            vector_quant_dim=self.vector_quant_dim
+            vector_quant_dim=self.vector_quant_dim,
         )
         return output
 
@@ -410,7 +422,7 @@ class VQuantLinear(nn.Module):
             outlier_size=self.outlier_size,
             vector_len=self.vector_len,
             outlier_vector_len=self.outlier_vector_len,
-            vector_quant_dim=self.vector_quant_dim
+            vector_quant_dim=self.vector_quant_dim,
         )
 
         diff_weight = qweight - W
@@ -458,7 +470,7 @@ class VQuantLinear(nn.Module):
                 res_vectors,
                 self.res_centroids.weight.view(
                     self.num_codebooks, self.num_centroids, self.vector_len
-                )
+                ),
             )
         # reshape indices and res_indices
         indices = indices.reshape(self.in_features, -1)
@@ -497,7 +509,7 @@ class VQuantLinear(nn.Module):
             outlier_size=self.outlier_size,
             vector_len=self.vector_len,
             outlier_vector_len=self.outlier_vector_len,
-            vector_quant_dim=self.vector_quant_dim
+            vector_quant_dim=self.vector_quant_dim,
         )
         delta_w = hatW - W
         w_mean = torch.mean(W.T @ W * H)

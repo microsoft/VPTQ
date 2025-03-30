@@ -32,8 +32,9 @@ def get_requirements():
 
 
 def get_cuda_bare_metal_version(cuda_dir):
-    raw_output = subprocess.check_output([cuda_dir + "/bin/nvcc", "-V"],
-                                         universal_newlines=True)
+    raw_output = subprocess.check_output(
+        [cuda_dir + "/bin/nvcc", "-V"], universal_newlines=True
+    )
     output = raw_output.split()
     release_idx = output.index("release") + 1
     bare_metal_version = parse(output[release_idx].split(",")[0])
@@ -49,25 +50,27 @@ def nvcc_threads():
 
 
 class CMakeExtension(Extension):
-    """ specify the root folder of the CMake projects"""
+    """specify the root folder of the CMake projects"""
 
     def __init__(self, name, cmake_lists_dir=".", **kwargs):
         Extension.__init__(self, name, sources=[], **kwargs)
         self.cmake_lists_dir = os.path.abspath(cmake_lists_dir)
 
         if os.path.isdir(".git"):
-            subprocess.run([
-                "git", "submodule", "update", "--init", "third_party/cutlass"
-            ],
-                           check=True)
+            subprocess.run(
+                ["git", "submodule", "update", "--init", "third_party/cutlass"],
+                check=True,
+            )
         else:
             if not os.path.exists(
                 "third_party/cutlass/include/cutlass/cutlass.h"
             ):
-                raise RuntimeError((
-                    "third_party/cutlass is missing, "
-                    "please use source distribution or git clone"
-                ))
+                raise RuntimeError(
+                    (
+                        "third_party/cutlass is missing, "
+                        "please use source distribution or git clone"
+                    )
+                )
 
 
 class CMakeBuildExt(build_ext):
@@ -83,9 +86,11 @@ class CMakeBuildExt(build_ext):
         except OSError:
             raise RuntimeError("Cannot find CMake executable") from None
 
-        debug = int(
-            os.environ.get("DEBUG", 0)
-        ) if self.debug is None else self.debug
+        debug = (
+            int(os.environ.get("DEBUG", 0))
+            if self.debug is None
+            else self.debug
+        )
         cfg = "Debug" if debug else "Release"
 
         # Set CUDA_ARCH_LIST to build the shared library
@@ -108,10 +113,16 @@ class CMakeBuildExt(build_ext):
                 "-DCMAKE_BUILD_TYPE=%s" % cfg,
                 "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}".format(
                     cfg.upper(), extdir
-                ), "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{}={}".format(
+                ),
+                "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{}={}".format(
                     cfg.upper(), self.build_temp
-                ), "-DUSER_CUDA_ARCH_LIST={}".format(arch_list) if arch_list
-                else "", "-DNVCC_THREADS={}".format(nvcc_threads())
+                ),
+                (
+                    "-DUSER_CUDA_ARCH_LIST={}".format(arch_list)
+                    if arch_list
+                    else ""
+                ),
+                "-DNVCC_THREADS={}".format(nvcc_threads()),
             ]
 
             # Adding CMake arguments set as environment variable
@@ -128,8 +139,9 @@ class CMakeBuildExt(build_ext):
             # Set CMAKE_BUILD_PARALLEL_LEVEL to control the parallel build level
             # across all generators.
             if (
-                "CMAKE_BUILD_PARALLEL_LEVEL" not in os.environ and
-                hasattr(self, "parallel") and self.parallel
+                "CMAKE_BUILD_PARALLEL_LEVEL" not in os.environ
+                and hasattr(self, "parallel")
+                and self.parallel
             ):
                 build_args += [f"-j{self.parallel}"]
 
@@ -138,12 +150,14 @@ class CMakeBuildExt(build_ext):
                 build_temp.mkdir(parents=True)
 
             # Config
-            subprocess.check_call(["cmake", ext.cmake_lists_dir] + cmake_args,
-                                  cwd=self.build_temp)
+            subprocess.check_call(
+                ["cmake", ext.cmake_lists_dir] + cmake_args, cwd=self.build_temp
+            )
 
             # Build
-            subprocess.check_call(["cmake", "--build", "."] + build_args,
-                                  cwd=self.build_temp)
+            subprocess.check_call(
+                ["cmake", "--build", "."] + build_args, cwd=self.build_temp
+            )
 
 
 class Develop(develop):

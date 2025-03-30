@@ -32,19 +32,21 @@ def pack_index(
     as_dtype: torch.dtype = torch.int32,
 ) -> torch.Tensor:
     total_bits = index_bits + res_bits
-    assert total_bits <= 32, \
-        f"total index bits {total_bits} should be less than 32"
+    assert (
+        total_bits <= 32
+    ), f"total index bits {total_bits} should be less than 32"
     assert as_dtype in [torch.int32], "as_dtype should be int32"
 
     # upcast the indice to uint64 to avoid overflow on signed bit
     if res_indice is not None:
         merged_indice = (
-            res_indice.view(index_dtype).to(torch.uint64).view(torch.int64) <<
-            index_bits
+            res_indice.view(index_dtype).to(torch.uint64).view(torch.int64)
+            << index_bits
         ) | indice.view(index_dtype).to(torch.uint64).view(torch.int64)
     else:
-        merged_indice = indice.view(index_dtype).to(torch.uint64
-                                                   ).view(torch.int64)
+        merged_indice = (
+            indice.view(index_dtype).to(torch.uint64).view(torch.int64)
+        )
 
     # merge the indice
     wf = torch.arange(0, total_bits).to(merged_indice.device).view(1, 1, 1, -1)
@@ -111,15 +113,17 @@ def unpack_index_tensor(
     wf = torch.arange(0, 32, 1).to(packed_tensor.device).view(1, 1, 1, -1)
     out = torch.bitwise_right_shift(torch.unsqueeze(packed_tensor, -1), wf)
     torch.bitwise_and(out, 1, out=out)
-    pad_size = (packed_tensor.shape[-1] *
-                32) % (index_bits * num_elements + res_bits * num_res_elements)
+    pad_size = (packed_tensor.shape[-1] * 32) % (
+        index_bits * num_elements + res_bits * num_res_elements
+    )
     out = out.reshape(*packed_tensor.shape[:-1], -1)
     if pad_size > 0:
         out = out[..., :-pad_size]
     out = out.reshape(*packed_tensor.shape[:-1], -1, total_bits)
     wf1 = (
-        torch.arange(0, total_bits,
-                     1).to(packed_tensor.device).view(1, 1, 1, -1)
+        torch.arange(0, total_bits, 1)
+        .to(packed_tensor.device)
+        .view(1, 1, 1, -1)
     )
     out = torch.bitwise_left_shift(out, wf1).sum(dim=-1)
 
@@ -150,51 +154,61 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
     quantization_config["config_for_layers"] = {}
 
     for mod_name, sub_mod in model.named_modules():
-        # logger.debug(f'mod_name: {mod_name}, sub_mod: {sub_mod}')
         if "VQuantLinear" in str(type(sub_mod)):
-            # sub_mod.cuda()
 
             if sub_mod.indices.dtype == torch.int64:
                 sub_mod.indices.data = dtype_convert(
-                    sub_mod.indices.data, sub_mod.indices.data.dtype, to_dtype,
-                    as_type
+                    sub_mod.indices.data,
+                    sub_mod.indices.data.dtype,
+                    to_dtype,
+                    as_type,
                 )
             else:
                 sub_mod.indices.data = dtype_convert(
                     sub_mod.indices.data, from_dtype, to_dtype, as_type
                 )
 
-            if hasattr(
-                sub_mod, "res_indices"
-            ) and sub_mod.res_indices is not None:
+            if (
+                hasattr(sub_mod, "res_indices")
+                and sub_mod.res_indices is not None
+            ):
                 if sub_mod.res_indices.dtype == torch.int64:
                     sub_mod.res_indices.data = dtype_convert(
                         sub_mod.res_indices.data,
-                        sub_mod.res_indices.data.dtype, to_dtype, as_type
+                        sub_mod.res_indices.data.dtype,
+                        to_dtype,
+                        as_type,
                     )
                 else:
                     sub_mod.res_indices.data = dtype_convert(
                         sub_mod.res_indices.data, from_dtype, to_dtype, as_type
                     )
 
-            if hasattr(
-                sub_mod, "outlier_indices"
-            ) and sub_mod.outlier_indices is not None:
+            if (
+                hasattr(sub_mod, "outlier_indices")
+                and sub_mod.outlier_indices is not None
+            ):
                 if sub_mod.outlier_indices.dtype == torch.int64:
                     sub_mod.outlier_indices.data = dtype_convert(
                         sub_mod.outlier_indices.data,
-                        sub_mod.outlier_indices.data.dtype, to_dtype, as_type
+                        sub_mod.outlier_indices.data.dtype,
+                        to_dtype,
+                        as_type,
                     )
                 else:
                     sub_mod.outlier_indices.data = dtype_convert(
-                        sub_mod.outlier_indices.data, from_dtype, to_dtype,
-                        as_type
+                        sub_mod.outlier_indices.data,
+                        from_dtype,
+                        to_dtype,
+                        as_type,
                     )
 
             if sub_mod.perm.dtype == torch.int64:
                 sub_mod.perm.data = dtype_convert(
-                    sub_mod.perm.data, sub_mod.perm.data.dtype, to_dtype,
-                    as_type
+                    sub_mod.perm.data,
+                    sub_mod.perm.data.dtype,
+                    to_dtype,
+                    as_type,
                 )
             else:
                 sub_mod.perm.data = dtype_convert(
@@ -205,18 +219,22 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
                 indice=sub_mod.indices,
                 index_bits=int(math.log2(sub_mod.num_centroids)),
                 res_indice=sub_mod.res_indices,
-                res_bits=int(math.log2(sub_mod.num_res_centroids))
-                if sub_mod.res_indices is not None else 0,
+                res_bits=(
+                    int(math.log2(sub_mod.num_res_centroids))
+                    if sub_mod.res_indices is not None
+                    else 0
+                ),
                 index_dtype=to_dtype,
             ).data
 
             sub_mod.res_indices = None
 
-            # sub_mod.cpu()
-            quantization_config["config_for_layers"][mod_name
-                                                    ] = sub_mod.init_args
+            quantization_config["config_for_layers"][
+                mod_name
+            ] = sub_mod.init_args
             quantization_config["config_for_layers"][mod_name][
-                "is_indice_packed"] = True
+                "is_indice_packed"
+            ] = True
 
     if hasattr(model.config, "text_config"):
         model.config.text_config.quantization_config = quantization_config
@@ -234,8 +252,9 @@ def fix_tensor_in_config(model):
     quantization_config = config_dict["quantization_config"]
     for layer_name, layer_config in quantization_config.items():
         if (
-            isinstance(layer_config, Dict) and "bias" in layer_config and
-            isinstance(layer_config["bias"], torch.Tensor)
+            isinstance(layer_config, Dict)
+            and "bias" in layer_config
+            and isinstance(layer_config["bias"], torch.Tensor)
         ):
             # logger.debug(f'Layer {layer_name} has a bias tensor')
             # Update bias to True
@@ -264,19 +283,19 @@ def pack_model(qmodel, from_type, to_type, as_type):
 
 
 def absorb_perm_layer(layer):
-    if not hasattr(layer, 'enable_perm') or not layer.enable_perm:
+    if not hasattr(layer, "enable_perm") or not layer.enable_perm:
         return False
 
     if layer.group_num > 1:
         logger.debug(
-            f'{layer.name} has {layer.group_num} groups, \
-                skipping perm absorption'
+            f"{layer.name} has {layer.group_num} groups, \
+                skipping perm absorption"
         )
         return False
 
     logger.debug(
-        f'layer.enable_perm: {layer.enable_perm}, \
-            perm dtype: {layer.perm.dtype}'
+        f"layer.enable_perm: {layer.enable_perm}, \
+            perm dtype: {layer.perm.dtype}"
     )
     # Get inverse permutation
     if layer.is_indice_packed:
@@ -289,14 +308,16 @@ def absorb_perm_layer(layer):
     # Rotate indices based on permutation
     if layer.is_indice_packed:
         index_bits = int(math.log2(layer.num_centroids))
-        index_res_bits = int(
-            math.log2(layer.num_res_centroids)
-        ) if layer.enable_residual else 0
-        logger.debug(
-            f'index_bits: {index_bits}, index_res_bits: {index_res_bits}'
+        index_res_bits = (
+            int(math.log2(layer.num_res_centroids))
+            if layer.enable_residual
+            else 0
         )
-        logger.debug(f'packed layer.indices shape: {layer.indices.shape}')
-        logger.debug(f'layer.group_size: {layer.group_size}')
+        logger.debug(
+            f"index_bits: {index_bits}, index_res_bits: {index_res_bits}"
+        )
+        logger.debug(f"packed layer.indices shape: {layer.indices.shape}")
+        logger.debug(f"layer.group_size: {layer.group_size}")
 
         # Unpack indices
         indices, res_indices = unpack_index_tensor(
@@ -308,12 +329,12 @@ def absorb_perm_layer(layer):
         )
 
         logger.debug(
-            f'unpack indices shape: {indices.shape}, dtype: {indices.dtype}'
+            f"unpack indices shape: {indices.shape}, dtype: {indices.dtype}"
         )
         if res_indices is not None:
             logger.debug(
-                f'unpack res_indices shape: {res_indices.shape}, \
-                    dtype: {res_indices.dtype}'
+                f"unpack res_indices shape: {res_indices.shape}, \
+                    dtype: {res_indices.dtype}"
             )
 
         # Apply permutation
@@ -329,9 +350,9 @@ def absorb_perm_layer(layer):
                 res_indices, torch.int64, torch.uint16, torch.uint16
             )
 
-        logger.debug(f'perm indices shape: {indices.shape}')
+        logger.debug(f"perm indices shape: {indices.shape}")
         if res_indices is not None:
-            logger.debug(f'perm res_indices shape: {res_indices.shape}')
+            logger.debug(f"perm res_indices shape: {res_indices.shape}")
 
         # Pack indices back
         packed_indices = pack_index(
@@ -339,11 +360,11 @@ def absorb_perm_layer(layer):
             index_bits=index_bits,
             res_indice=res_indices if layer.enable_residual else None,
             res_bits=index_res_bits if layer.enable_residual else 0,
-            index_dtype=torch.uint16
+            index_dtype=torch.uint16,
         )
 
         # work around for packed indices shape
-        logger.debug(f'packed_indices shape: {packed_indices.shape}')
+        logger.debug(f"packed_indices shape: {packed_indices.shape}")
 
         # Ensure packed shape matches original
         if packed_indices.shape != layer.indices.shape:
@@ -353,20 +374,18 @@ def absorb_perm_layer(layer):
             )
 
         layer.indices.data = packed_indices
-        logger.debug(f'repacked layer.indices shape: {layer.indices.shape}')
-        logger.debug('-------')
+        logger.debug(f"repacked layer.indices shape: {layer.indices.shape}")
+        logger.debug("-------")
     else:
         indices = layer.indices
-        # indices = indices[..., invert_perm]
         layer.indices.data = indices
 
         if layer.enable_residual:
             res_indices = layer.res_indices
-            # res_indices = res_indices[..., invert_perm]
             layer.res_indices.data = res_indices
 
     # Handle weight scale and bias if enable_norm is True
-    if layer.enable_norm and hasattr(layer, 'norm_dim') is False:
+    if layer.enable_norm and hasattr(layer, "norm_dim") is False:
         layer.norm_dim = 0
 
     # # Disable permutation
@@ -395,16 +414,21 @@ def absorb_perm(model):
     # update config
     if absorbed_perm:
         if "config_for_layers" in model.config.quantization_config:
-            for operator in model.config.quantization_config["config_for_layers"
-                                                            ]:
+            for operator in model.config.quantization_config[
+                "config_for_layers"
+            ]:
                 if model.config.quantization_config["config_for_layers"][
-                    operator]["enable_perm"]:
+                    operator
+                ]["enable_perm"]:
                     model.config.quantization_config["config_for_layers"][
-                        operator]["enable_perm"] = False
+                        operator
+                    ]["enable_perm"] = False
         elif "shared_layer_config" in model.config.quantization_config:
             for operator in model.config.quantization_config[
-                "shared_layer_config"]:
+                "shared_layer_config"
+            ]:
                 model.config.quantization_config["shared_layer_config"][
-                    operator]["enable_perm"] = False
+                    operator
+                ]["enable_perm"] = False
 
     return model

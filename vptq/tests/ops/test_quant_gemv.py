@@ -31,8 +31,11 @@ def _create_indices(
 
 
 def _create_tensor(
-    size: tuple[int, ...], mean: float, std: float, dtype: torch.dtype,
-    device: torch.device
+    size: tuple[int, ...],
+    mean: float,
+    std: float,
+    dtype: torch.dtype,
+    device: torch.device,
 ) -> torch.Tensor:
     return torch.normal(
         mean=mean,
@@ -66,10 +69,12 @@ def ground_truth(
             ("indices and residual_indices must have the same shape.")
         )
     if num_decoding != in_features * out_features // vector_len:
-        raise ValueError((
-            "indices must have the same shape as "
-            "in_features * out_features // vector_len."
-        ))
+        raise ValueError(
+            (
+                "indices must have the same shape as "
+                "in_features * out_features // vector_len."
+            )
+        )
 
     # construct dequantized weights
     shape = (in_features, out_features)
@@ -83,10 +88,10 @@ def ground_truth(
         col = i // in_features * vector_len
 
         ids = indices[i]
-        main_weights[row, col:col + vector_len] = centroids[0, ids, :]
+        main_weights[row, col : col + vector_len] = centroids[0, ids, :]
 
         res_ids = res_indices[i]
-        res_weights[row, col:col + vector_len] = res_centroids[0, res_ids, :]
+        res_weights[row, col : col + vector_len] = res_centroids[0, res_ids, :]
 
     weights = main_weights + res_weights
     weights = scale_weights * weights + scale_bias
@@ -113,28 +118,33 @@ def test_data(request):
     params = request.param
 
     # Test parameters
-    batch_size = params.get('batch_size', 1)
-    length = params.get('length', 1)
-    in_features = params.get('in_features', 1024)
-    out_features = params.get('out_features', 2048)
-    num_codebooks = params.get('num_codebooks', 1)
-    vector_length = params.get('vector_length', 8)
-    num_centroids = params.get('num_centroids', 8192)
-    num_res_centroids = params.get('num_res_centroids', 256)
-    mean = params.get('mean', 2e-2)
-    std = params.get('std', 0.5)
-    dtype = params.get('dtype', torch.bfloat16)
-    device = params.get('device', torch.device("cuda", 0))
+    batch_size = params.get("batch_size", 1)
+    length = params.get("length", 1)
+    in_features = params.get("in_features", 1024)
+    out_features = params.get("out_features", 2048)
+    num_codebooks = params.get("num_codebooks", 1)
+    vector_length = params.get("vector_length", 8)
+    num_centroids = params.get("num_centroids", 8192)
+    num_res_centroids = params.get("num_res_centroids", 256)
+    mean = params.get("mean", 2e-2)
+    std = params.get("std", 0.5)
+    dtype = params.get("dtype", torch.bfloat16)
+    device = params.get("device", torch.device("cuda", 0))
 
     # Generate test data
-    x = _create_tensor((batch_size, length, in_features), mean, std, dtype,
-                       device)
+    x = _create_tensor(
+        (batch_size, length, in_features), mean, std, dtype, device
+    )
 
-    centroids = _create_tensor((num_codebooks, num_centroids, vector_length),
-                               mean, std, dtype, device)
+    centroids = _create_tensor(
+        (num_codebooks, num_centroids, vector_length), mean, std, dtype, device
+    )
     res_centroids = _create_tensor(
-        (num_codebooks, num_res_centroids, vector_length), mean, std, dtype,
-        device
+        (num_codebooks, num_res_centroids, vector_length),
+        mean,
+        std,
+        dtype,
+        device,
     )
     bias = None
     scale_weights = _create_tensor((in_features, 1), mean, std, dtype, device)
@@ -187,30 +197,30 @@ def compare_float_tensors(tensor1: torch.Tensor, tensor2: torch.Tensor):
 test_configs = [
     # residual indices are stored in uint8
     {
-        'name': 'residual_indices_uint8',
-        'batch_size': 1,
-        'length': 1,
-        'in_features': 1024,
-        'out_features': 2048,
-        'vector_length': 8,
-        'num_centroids': 8192,
-        'num_res_centroids': 256,  #  indices are stored in uint8
+        "name": "residual_indices_uint8",
+        "batch_size": 1,
+        "length": 1,
+        "in_features": 1024,
+        "out_features": 2048,
+        "vector_length": 8,
+        "num_centroids": 8192,
+        "num_res_centroids": 256,  #  indices are stored in uint8
     },
     # residual indices are stored in uint16
     {
-        'name': 'residual_indices_uint16',
-        'batch_size': 1,
-        'length': 1,
-        'in_features': 1024,
-        'out_features': 1024,
-        'vector_length': 8,
-        'num_centroids': 8192,
-        'num_res_centroids': 512,  #  indices are stored in uint16
+        "name": "residual_indices_uint16",
+        "batch_size": 1,
+        "length": 1,
+        "in_features": 1024,
+        "out_features": 1024,
+        "vector_length": 8,
+        "num_centroids": 8192,
+        "num_res_centroids": 512,  #  indices are stored in uint16
     },
 ]
 
 
-@pytest.mark.parametrize('test_data', test_configs, indirect=True)
+@pytest.mark.parametrize("test_data", test_configs, indirect=True)
 def test_quant_gemv(test_data):
     """
     Test the quant_gemv operation against ground truth with different
@@ -292,27 +302,32 @@ def test_data_factory(config):
     torch.manual_seed(1234)
 
     # Test parameters
-    batch_size = config.get('batch_size', 1)
-    length = config.get('length', 1)
-    in_features = config.get('in_features', 1024)
-    out_features = config.get('out_features', 2048)
-    num_codebooks = config.get('num_codebooks', 1)
-    vector_length = config.get('vector_length', 8)
-    num_centroids = config.get('num_centroids', 8192)
-    num_res_centroids = config.get('num_res_centroids', 256)
-    mean = config.get('mean', 2e-2)
-    std = config.get('std', 0.5)
-    dtype = config.get('dtype', torch.bfloat16)
-    device = config.get('device', torch.device("cuda", 0))
+    batch_size = config.get("batch_size", 1)
+    length = config.get("length", 1)
+    in_features = config.get("in_features", 1024)
+    out_features = config.get("out_features", 2048)
+    num_codebooks = config.get("num_codebooks", 1)
+    vector_length = config.get("vector_length", 8)
+    num_centroids = config.get("num_centroids", 8192)
+    num_res_centroids = config.get("num_res_centroids", 256)
+    mean = config.get("mean", 2e-2)
+    std = config.get("std", 0.5)
+    dtype = config.get("dtype", torch.bfloat16)
+    device = config.get("device", torch.device("cuda", 0))
 
     # Generate test data
-    x = _create_tensor((batch_size, length, in_features), mean, std, dtype,
-                       device)
-    centroids = _create_tensor((num_codebooks, num_centroids, vector_length),
-                               mean, std, dtype, device)
+    x = _create_tensor(
+        (batch_size, length, in_features), mean, std, dtype, device
+    )
+    centroids = _create_tensor(
+        (num_codebooks, num_centroids, vector_length), mean, std, dtype, device
+    )
     res_centroids = _create_tensor(
-        (num_codebooks, num_res_centroids, vector_length), mean, std, dtype,
-        device
+        (num_codebooks, num_res_centroids, vector_length),
+        mean,
+        std,
+        dtype,
+        device,
     )
     bias = None
     scale_weights = _create_tensor((in_features, 1), mean, std, dtype, device)

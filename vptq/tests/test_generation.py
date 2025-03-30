@@ -43,7 +43,7 @@ class TestGeneration(unittest.TestCase):
         out = self.model.generate(
             **inputs,
             max_new_tokens=self.max_new_tokens,
-            pad_token_id=self.pad_token_id
+            pad_token_id=self.pad_token_id,
         )
         output_string = self.tokenizer.decode(out[0], skip_special_tokens=True)
 
