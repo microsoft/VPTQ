@@ -2,7 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import glob
 import os
+import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -21,14 +24,6 @@ def get_version():
             if "version" in line:
                 return line.split("=")[-1].strip().strip('"')
     return "0.0.1"
-
-
-def get_requirements():
-    """Get Python package dependencies from requirements.txt."""
-    with open(cur_path / "requirements.txt") as f:
-        requirements = f.read().strip().split("\n")
-    requirements = [req for req in requirements if "https" not in req]
-    return requirements
 
 
 def get_cuda_bare_metal_version(cuda_dir):
@@ -104,19 +99,19 @@ class CMakeBuildExt(build_ext):
             self.parallel = os.cpu_count()
 
         for ext in self.extensions:
-            extdir = os.path.abspath(
-                os.path.dirname(self.get_ext_fullpath(ext.name))
-            )
-            extdir = os.path.join(extdir, "vptq")
+            # Get the package directory where the library should be installed
+            package_dir = os.path.join(self.build_lib, "vptq")
+            os.makedirs(package_dir, exist_ok=True)
+
+            # Create build directory for this extension
+            build_temp = Path(self.build_temp) / ext.name
+            if not build_temp.exists():
+                build_temp.mkdir(parents=True)
 
             cmake_args = [
                 "-DCMAKE_BUILD_TYPE=%s" % cfg,
-                "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}".format(
-                    cfg.upper(), extdir
-                ),
-                "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{}={}".format(
-                    cfg.upper(), self.build_temp
-                ),
+                "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={}".format(str(package_dir)),
+                "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY={}".format(str(build_temp)),
                 (
                     "-DUSER_CUDA_ARCH_LIST={}".format(arch_list)
                     if arch_list
@@ -131,9 +126,6 @@ class CMakeBuildExt(build_ext):
                     item for item in os.environ["CMAKE_ARGS"].split(" ") if item
                 ]
 
-            if not os.path.exists(self.build_temp):
-                os.makedirs(self.build_temp)
-
             build_args = []
             build_args += ["--config", cfg]
             # Set CMAKE_BUILD_PARALLEL_LEVEL to control the parallel build level
@@ -145,41 +137,31 @@ class CMakeBuildExt(build_ext):
             ):
                 build_args += [f"-j{self.parallel}"]
 
-            build_temp = Path(self.build_temp) / ext.name
-            if not build_temp.exists():
-                build_temp.mkdir(parents=True)
-
             # Config
             subprocess.check_call(
-                ["cmake", ext.cmake_lists_dir] + cmake_args, cwd=self.build_temp
+                ["cmake", ext.cmake_lists_dir] + cmake_args, cwd=str(build_temp)
             )
 
             # Build
             subprocess.check_call(
-                ["cmake", "--build", "."] + build_args, cwd=self.build_temp
+                ["cmake", "--build", "."] + build_args, cwd=str(build_temp)
             )
+
+            # Verify the library was built
+            target = "libvptq.so"
+            target_path = Path(package_dir) / target
+
+            if not target_path.exists():
+                raise FileNotFoundError(
+                    f"Library was not built in the expected location: {target_path}"
+                )
 
 
 class Develop(develop):
     """Post-installation for development mode."""
 
-    def post_build_copy(self) -> None:
-        build_py = self.get_finalized_command("build_py")
-        source_root = Path(os.path.abspath(build_py.build_lib)).parents[1]
-
-        target = "libvptq.so"
-
-        source_path = os.path.join(build_py.build_lib, "vptq", target)
-        target_path = os.path.join(source_root, "vptq", target)
-
-        if os.path.exists(source_path):
-            self.copy_file(source_path, target_path, level=self.verbose)
-        else:
-            raise FileNotFoundError(f"Cannot find built library: {source_path}")
-
     def run(self):
         develop.run(self)
-        self.post_build_copy()
 
 
 class Clean(Command):
@@ -192,10 +174,18 @@ class Clean(Command):
         pass
 
     def run(self):
-        import glob
-        import re
-        import shutil
+        # clean the dynamic library if it exists in the source directory
+        # the dynamic library might be copied to the source directory
+        # under the develop mode
+        lib_path = Path("vptq") / "libvptq.so"
+        if lib_path.exists():
+            print(f"cleaning dynamic library '{lib_path}'")
+            try:
+                os.remove(lib_path)
+            except OSError as e:
+                print(f"Warning: Could not remove {lib_path}: {e}")
 
+        # Then clean other files based on .gitignore
         with open(".gitignore") as f:
             ignores = f.read()
             pat = re.compile(r"^#( BEGIN NOT-CLEAN-FILES )?")
@@ -227,10 +217,9 @@ setup(
     name="vptq",
     python_requires=">=3.8",
     packages=find_packages(exclude=[""]),
-    install_requires=get_requirements(),
     version=get_version(),
     description=description,
-    author="Wang Yang, Wen JiCheng",
+    author="Wang Yang, Wen JiCheng, Cao Ying",
     ext_modules=[CMakeExtension("vptq")],
     cmdclass={
         "build_ext": CMakeBuildExt,

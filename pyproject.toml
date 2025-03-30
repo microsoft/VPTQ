@@ -3,8 +3,8 @@ name = "vptq"
 version = "0.0.5post1"
 authors = [
   { name="Yang Wang", email="wyatuestc@gmail.com" },
-  { name="Ying Cao", email="lcy.seso@gmail.com" },
   { name="Jicheng Wen", email="wejoincy@gmail.com" },
+  { name="Ying Cao", email="lcy.seso@gmail.com" },
 ]
 
 description = "VPTQ (Vector Post-Training Quantization) is a novel Post-Training Quantization method."
