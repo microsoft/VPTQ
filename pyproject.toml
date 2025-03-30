@@ -33,6 +33,11 @@ dependencies = [
     "sentence_transformers",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]
+
 [project.urls]
 Homepage = "https://github.com/microsoft/VPTQ"
 Issues = "https://github.com/microsoft/VPTQ/issues"

@@ -9,6 +9,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
 from packaging.version import Version, parse
 from setuptools import Command, Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
@@ -208,6 +209,25 @@ class Clean(Command):
                             shutil.rmtree(filename, ignore_errors=True)
 
 
+class PyTest(Command):
+    """Run pytest for running tests."""
+
+    user_options = [
+        ("pytest-args=", "a", "Arguments to pass to pytest"),
+    ]
+
+    def initialize_options(self):
+        self.pytest_args = ""
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        errno = pytest.main(["vptq/tests"] + self.pytest_args.split())
+        if errno:
+            raise SystemExit(errno)
+
+
 description = (
     "VPTQ: Extreme Low-bit Vector Post-Training Quantization "
     "for Large Language Models"
@@ -225,5 +245,6 @@ setup(
         "build_ext": CMakeBuildExt,
         "clean": Clean,
         "develop": Develop,
+        "pytest": PyTest,
     },
 )
