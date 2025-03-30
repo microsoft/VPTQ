@@ -2,9 +2,9 @@
 name = "vptq"
 version = "0.0.5post1"
 authors = [
+  { name="Yang Wang", email="wyatuestc@gmail.com" },
   { name="Ying Cao", email="lcy.seso@gmail.com" },
   { name="Jicheng Wen", email="wejoincy@gmail.com" },
-  { name="Yang Wang", email="wyatuestc@gmail.com" },
 ]
 
 description = "VPTQ (Vector Post-Training Quantization) is a novel Post-Training Quantization method."
@@ -78,21 +78,12 @@ ignore = [
     "UP032",
 ]
 
-[tool.yapf]
-column_limit = 80
-indent_width = 4
-based_on_style = "google"
-split_before_logical_operator = false
-dedent_closing_brackets = true
-coalesce_brackets = true
-
 [tool.codespell]
 ignore-words-list = "ist"
 skip = "./VPTQ_arxiv.pdf,./build"
 
 [tool.isort]
-use_parentheses = true
-skip_gitignore = true
+profile = "black"
 line_length = 80
 multi_line_output = 3
 include_trailing_comma = true
