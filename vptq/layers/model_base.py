@@ -91,7 +91,6 @@ def attach_execution_device_hook(
 
 
 class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
-
     @classmethod
     def from_pretrained(
         cls, pretrained_model_name_or_path, *model_args, **kwargs

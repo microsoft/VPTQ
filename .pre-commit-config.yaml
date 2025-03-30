@@ -34,19 +34,26 @@ repos:
         files: \.(c|cc|cxx|cpp|cu|h|cuh|hpp|hxx)$
 
 -   repo: https://github.com/PyCQA/isort
-    rev: 6.0.1
+    rev: 5.13.2
     hooks:
     -   id: isort
         files: \.py$
-        args: ["--profile", "black"]
+        args: ["--profile", "black", "--skip", "notebooks"]
 
 -   repo: https://github.com/psf/black
-    rev: 25.1.0
+    rev: 24.8.0
     hooks:
     -   id: black
-        args: [--line-length=80]
+        args: [--line-length=80, --exclude=notebooks]
         language_version: python3
         stages: [pre-commit]
+
+-   repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+    -   id: codespell
+        args: ["--toml=pyproject.toml"]
+        additional_dependencies: [tomli]
 
 -   repo: https://github.com/iconmaster5326/cmake-format-pre-commit-hook
     rev: v0.6.13
@@ -54,7 +61,7 @@ repos:
     -   id: cmake-format
 
 -   repo: https://github.com/executablebooks/mdformat
-    rev: 0.7.22
+    rev: 0.7.17
     hooks:
     -   id: mdformat
         args: ["--number"]
@@ -65,3 +72,4 @@ repos:
           - mdformat-tables
           - mdformat-toc
           - mdformat-black
+        exclude: ^notebooks/

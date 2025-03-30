@@ -18,7 +18,9 @@ from vptq.app_utils import get_chat_loop_generator
 
 models = [
     {
-        "name": "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-65536-woft",
+        "name": (
+            "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-65536-woft"
+        ),
         "bits": "4 bits",
     },
     {
@@ -26,7 +28,9 @@ models = [
         "bits": "3 bits",
     },
     {
-        "name": "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v16-k65536-65536-woft",
+        "name": (
+            "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v16-k65536-65536-woft"
+        ),
         "bits": "2 bits",
     },
     {
@@ -34,7 +38,9 @@ models = [
         "bits": "1.875 bits",
     },
     {
-        "name": "VPTQ-community/Meta-Llama-3.1-8B-Instruct-v8-k65536-65536-woft",
+        "name": (
+            "VPTQ-community/Meta-Llama-3.1-8B-Instruct-v8-k65536-65536-woft"
+        ),
         "bits": "4 bits",
     },
     {
@@ -42,7 +48,9 @@ models = [
         "bits": "3 bits",
     },
     {
-        "name": "VPTQ-community/Meta-Llama-3.1-8B-Instruct-v12-k65536-4096-woft",
+        "name": (
+            "VPTQ-community/Meta-Llama-3.1-8B-Instruct-v12-k65536-4096-woft"
+        ),
         "bits": "2.3 bits",
     },
     {

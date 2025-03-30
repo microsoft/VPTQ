@@ -49,23 +49,23 @@ VPTQ can compress 70B, even the 405B model, to 1-2 bits without retraining and m
 
 ## News
 
-- **[2025-03-12]** VPTQ now provides preliminary support for inference with **Deepseek R1**! With our quantized models, you can efficiently run Deepseek R1 on A100 GPUs. [Tutorial](https://github.com/microsoft/VPTQ/blob/main/documents/deepseek.md) [Inference Code](https://github.com/VPTQ/DeepSeek-V3)
-- **[2025-02-27]** [aphrodite-engine](https://github.com/aphrodite-engine/aphrodite-engine/issues/1152) is the first inference engine which supports our VPTQ, Thanks for @[AlpinDale](https://github.com/AlpinDale)'s contribute!
-- **[2025-01-18]** VPTQ v0.0.5 released, featuring cmake support and an enhanced build pipeline!
-- **[2025-01-13]** VPTQ is formly support by Transformers in its wheel package release since [v4.48.0](https://github.com/huggingface/transformers/releases/tag/v4.48.0).
-- **[2024-12-20]** 🚀 **VPTQ ❤️ Huggingface Transformers** VPTQ support has been merged into Huggingface Transformers main branch! Check out the [commit](https://github.com/huggingface/transformers/commit/4e27a4009d3f9d4e44e9be742e8cd742daf074f4#diff-4a073e7151b3f6675fce936a7802eeb6da4ac45d545ad6198be92780f493112) and our Colab example: <a target="_blank" href="https://colab.research.google.com/github/microsoft/VPTQ/blob/main/notebooks/vptq_hf_example.ipynb"> <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="VPTQ in Colab"/> </a>
-- [2024-12-15] 🌐 Open source community contributes [**Meta Llama 3.3 70B @ 1-4 bits** models](https://huggingface.co/collections/VPTQ-community/vptq-llama-33-70b-instruct-without-finetune-675ef82388de8c1c1bef75ab)
-- [2024-11-01] 📦 VPTQ is now available on [PyPI](https://pypi.org/project/vptq/)! You can install it easily using the command: `pip install vptq`.
-- [2024-10-28] ✨ VPTQ algorithm early-released at [algorithm branch](https://github.com/microsoft/VPTQ/tree/algorithm), and checkout the [tutorial](https://github.com/microsoft/VPTQ/blob/algorithm/algorithm.md).
-- [2024-10-22] 🌐 Open source community contributes [**Meta Llama 3.1 Nemotron 70B** models](https://huggingface.co/collections/VPTQ-community/vptq-llama-31-nemotron-70b-instruct-hf-without-finetune-671730b96f16208d0b3fe942), check [how VPTQ counts 'r' on local GPU](documents/example_count_r.md). We are continuing to work on quantizing the 4-6 bit versions. Please stay tuned!
-- [2024-10-21] 🌐 Open source community contributes [**Meta Llama 3.1 405B @ 3/4 bits** models](https://huggingface.co/collections/VPTQ-community/vptq-llama-31-405b-instruct-without-finetune-66f4413f9ba55e1a9e52cfb0)
-- [2024-10-18] 🌐 Open source community contributes [**Mistral Large Instruct 2407 (123B)** models](https://huggingface.co/collections/VPTQ-community/vptq-mistral-large-instruct-2407-without-finetune-6711ebfb7faf85eed9cceb16)
-- [2024-10-14] 🚀 Add early **ROCm** support.
-- [2024-10-06] 🚀 **Try VPTQ on Google Colab**. <a target="_blank" href="https://colab.research.google.com/github/microsoft/VPTQ/blob/main/notebooks/vptq_example.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="VPTQ In Colab"/></a>
-- [2024-10-05] 🚀 **Add free Huggingface Demo**: [Huggingface Demo](https://huggingface.co/spaces/VPTQ-community/VPTQ-Demo)
-- [2024-10-04] ✏️ Updated the VPTQ tech report and fixed typos.
-- [2024-09-20] 🌐 Inference code is now open-sourced on GitHub—join us and contribute!
-- [2024-09-20] 🎉 VPTQ paper has been accepted for the main track at EMNLP 2024.
+- **\[2025-03-12\]** VPTQ now provides preliminary support for inference with **Deepseek R1**! With our quantized models, you can efficiently run Deepseek R1 on A100 GPUs. [Tutorial](https://github.com/microsoft/VPTQ/blob/main/documents/deepseek.md) [Inference Code](https://github.com/VPTQ/DeepSeek-V3)
+- **\[2025-02-27\]** [aphrodite-engine](https://github.com/aphrodite-engine/aphrodite-engine/issues/1152) is the first inference engine which supports our VPTQ, Thanks for @[AlpinDale](https://github.com/AlpinDale)'s contribute!
+- **\[2025-01-18\]** VPTQ v0.0.5 released, featuring cmake support and an enhanced build pipeline!
+- **\[2025-01-13\]** VPTQ is formly support by Transformers in its wheel package release since [v4.48.0](https://github.com/huggingface/transformers/releases/tag/v4.48.0).
+- **\[2024-12-20\]** 🚀 **VPTQ ❤️ Huggingface Transformers** VPTQ support has been merged into Huggingface Transformers main branch! Check out the [commit](https://github.com/huggingface/transformers/commit/4e27a4009d3f9d4e44e9be742e8cd742daf074f4#diff-4a073e7151b3f6675fce936a7802eeb6da4ac45d545ad6198be92780f493112) and our Colab example: <a target="_blank" href="https://colab.research.google.com/github/microsoft/VPTQ/blob/main/notebooks/vptq_hf_example.ipynb"> <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="VPTQ in Colab"/> </a>
+- \[2024-12-15\] 🌐 Open source community contributes [**Meta Llama 3.3 70B @ 1-4 bits** models](https://huggingface.co/collections/VPTQ-community/vptq-llama-33-70b-instruct-without-finetune-675ef82388de8c1c1bef75ab)
+- \[2024-11-01\] 📦 VPTQ is now available on [PyPI](https://pypi.org/project/vptq/)! You can install it easily using the command: `pip install vptq`.
+- \[2024-10-28\] ✨ VPTQ algorithm early-released at [algorithm branch](https://github.com/microsoft/VPTQ/tree/algorithm), and checkout the [tutorial](https://github.com/microsoft/VPTQ/blob/algorithm/algorithm.md).
+- \[2024-10-22\] 🌐 Open source community contributes [**Meta Llama 3.1 Nemotron 70B** models](https://huggingface.co/collections/VPTQ-community/vptq-llama-31-nemotron-70b-instruct-hf-without-finetune-671730b96f16208d0b3fe942), check [how VPTQ counts 'r' on local GPU](documents/example_count_r.md). We are continuing to work on quantizing the 4-6 bit versions. Please stay tuned!
+- \[2024-10-21\] 🌐 Open source community contributes [**Meta Llama 3.1 405B @ 3/4 bits** models](https://huggingface.co/collections/VPTQ-community/vptq-llama-31-405b-instruct-without-finetune-66f4413f9ba55e1a9e52cfb0)
+- \[2024-10-18\] 🌐 Open source community contributes [**Mistral Large Instruct 2407 (123B)** models](https://huggingface.co/collections/VPTQ-community/vptq-mistral-large-instruct-2407-without-finetune-6711ebfb7faf85eed9cceb16)
+- \[2024-10-14\] 🚀 Add early **ROCm** support.
+- \[2024-10-06\] 🚀 **Try VPTQ on Google Colab**. <a target="_blank" href="https://colab.research.google.com/github/microsoft/VPTQ/blob/main/notebooks/vptq_example.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="VPTQ In Colab"/></a>
+- \[2024-10-05\] 🚀 **Add free Huggingface Demo**: [Huggingface Demo](https://huggingface.co/spaces/VPTQ-community/VPTQ-Demo)
+- \[2024-10-04\] ✏️ Updated the VPTQ tech report and fixed typos.
+- \[2024-09-20\] 🌐 Inference code is now open-sourced on GitHub—join us and contribute!
+- \[2024-09-20\] 🎉 VPTQ paper has been accepted for the main track at EMNLP 2024.
 
 ## Installation
 

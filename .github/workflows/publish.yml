@@ -1,4 +1,4 @@
-# this workflow is refered from vllm/.github/workflows/publish.yml
+# this workflow is referred from vllm/.github/workflows/publish.yml
 # This workflow will upload a Python Package to Release asset
 # For more information see: https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions
 

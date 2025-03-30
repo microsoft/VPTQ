@@ -1,6 +1,6 @@
 torch>=2.3.0
 datasets
-transformers>=4.45
+transformers>=4.45.0
 safetensors
 psutil
 accelerate

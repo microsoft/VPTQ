@@ -155,7 +155,6 @@ def convert_idx_dtype(model, from_dtype, to_dtype, as_type):
 
     for mod_name, sub_mod in model.named_modules():
         if "VQuantLinear" in str(type(sub_mod)):
-
             if sub_mod.indices.dtype == torch.int64:
                 sub_mod.indices.data = dtype_convert(
                     sub_mod.indices.data,

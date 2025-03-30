@@ -29,7 +29,7 @@ A typical usage is:
         "--model",
         type=str,
         required=True,
-        help=("float/float16 model to load, " "such as [mosaicml/mpt-7b]"),
+        help=("float/float16 model to load, such as [mosaicml/mpt-7b]"),
     )
     parser.add_argument(
         "--tokenizer", type=str, default="", help="default same as [model]"
