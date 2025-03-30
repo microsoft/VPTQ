@@ -9,7 +9,6 @@ import shutil
 import subprocess
 from pathlib import Path
 
-import pytest
 from packaging.version import Version, parse
 from setuptools import Command, Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
@@ -109,9 +108,12 @@ class CMakeBuildExt(build_ext):
             if not build_temp.exists():
                 build_temp.mkdir(parents=True)
 
+            # Get the absolute path for the library output directory
+            lib_output_dir = os.path.abspath(package_dir)
+
             cmake_args = [
                 "-DCMAKE_BUILD_TYPE=%s" % cfg,
-                "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={}".format(str(package_dir)),
+                "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={}".format(lib_output_dir),
                 "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY={}".format(str(build_temp)),
                 (
                     "-DUSER_CUDA_ARCH_LIST={}".format(arch_list)
@@ -154,15 +156,61 @@ class CMakeBuildExt(build_ext):
 
             if not target_path.exists():
                 raise FileNotFoundError(
-                    f"Library was not built in the expected location: {target_path}"
+                    (
+                        "Library was not built in the expected "
+                        f"location: {target_path}"
+                    )
                 )
 
 
 class Develop(develop):
     """Post-installation for development mode."""
 
+    def _find_built_library(self, build_dir: Path) -> Path | None:
+        """Find the built library in the build directory.
+
+        Args:
+            build_dir: Path to the build directory
+
+        Returns:
+            Path to the built library if found, None otherwise
+        """
+        target = "libvptq.so"
+        for lib_dir in build_dir.glob("lib.*"):
+            lib_path = lib_dir / "vptq" / target
+            if lib_path.exists():
+                return lib_path
+        return None
+
+    def _copy_library_to_source(
+        self, source_lib: Path, target_lib: Path
+    ) -> None:
+        """Copy the library to the source directory.
+
+        Args:
+            source_lib: Path to the source library
+            target_lib: Path where the library should be copied
+        """
+        self.copy_file(str(source_lib), str(target_lib), level=self.verbose)
+
     def run(self):
+        """Run the develop command."""
         develop.run(self)
+
+        source_dir = Path("vptq")
+        source_dir.mkdir(parents=True, exist_ok=True)
+        target_lib = source_dir / "libvptq.so"
+
+        build_dir = Path("build")
+        if not build_dir.exists():
+            print("Warning: Build directory not found")
+            return
+
+        source_lib = self._find_built_library(build_dir)
+        if source_lib:
+            self._copy_library_to_source(source_lib, target_lib)
+        else:
+            print(f"Warning: Built library not found in {build_dir}")
 
 
 class Clean(Command):
@@ -223,7 +271,9 @@ class PyTest(Command):
         pass
 
     def run(self):
-        errno = pytest.main(["vptq/tests"] + self.pytest_args.split())
+        import pytest
+
+        errno = pytest.main(["tests"] + self.pytest_args.split())
         if errno:
             raise SystemExit(errno)
 
@@ -236,10 +286,10 @@ description = (
 setup(
     name="vptq",
     python_requires=">=3.8",
-    packages=find_packages(exclude=[""]),
+    packages=find_packages(exclude=["vptq.third_party*", "vptq.tests*"]),
     version=get_version(),
     description=description,
-    author="Wang Yang, Wen JiCheng, Cao Ying",
+    author="Wang Yang, Wen JiCheng",
     ext_modules=[CMakeExtension("vptq")],
     cmdclass={
         "build_ext": CMakeBuildExt,

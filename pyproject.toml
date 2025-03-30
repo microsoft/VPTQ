@@ -1,6 +1,6 @@
 [project]
 name = "vptq"
-version = "0.0.5post1"
+version = "0.0.5.post1"
 authors = [
   { name="Yang Wang", email="wyatuestc@gmail.com" },
   { name="Jicheng Wen", email="wejoincy@gmail.com" },
@@ -98,4 +98,5 @@ ensure_newline_before_comments = true
 
 # ignore pdf files
 [tool.setuptools]
+packages.find.include = ["vptq"]
 packages.find.exclude = ["**/*.pdf"]
