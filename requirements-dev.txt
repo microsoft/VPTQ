@@ -1,4 +1,22 @@
 -r requirements.txt
-yapf
-isort
-clang-format
+
+# Build dependencies
+cmake>=3.0.0
+packaging
+setuptools>=64.0.0
+wheel
+
+# Testing
+pytest>=8.0.0
+
+# Code formatting and linting
+black==25.1.0
+isort==6.0.1
+clang-format>=18.1.5
+cmake-format>=0.6.13
+
+# Documentation
+mdformat==0.7.22
+
+# Pre-commit
+pre-commit>=3.0.0

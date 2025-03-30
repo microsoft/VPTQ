@@ -6,7 +6,7 @@
 Unit tests for quantized GEMV (General Matrix-Vector multiplication) operations.
 
 To run these tests, execute the following command from the project root:
-    pytest vptq/tests/ops/test_quant_gemv.py -v -s
+    pytest tests/test_quant_gemv.py -v -s
 
 The -v flag enables verbose output and -s allows print statements to be
 displayed.
@@ -261,7 +261,7 @@ def run_test_with_config(config):
     print(f"\nRunning test with configuration: {config['name']}")
 
     # Generate test data
-    test_data = test_data_factory(config)
+    test_data = create_test_data(config)
 
     # Run the quant_gemv operation
     out1 = vptq.ops.quant_gemv_v2(**test_data)
@@ -297,7 +297,7 @@ def run_test_with_config(config):
     print("-" * 80)
 
 
-def test_data_factory(config):
+def create_test_data(config):
     """Factory function to generate test data from config."""
     torch.manual_seed(1234)
 

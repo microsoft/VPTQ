@@ -289,7 +289,7 @@ setup(
     packages=find_packages(exclude=["vptq.third_party*", "vptq.tests*"]),
     version=get_version(),
     description=description,
-    author="Wang Yang, Wen JiCheng",
+    author="Wang Yang, Wen JiCheng, Cao Ying",
     ext_modules=[CMakeExtension("vptq")],
     cmdclass={
         "build_ext": CMakeBuildExt,
