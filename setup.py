@@ -295,6 +295,10 @@ setup(
         "build_ext": CMakeBuildExt,
         "clean": Clean,
         "develop": Develop,
-        "pytest": PyTest,
+        "tests": PyTest,
     },
+    package_data={
+        "vptq": ["**/*.py"],
+    },
+    include_package_data=True,
 )
