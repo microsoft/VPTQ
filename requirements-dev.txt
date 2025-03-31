@@ -1,4 +1,30 @@
 -r requirements.txt
-yapf
-isort
-clang-format
+
+# Build dependencies
+cmake>=3.18.0
+packaging
+setuptools>=64.0.0
+wheel
+
+# Testing
+pytest>=8.0.0
+
+# Code formatting and linting
+black[jupyter]==24.8.0
+isort==5.13.2
+clang-format==18.1.5
+cmake-format==0.6.13
+codespell==2.4.1
+tomli==2.2.1
+
+# Documentation
+mdformat==0.7.17
+mdformat-gfm==0.3.6
+mdformat-frontmatter==2.0.8
+mdformat-myst==0.2.1
+mdformat-tables==1.0.0
+mdformat-toc==0.3.0
+mdformat-black==0.1.1
+
+# Pre-commit
+pre-commit>=3.0.0

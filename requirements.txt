@@ -1,10 +1,6 @@
-cmake
-packaging
-setuptools>=64.0.0
 torch>=2.3.0
-wheel
 datasets
-transformers>=4.45
+transformers>=4.45.0
 safetensors
 psutil
 accelerate
@@ -13,4 +9,3 @@ plotly==5.9.0
 pynvml
 tqdm
 sentence_transformers
-pytest

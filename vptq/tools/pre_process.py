@@ -45,14 +45,12 @@ if __name__ == "__main__":
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(args.input_path)
     model = vptq.AutoModelForCausalLM.from_pretrained(
-        args.input_path,
-        gpu_utilization=args.gpu_utilization,
-        device_map="auto"
+        args.input_path, gpu_utilization=args.gpu_utilization, device_map="auto"
     )
-    #preprocessor pipeline
+    # preprocessor pipeline
     # process 1-->processor 2-->processor 3-->processor 4-->processor 5
     model = absorb_perm(model)
-    #other processors follows here
+    # other processors follows here
     # ...
 
     # Save the processed model
@@ -71,7 +69,7 @@ if __name__ == "__main__":
         state_dict,
         device_to_put_offload="cpu",
     ):
-        root = module_name[:module_name.rfind(".")]
+        root = module_name[: module_name.rfind(".")]
         if not accelerate.utils.has_offloaded_params(module):
             device_to_put_offload = None
         with accelerate.utils.align_module_device(

@@ -1,18 +1,6 @@
 minimum_pre_commit_version: 3.0.0
 
 repos:
--   repo: https://github.com/pre-commit/mirrors-yapf.git
-    rev: v0.32.0
-    hooks:
-    -   id: yapf
-        additional_dependencies: [toml]
-        files: (.*\.(py|bzl)|BUILD|.*\.BUILD|WORKSPACE)$
--   repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-    -   id: isort
-        name: isort (python)
-
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
@@ -21,7 +9,7 @@ repos:
     -   id: check-merge-conflict
     -   id: check-symlinks
     -   id: detect-private-key
-        files: (?!.*third_party)^.*$
+        files: (?!.*third_party)^.*$ # ignore 3rd-party  files
     -   id: end-of-file-fixer
     -   id: check-yaml
     -   id: check-toml
@@ -30,8 +18,8 @@ repos:
     -   id: check-shebang-scripts-are-executable
     -   id: debug-statements
     -   id: mixed-line-ending
-        args: ['--fix=lf']
-        files: (?!.*third_party)^.*$
+        args: ['--fix=lf'] # fix line endings to unix style
+        files: (?!.*third_party)^.*$ # ignore 3rd-party files
     -   id: check-case-conflict
     -   id: check-json
     -   id: trailing-whitespace
@@ -45,13 +33,35 @@ repos:
         language: system
         files: \.(c|cc|cxx|cpp|cu|h|cuh|hpp|hxx)$
 
+-   repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+    -   id: isort
+        files: \.py$
+        args: ["--profile", "black", "--skip", "notebooks"]
+
+-   repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+    -   id: black
+        args: [--line-length=80, --exclude=notebooks]
+        language_version: python3
+        stages: [pre-commit]
+
+-   repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+    -   id: codespell
+        args: ["--toml=pyproject.toml"]
+        additional_dependencies: [tomli]
+
 -   repo: https://github.com/iconmaster5326/cmake-format-pre-commit-hook
     rev: v0.6.13
     hooks:
     -   id: cmake-format
 
 -   repo: https://github.com/executablebooks/mdformat
-    rev: 0.7.22
+    rev: 0.7.17
     hooks:
     -   id: mdformat
         args: ["--number"]
@@ -62,3 +72,4 @@ repos:
           - mdformat-tables
           - mdformat-toc
           - mdformat-black
+        exclude: ^notebooks/

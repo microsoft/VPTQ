@@ -18,72 +18,72 @@ from vptq.app_utils import get_chat_loop_generator
 
 models = [
     {
-        "name":
-            "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-65536-woft",
-        "bits":
-            "4 bits"
+        "name": (
+            "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-65536-woft"
+        ),
+        "bits": "4 bits",
     },
     {
         "name": "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k65536-256-woft",
-        "bits": "3 bits"
+        "bits": "3 bits",
     },
     {
-        "name":
-            "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v16-k65536-65536-woft",
-        "bits":
-            "2 bits"
+        "name": (
+            "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v16-k65536-65536-woft"
+        ),
+        "bits": "2 bits",
     },
     {
         "name": "VPTQ-community/Meta-Llama-3.1-70B-Instruct-v8-k32768-0-woft",
-        "bits": "1.875 bits"
+        "bits": "1.875 bits",
     },
     {
-        "name":
-            "VPTQ-community/Meta-Llama-3.1-8B-Instruct-v8-k65536-65536-woft",
-        "bits":
-            "4 bits"
+        "name": (
+            "VPTQ-community/Meta-Llama-3.1-8B-Instruct-v8-k65536-65536-woft"
+        ),
+        "bits": "4 bits",
     },
     {
         "name": "VPTQ-community/Meta-Llama-3.1-8B-Instruct-v8-k65536-256-woft",
-        "bits": "3 bits"
+        "bits": "3 bits",
     },
     {
-        "name":
-            "VPTQ-community/Meta-Llama-3.1-8B-Instruct-v12-k65536-4096-woft",
-        "bits":
-            "2.3 bits"
+        "name": (
+            "VPTQ-community/Meta-Llama-3.1-8B-Instruct-v12-k65536-4096-woft"
+        ),
+        "bits": "2.3 bits",
     },
     {
         "name": "VPTQ-community/Qwen2.5-72B-Instruct-v8-k65536-65536-woft",
-        "bits": "4 bits"
+        "bits": "4 bits",
     },
     {
         "name": "VPTQ-community/Qwen2.5-72B-Instruct-v8-k65536-256-woft",
-        "bits": "3 bits"
+        "bits": "3 bits",
     },
     {
         "name": "VPTQ-community/Qwen2.5-72B-Instruct-v16-k65536-65536-woft",
-        "bits": "2 bits"
+        "bits": "2 bits",
     },
     {
         "name": "VPTQ-community/Qwen2.5-72B-Instruct-v16-k65536-32768-woft",
-        "bits": "1.94 bits"
+        "bits": "1.94 bits",
     },
 ]
 
 model_choices = [f"{model['name']} ({model['bits']})" for model in models]
 display_to_model = {
-    f"{model['name']} ({model['bits']})": model['name'] for model in models
+    f"{model['name']} ({model['bits']})": model["name"] for model in models
 }
 
 
 def download_model(model):
     print(f"Downloading {model['name']}...")
-    snapshot_download(repo_id=model['name'])
+    snapshot_download(repo_id=model["name"])
 
 
 def download_models_in_background():
-    print('Downloading models for the first time...')
+    print("Downloading models for the first time...")
     for model in models:
         download_model(model)
 
@@ -164,14 +164,14 @@ with gr.Blocks(fill_height=True) as demo:
                     maximum=2048,
                     value=512,
                     step=1,
-                    label="Max new tokens"
+                    label="Max new tokens",
                 ),
                 gr.Slider(
                     minimum=0.1,
                     maximum=4.0,
                     value=0.7,
                     step=0.1,
-                    label="Temperature"
+                    label="Temperature",
                 ),
                 gr.Slider(
                     minimum=0.1,

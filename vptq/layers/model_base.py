@@ -36,9 +36,9 @@ def make_quant_linear(
     for module_name, sub_module in tqdm(
         module.named_modules(),
         total=len(list(module.named_modules())),
-        desc="Replacing linear layers..."
+        desc="Replacing linear layers...",
     ):
-        tail_name = module_name.split('.')[-1]
+        tail_name = module_name.split(".")[-1]
         layer_conf = config_for_layers.get(module_name, None)
         if layer_conf is None and tail_name in shared_layer_config:
             layer_conf = shared_layer_config[tail_name]
@@ -46,7 +46,7 @@ def make_quant_linear(
             new_module = target_layer(
                 **layer_conf,
                 enable_proxy_error=False,
-                dtype=sub_module.weight.dtype
+                dtype=sub_module.weight.dtype,
             )
             set_op_by_name(module, module_name, new_module)
             del sub_module
@@ -70,14 +70,14 @@ def attach_execution_device_hook(
             accelerate.hooks.AlignDevicesHook(
                 execution_device,
                 skip_keys=skip_keys,
-                tied_params_map=tied_params_map
+                tied_params_map=tied_params_map,
             ),
         )
 
     # Break the recursion if we get to a preload module.
     if (
-        preload_module_classes is not None and
-        module.__class__.__name__ in preload_module_classes
+        preload_module_classes is not None
+        and module.__class__.__name__ in preload_module_classes
     ):
         return
 
@@ -91,7 +91,6 @@ def attach_execution_device_hook(
 
 
 class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
-
     @classmethod
     def from_pretrained(
         cls, pretrained_model_name_or_path, *model_args, **kwargs
@@ -112,18 +111,18 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
 
         target_layer = VQuantLinear
         quantization_config = auto_conf.quantization_config
-        config_for_layers = quantization_config.get('config_for_layers', {})
+        config_for_layers = quantization_config.get("config_for_layers", {})
         shared_layer_config = quantization_config.get("shared_layer_config", {})
 
         # replace linear layers with quantized linear layers
-        with transformers.utils.generic.ContextManagers([
-            accelerate.init_empty_weights()
-        ]):
+        with transformers.utils.generic.ContextManagers(
+            [accelerate.init_empty_weights()]
+        ):
             make_quant_linear(
                 model,
                 config_for_layers,
                 shared_layer_config,
-                target_layer=target_layer
+                target_layer=target_layer,
             )
 
         no_split_module_classes = [
@@ -142,7 +141,7 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             checkpoint = huggingface_hub.snapshot_download(
                 repo_id=pretrained_model_name_or_path,
                 ignore_patterns=["*.bin"],
-                **token_arg
+                **token_arg,
             )
             weight_bins = glob.glob(
                 str(Path(checkpoint).absolute() / "*.safetensors")
@@ -160,7 +159,7 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             elif len(weight_bins) > 0:
                 torch.save(
                     safetensors.torch.load_file(weight_bins[0]),
-                    checkpoint + "/pytorch_model.bin"
+                    checkpoint + "/pytorch_model.bin",
                 )
 
         # force to use one GPU as most as possible
@@ -169,8 +168,9 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
         )[""]
         local_max_memory = accelerate.utils.modeling.get_max_memory()
 
-        if (0 in local_max_memory
-           ) and (local_max_memory[0] * 0.9 > model_buffer_size):
+        if (0 in local_max_memory) and (
+            local_max_memory[0] * 0.9 > model_buffer_size
+        ):
             local_max_memory = {0: local_max_memory[0]}
         if gpu_utilization is not None:
             gpu_utilization = max(min(gpu_utilization, 1.0), 0.0)
@@ -180,8 +180,9 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
         if max_memory is None:
             max_memory = local_max_memory
 
-        accelerate.hooks.attach_execution_device_hook = \
+        accelerate.hooks.attach_execution_device_hook = (
             attach_execution_device_hook
+        )
         model = accelerate.load_checkpoint_and_dispatch(
             model,
             checkpoint=checkpoint,
@@ -189,7 +190,7 @@ class AutoModelForCausalLM(transformers.AutoModelForCausalLM):
             max_memory=max_memory,
             no_split_module_classes=no_split_module_classes[0],
             dtype=torch_dtype,
-            preload_module_classes=["VQuantLinear"]
+            preload_module_classes=["VQuantLinear"],
         )
 
         model.eval()

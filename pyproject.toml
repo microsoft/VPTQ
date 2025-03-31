@@ -1,10 +1,10 @@
 [project]
 name = "vptq"
-version = "0.0.5post1"
+version = "0.0.5.post1"
 authors = [
-  { name="Ying Cao", email="lcy.seso@gmail.com" },
-  { name="Jicheng Wen", email="wejoincy@gmail.com" },
   { name="Yang Wang", email="wyatuestc@gmail.com" },
+  { name="Jicheng Wen", email="wejoincy@gmail.com" },
+  { name="Ying Cao", email="lcy.seso@gmail.com" },
 ]
 
 description = "VPTQ (Vector Post-Training Quantization) is a novel Post-Training Quantization method."
@@ -16,9 +16,7 @@ classifiers = [
     "Operating System :: OS Independent",
     "Topic :: Software Development :: Libraries",
 ]
- # NOTE: setuptools's `install_requires` can overwritten in
- # `pyproject.toml`'s `dependencies` field.
- # Make sure to keep this field in sync with what is in `requirements.txt`.
+
 dependencies = [
     "torch>=2.3.0",
     "datasets",
@@ -31,6 +29,37 @@ dependencies = [
     "pynvml",
     "tqdm",
     "sentence_transformers",
+]
+
+[project.optional-dependencies]
+dev = [
+    # Build dependencies
+    "cmake>=3.18.0",
+    "packaging",
+    "setuptools>=64.0.0",
+    "wheel",
+
+    # Testing
+    "pytest>=8.0.0",
+
+    # Code formatting and linting
+    "black[jupyter]==24.8.0",
+    "isort==6.0.1",
+    "clang-format>=18.1.5",
+    "cmake-format>=0.6.13",
+    "codespell==2.4.1",
+
+    # Documentation
+    "mdformat==0.7.22",
+    "mdformat-gfm==0.4.1",
+    "mdformat-frontmatter==2.0.8",
+    "mdformat-myst==0.2.1",
+    "mdformat-tables==1.0.0",
+    "mdformat-toc==0.3.0",
+    "mdformat-black==0.1.1",
+
+    # Pre-commit
+    "pre-commit>=3.0.0",
 ]
 
 [project.urls]
@@ -78,21 +107,12 @@ ignore = [
     "UP032",
 ]
 
-[tool.yapf]
-column_limit = 80
-indent_width = 4
-based_on_style = "google"
-split_before_logical_operator = false
-dedent_closing_brackets = true
-coalesce_brackets = true
-
 [tool.codespell]
 ignore-words-list = "ist"
 skip = "./VPTQ_arxiv.pdf,./build"
 
 [tool.isort]
-use_parentheses = true
-skip_gitignore = true
+profile = "black"
 line_length = 80
 multi_line_output = 3
 include_trailing_comma = true
@@ -102,4 +122,5 @@ ensure_newline_before_comments = true
 
 # ignore pdf files
 [tool.setuptools]
+packages.find.include = ["vptq"]
 packages.find.exclude = ["**/*.pdf"]
