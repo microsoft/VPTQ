@@ -19,9 +19,19 @@ set_target_properties(
              CUDA_RESOLVE_DEVICE_SYMBOLS ON
              CUDA_SEPARABLE_COMPILATION ON)
 
-# Refer to this issue for more context:
-# https://github.com/pytorch/pytorch/issues/13541
-target_compile_definitions(${TARGET} PUBLIC _GLIBCXX_USE_CXX11_ABI=0)
+execute_process(
+  COMMAND python -c "import torch; print(torch.__version__)"
+  OUTPUT_VARIABLE TORCH_VERSION
+  OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+if(TORCH_VERSION VERSION_LESS "2.7.0")
+  message(STATUS "PyTorch version ${TORCH_VERSION} detected, using old ABI")
+  # Refer to this issue for more context:
+  # https://github.com/pytorch/pytorch/issues/13541
+  target_compile_definitions(${TARGET} PUBLIC _GLIBCXX_USE_CXX11_ABI=0)
+else()
+  message(STATUS "PyTorch version ${TORCH_VERSION} detected, using new ABI")
+endif()
 
 # The find_package(Torch) command does not expose PyTorch's Python bindings.
 # However, when using Pybind11, we need to link against these bindings.
