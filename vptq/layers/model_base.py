@@ -43,8 +43,12 @@ def make_quant_linear(
         if layer_conf is None and tail_name in shared_layer_config:
             layer_conf = shared_layer_config[tail_name]
         if layer_conf is not None:
+            # Pop enable_proxy_error to avoid duplicate kwarg when saved config
+            # (from algorithm branch) also contains it — see issue #196
+            conf = dict(layer_conf)
+            conf.pop("enable_proxy_error", None)
             new_module = target_layer(
-                **layer_conf,
+                **conf,
                 enable_proxy_error=False,
                 dtype=sub_module.weight.dtype,
             )
